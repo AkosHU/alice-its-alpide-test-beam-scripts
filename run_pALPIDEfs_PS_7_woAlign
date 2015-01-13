@@ -5,12 +5,11 @@ mv `printf run"%06d"-maskedPixels_*.txt $1` $5/database/
 name=`printf $5/lcio/run"%06d"-converter.slcio $1`
 nEvent=`lcio_event_counter $name`
 echo "Run contains" $nEvent "good events" >> $5/analysis.log
-if (($nEvent < 10000)); then 
+if (($nEvent < 10000)); then
   echo "Too few events in run" $1 >> analysis.log
   echo "Too few events" >> $5/analysis.log
   exit 1
 fi
-maff=0.0001
 cd $5/logs/
 converterName=`printf converter-"%06d".zip $1`
 unzip $converterName
@@ -38,19 +37,43 @@ else
   $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option LCIOInputFiles=$5/lcio/run@RunNumber@-converter.slcio --config=$8 -csv $4 clustering $1
   $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 hitmaker $1
   $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 deadColumn $1
-  cp $5/../prealign_7_2844-3204.slcio `printf $5/database/run"%06d"-prealignment.slcio $1`
+ 
+  prealignFiles=`ls $5/../prealign_*.slcio`
+  echo $prealignFiles
+  prealignExists=0
+  for prealignFile in $prealignFiles
+  do
+    tmp=${prealignFile#*_}
+    first=${tmp%-*}
+    if (($first<=$1)); then
+      tmp=${prealignFile#*-}
+      last=${tmp%.*}
+      if (($last>=$1)); then
+        firstFinal=$first
+        lastFinal=$last
+        cp $prealignFile `printf $5/database/run"%06d"-prealignment.slcio $1`
+        echo Copied $prealignFile
+        prealignExists=1
+      fi
+    fi
+  done
+  error=`echo $?`
+  if (($prealignExists == 0))
+  then 
+    echo "Prealignment file doesn't exist" >> $5/analysis.log
+    echo "Please create prealign file named prealign_FirstRunItIsToBeUsed-LastRunItIsToBeUsed.slcio or use run_pALPIDEfs_PS_7_wAlign to do alignment for all runs separately"
+    exit 1
+  fi
+  alignFile=$5/../align_$firstFinal-$lastFinal.slcio
+  cp $alignFile `printf $5/database/run"%06d"-alignment.slcio $1`
   error=`echo $?`
   if (($error > 0))
   then 
-    echo "Prealignment file doesn't exist" >> $5/analysis.log
-    exit 1
-  fi
-  cp $5/../align_7_2844-3204.slcio `printf $5/database/run"%06d"-alignment.slcio $1`
-  if (($error > 0))
-  then 
     echo "Alignment file doesn't exist" >> $5/analysis.log
+    echo "Please create align file named align_FirstRunItIsToBeUsed-LastRunItIsToBeUsed.slcio or use run_pALPIDEfs_PS_7_wAlign to do alignment for all runs separately"
     exit 1
   fi
+  echo Copied $alignFile
   for ((i=$2;i<=$3;i++)) do
     $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option dutID="$i" --config=$8 -csv $4 fitter $1
     cd $5/logs/
@@ -68,7 +91,9 @@ else
       echo $nTrack "tracks used in DUT" $i >> $5/analysis.log
       fittingError=0
     fi
+    sed -i '/^'$1' /d' settings_DUT$i.txt
     $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option dutID="$i" --config=$8 -csv $4 analysis $1
+    sed -i 's/nan/-1/g' settings_DUT$i.txt
     cd $5/logs/
     unzip `printf analysis-"%06d".zip $1`
     analysisName=`printf analysis-"%06d".log $1`
@@ -77,9 +102,13 @@ else
     cd -
     echo "Efficiencies of the four sectors in DUT" $i":" >> $5/analysis.log 
     effArray=($efficiencies)
+    sed -i '/^'$1' $/{N; N; N; N; d;}' efficiency_DUT$i.dat
+    echo -n -e $1 "\n" >> efficiency"_DUT"$i.dat
     for ((j=1;j<=10;j=j+3)) do
+      echo ${effArray[j-1]} ${effArray[j]} ${effArray[j+1]}>> efficiency_DUT$i.dat
       echo ${effArray[j-1]} >> $5/analysis.log
     done
+    sed -i 's/nan/0/g' efficiency"_DUT"$1.dat
     mv `printf $5/logs/analysis-"%06d".zip $1` `printf $5/logs/analysis-"%06d"_DUT$i.zip $1`
   done
   if (($fittingError==1))

@@ -44,9 +44,9 @@ do
   git log -1 >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
   cd -
   if [ "$1" == "DEBUG" ]; then
-    ./run_pALPIDEfs_PS_7_woAlign ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $1
+    ./run_pALPIDEfs_PS_7_wAlign ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $1
   else 
-    srun ./run_pALPIDEfs_PS_7_woAlign ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $1 &
+    ./run_pALPIDEfs_PS_7_wAlign ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $1 &
   fi
   sleep 5
 done
