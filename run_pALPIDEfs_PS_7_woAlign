@@ -23,6 +23,34 @@ cd -
 if (($place > 100)); then
   echo "Treated as noise run" >> $5/analysis.log
   $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 noise $1
+  cd $5/logs/
+  unzip `printf converter-"%06d".zip $1`
+  converterLog=`printf $5/logs/converter-"%06d".log $1`
+  thrFailed=0
+  re='^[0-9]+$'
+  for ((i=$2;i<=$3;i++)) do
+    thresholds=`awk '{a[++i]=$0;}/Firmware version on layer '"$i"' is/{for(j=NR-4;j<NR;j++)print a[j];}' $converterLog | sed -n -e 's/^.*\[ VERBOSE \"UNKOWN\"\] //p'`
+    thrArray=($thresholds)
+    for ((j=0;j<16;j++)) do
+      if ! [[ ${thrArray[j]} =~ $re ]] ; then
+        thrFailed=1
+        break
+      fi
+      if (( $(bc <<< "${thrArray[j]} <= 0 || ${thrArray[j]} > 100") )); then
+        thrFailed=1
+        break
+      fi
+    done
+  done
+  rm *.log *.xml
+  cd -
+  if (( $thrFailed == 1)); then
+    echo "Threshold and noise calculation failed" >> $5/analysis.log
+    echo "Threshold and noise calculation failed in run" $1 >> analysis.log
+  else
+    echo "Processing worked fine" >> $5/analysis.log
+    echo "Processing worked fine for run" $1 >> analysis.log
+  fi
 else
   echo "Treated as data run" >> $5/analysis.log
   cp $5/../hotpixelPALPIDEfs_noHotPixels_7.slcio `printf $5/database/run"%06d"-hotpixelPALPIDEfs.slcio $1`
@@ -85,11 +113,10 @@ else
     if (($nTrack<100))
     then
       echo "Too few tracks found in DUT" $i", moving to next DUT" >> $5/analysis.log
-      fittingError=1
+      echo "Process for DUT" $i "in run" $1 "exited with fitting error" >> analysis.log
       continue
     else
       echo $nTrack "tracks used in DUT" $i >> $5/analysis.log
-      fittingError=0
     fi
     sed -i '/^'$1' /d' settings_DUT$i.txt
     $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option dutID="$i" --config=$8 -csv $4 analysis $1
@@ -110,15 +137,9 @@ else
     done
     sed -i 's/nan/0/g' efficiency"_DUT"$1.dat
     mv `printf $5/logs/analysis-"%06d".zip $1` `printf $5/logs/analysis-"%06d"_DUT$i.zip $1`
+    echo "Processing of DUT" $i "exited without errors for run" $1 >> analysis.log
+    echo "Processing of DUT" $i "exited without errors" >> $5/analysis.log
   done
-  if (($fittingError==1))
-  then
-    echo "Processing exited with fitting errors for run" $1 >> analysis.log
-    echo "Processing exited with fitting errors" >> $5/analysis.log
-  else
-    echo "Processing exited without errors for run" $1 >> analysis.log
-    echo "Processing exited without errors" >> $5/analysis.log
-  fi
   if [ "$9" != "DEBUG" ]; then
     rm -r $5/lcio $5/database
   fi
