@@ -4,13 +4,12 @@ $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option Histogr
 mv `printf run"%06d"-maskedPixels_*.txt $1` $5/database/
 name=`printf $5/lcio/run"%06d"-converter.slcio $1`
 nEvent=`lcio_event_counter $name`
-echo "Run contains" $nEvent "good events" >> $5/analysis.log
+echo "Run contains" $nEvent "good events" > $5/analysis.log
 if (($nEvent < 10000)); then
   echo "Too few events in run" $1 >> analysis.log
   echo "Too few events" >> $5/analysis.log
   exit 1
 fi
-maff=0.0001
 cd $5/logs/
 converterName=`printf converter-"%06d".zip $1`
 unzip $converterName
@@ -54,31 +53,54 @@ if (($place > 100)); then
   fi
 else
   echo "Treated as data run" >> $5/analysis.log
+  $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 deadColumn $1
+  cd $5/logs
+  unzip `printf deadColumn-"%06d".zip $1`
+  deadColumnName=`printf deadColumn-"%06d".log $1`
+  averageHits=`awk '/Average number of hits per event:/{x=NR+'"$7"';next}(NR<=x){print}' $deadColumnName | sed -n -e 's/^.*\[ MESSAGE5 \"deadColumn\"\] Layer [0-9]//p'`
+  averageHitsArray=($averageHits)
+  for ((i=0;i<${#averageHitsArray[@]};i++)) do
+    if (( $(bc <<< "${averageHitsArray[i]} > 100") )); then
+      exludedPlanes[${#exludedPlanes[@]}]=$i
+    fi
+  done
+  echo "Excluded planes:" ${exludedPlanes[@]} >> $5/analysis.log
+  cd -
+  if ((${#exludedPlanes[@]}==0)); then
+    exludedPlanes[0]=-1
+  elif ((${#exludedPlanes[@]}>2)); then
+    echo "More than 2 noise planes (planes" ${exludedPlanes[@]} "), exiting" >> $5/analysis.log
+    echo "More than 2 noise planes (planes" ${exludedPlanes[@]} ") in run" $1", exiting" >> analysis.log
+    exit 1
+  fi
+  excludedPlanesTmp=${exludedPlanes[@]}
+  maff=0.0001
   $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option MaxAllowedFiringFreq=$maff --config=$8 -csv $4 hotpixel $1
   $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option LCIOInputFiles=$5/lcio/run@RunNumber@-converter.slcio --config=$8 -csv $4 clustering $1
   $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 hitmaker $1
   $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 prealign $1
-
   ./run_align_PS_7 $1 $4 $5
   error=`echo $?`
   if (($error > 0))
   then 
     exit 1
   fi
-  cp $5/../hotpixelPALPIDEfs_noHotPixels_7.slcio `printf $5/database/run"%06d"-hotpixelPALPIDEfs.slcio $1`
-  error=`echo $?`
-  if (($error > 0))
-  then 
-    echo "Empty hotpixel file doesn't exist, creating it" >> $5/analysis.log
-    maff=1
-    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option MaxAllowedFiringFreq=$maff --config=$8 -csv $4 hotpixel $1
-    cp `printf $5/database/run"%06d"-hotpixelPALPIDEfs.slcio $1` $5/../hotpixelPALPIDEfs_noHotPixels_7.slcio
-  fi
-  $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option LCIOInputFiles=$5/lcio/run@RunNumber@-converter.slcio --config=$8 -csv $4 clustering $1
+  maff=0.001
+  $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option MaxAllowedFiringFreq=$maff --config=$8 -csv $4 hotpixel $1
+  $EUTELESCOPE/jobsub/jobsub.py --option ExcludedPlanes="${exludedPlanes[0]} ${exludedPlanes[1]}" --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option LCIOInputFiles=$5/lcio/run@RunNumber@-converter.slcio --config=$8 -csv $4 clustering $1
   $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 hitmaker $1
-  $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 deadColumn $1
 
   for ((i=$2;i<=$3;i++)) do
+    isExlcuded=0
+    for ((j=0;j<${#exludedPlanes[@]};j++)) do
+      if ((${exludedPlanes[j]}==$i)); then
+        isExlcuded=1
+        break
+      fi
+    done
+    if (($isExlcuded==1)); then
+      continue
+    fi
     $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option dutID="$i" --config=$8 -csv $4 fitter $1
     cd $5/logs/
     unzip `printf fitter-"%06d".zip $1`
@@ -96,7 +118,7 @@ else
     fi
     sed -i '/^'$1' /d' settings_DUT$i.txt
     $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option dutID="$i" --config=$8 -csv $4 analysis $1
-    sed -i 's/nan/-1/g' settings_DUT$i.txt
+    sed -i 's/nan/0/g' settings_DUT$i.txt
     cd $5/logs/
     unzip `printf analysis-"%06d".zip $1`
     analysisName=`printf analysis-"%06d".log $1`
@@ -111,7 +133,7 @@ else
       echo ${effArray[j-1]} ${effArray[j]} ${effArray[j+1]}>> efficiency_DUT$i.dat
       echo ${effArray[j-1]} >> $5/analysis.log
     done
-    sed -i 's/nan/0/g' efficiency"_DUT"$1.dat
+    sed -i 's/nan/0/g' efficiency"_DUT"$i.dat
     mv `printf $5/logs/analysis-"%06d".zip $1` `printf $5/logs/analysis-"%06d"_DUT$i.zip $1`
     echo "Processing of DUT" $i "exited without errors for run" $1 >> analysis.log
     echo "Processing of DUT" $i "exited without errors" >> $5/analysis.log
