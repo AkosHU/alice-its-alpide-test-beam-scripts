@@ -28,9 +28,9 @@ done
 maff=0.0001
 $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$3/database --option HistogramPath=$3/histogram --option LcioPath=$3/lcio --option LogPath=$3/logs --option MaxAllowedFiringFreq=$maff --config=$5 -csv $2 hotpixel ${runsGood[@]}
 if ((${#runsGood[@]} == 1)); then
-  $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$3/database --option HistogramPath=$3/histogram --option LcioPath=$3/lcio --option LogPath=$3/logs --option LCIOInputFiles=$3/lcio/run@RunNumber@-converter.slcio --config=$5 -csv $2 clustering ${runsGood[0]} 
+  $EUTELESCOPE/jobsub/jobsub.py --option ExcludedPlanes="${exludedPlanes[0]} ${exludedPlanes[1]}" --option DatabasePath=$3/database --option HistogramPath=$3/histogram --option LcioPath=$3/lcio --option LogPath=$3/logs --option LCIOInputFiles=$3/lcio/run@RunNumber@-converter.slcio --config=$5 -csv $2 clustering ${runsGood[0]} 
 else 
-  $EUTELESCOPE/jobsub/jobsub.py --concatenate --option DatabasePath=$3/database --option HistogramPath=$3/histogram --option LcioPath=$3/lcio --option LogPath=$3/logs --option LCIOInputFiles=$3/lcio/run@RunRange@-converter.slcio --config=$5 -csv $2 clustering ${runsGood[@]} 
+  $EUTELESCOPE/jobsub/jobsub.py --concatenate --option ExcludedPlanes="${exludedPlanes[0]} ${exludedPlanes[1]}" --option DatabasePath=$3/database --option HistogramPath=$3/histogram --option LcioPath=$3/lcio --option LogPath=$3/logs --option LCIOInputFiles=$3/lcio/run@RunRange@-converter.slcio --config=$5 -csv $2 clustering ${runsGood[@]} 
 fi
 $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$3/database --option HistogramPath=$3/histogram --option LcioPath=$3/lcio --option LogPath=$3/logs --config=$5 -csv $2 hitmaker ${runsGood[0]}
 $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$3/database --option HistogramPath=$3/histogram --option LcioPath=$3/lcio --option LogPath=$3/logs --config=$5 -csv $2 prealign ${runsGood[0]}
