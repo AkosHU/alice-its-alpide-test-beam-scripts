@@ -101,14 +101,17 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
       case 11:
         for (int iSector=0; iSector<4; iSector++)
         {
-          getline(strstr,word, ';');
           thr[iSector] = std::atof(word.c_str());
           getline(strstr,word, ';');
           thrE[iSector] = std::atof(word.c_str());
           getline(strstr,word, ';');
+        }
+        for (int iSector=0; iSector<4; iSector++)
+        {
           noise[iSector] = std::atof(word.c_str());
           getline(strstr,word, ';');
           noiseE[iSector] = std::atof(word.c_str());
+          if (iSector != 3) getline(strstr,word, ';');
         }
         break;
       case 12:
