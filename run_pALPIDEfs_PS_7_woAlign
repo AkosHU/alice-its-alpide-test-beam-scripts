@@ -1,4 +1,5 @@
 #! /bin/bash
+sed -i '/'$1'/d' analysis.log
 echo -n -e "\n""Processing run"  $1 "\n" >> analysis.log
 $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option NativePath=$6 --config=$8 -csv $4 converter $1
 mv `printf run"%06d"-maskedPixels_*.txt $1` $5/database/
