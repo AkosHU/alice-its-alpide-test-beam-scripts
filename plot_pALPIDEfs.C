@@ -258,17 +258,17 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
   TH1* noiseOccupancyBeforeRemovalHisto;
 //  TH1* noiseOccupancyAfterRemovalHisto;
   TH1* noiseOccupancyBeforeRemovalFromNoiseHisto;
-//  TH1* noiseOccupancyAfterRemovalFromNoiseHisto;
+  TH1* noiseOccupancyAfterRemovalFromNoiseHisto;
   vector<TGraphErrors*> noiseOccupancyBeforeRemovalThr(4);
 //  vector<TGraphErrors*> noiseOccupancyAfterRemovalThr(4);
   vector<TGraph2DErrors*> noiseOccupancyBeforeRemovalIthrVcasn(4);
 //  vector<TGraph2DErrors*> noiseOccupancyAfterRemovalIthrVcasn(4);
 //  vector<TGraphErrors*> noiseOccupancyAfterRemovalIthr(4);
   vector<TGraphErrors*> noiseOccupancyBeforeRemovalThrFromNoise(4);
-//  vector<TGraphErrors*> noiseOccupancyAfterRemovalThrFromNoise(4);
+  vector<TGraphErrors*> noiseOccupancyAfterRemovalThrFromNoise(4);
   vector<TGraph2DErrors*> noiseOccupancyBeforeRemovalIthrVcasnFromNoise(4);
-//  vector<TGraph2DErrors*> noiseOccupancyAfterRemovalIthrVcasnFromNoise(4);
-//  vector<TGraphErrors*> noiseOccupancyAfterRemovalThrFromNoiseIthr(4);
+  vector<TGraph2DErrors*> noiseOccupancyAfterRemovalIthrVcasnFromNoise(4);
+//  vector<TGraphErrors*> noiseOccupancyAfterRemovalFromNoiseIthr(4);
 
   for (int i=0; i<4; i++)
   {
@@ -279,8 +279,8 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
 //    noiseOccupancyAfterRemovalIthr[i] = new TGraphErrors;
     noiseOccupancyBeforeRemovalThrFromNoise[i] = new TGraphErrors;
     noiseOccupancyBeforeRemovalIthrVcasnFromNoise[i] = new TGraph2DErrors;
-//    noiseOccupancyAfterRemovalThrFromNoise[i] = new TGraphErrors;
-//    noiseOccupancyAfterRemovalIthrVcasnFromNoise[i] = new TGraph2DErrors;
+    noiseOccupancyAfterRemovalThrFromNoise[i] = new TGraphErrors;
+    noiseOccupancyAfterRemovalIthrVcasnFromNoise[i] = new TGraph2DErrors;
 //    noiseOccupancyAfterRemovalFromNoiseIthr[i] = new TGraphErrors;
     clusterSizeThr[i] = new TGraphErrors;
     clusterSizeIthrVcasn[i] = new TGraph2DErrors;
@@ -306,6 +306,7 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
 //    noiseOccupancyAfterRemovalHisto = CalculateNoise(dut,runs[i].getRunNumber());
     for (int iSector=0; iSector<4; iSector++)
     {
+      if (noiseOccupancyBeforeRemovalHisto->GetBinContent(iSector+1) == 0) continue;
       noiseOccupancyBeforeRemovalThr[iSector]->SetPoint(noiseOccupancyBeforeRemovalThr[iSector]->GetN(),runs[i].getThr()[iSector],noiseOccupancyBeforeRemovalHisto->GetBinContent(iSector+1));
       noiseOccupancyBeforeRemovalThr[iSector]->SetPointError(noiseOccupancyBeforeRemovalThr[iSector]->GetN()-1,runs[i].getThrE()[iSector],noiseOccupancyBeforeRemovalHisto->GetBinError(iSector+1));
       noiseOccupancyBeforeRemovalIthrVcasn[iSector]->SetPoint(noiseOccupancyBeforeRemovalIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),noiseOccupancyBeforeRemovalHisto->GetBinContent(iSector+1));
@@ -480,18 +481,19 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
 //    else if (runs[i].getRunNumber() < 896) dut = 3;
 //    else dut = 2;
     noiseOccupancyBeforeRemovalFromNoiseHisto = (TH1F*)histFile->Get(Form("noiseOccupancy_%d",dut));
-//    noiseOccupancyAfterRemovalFromNoiseHisto = (TH1F*)histFile->Get(Form("noiseOccupancyAfterRemoval_%d",dut));
+    noiseOccupancyAfterRemovalFromNoiseHisto = (TH1F*)histFile->Get(Form("noiseOccupancyAfterRemoval_%d",dut));
 //    noiseOccupancyAfterRemovalFromNoiseHisto = CalculateNoiseFromNoise(dut,runs[i].getRunNumber());
     for (int iSector=0; iSector<4; iSector++)
     {
+      if (noiseOccupancyBeforeRemovalFromNoiseHisto->GetBinContent(iSector+1) == 0) continue;
       noiseOccupancyBeforeRemovalThrFromNoise[iSector]->SetPoint(noiseOccupancyBeforeRemovalThrFromNoise[iSector]->GetN(),runs[i].getThr()[iSector],noiseOccupancyBeforeRemovalFromNoiseHisto->GetBinContent(iSector+1));
       noiseOccupancyBeforeRemovalThrFromNoise[iSector]->SetPointError(noiseOccupancyBeforeRemovalThrFromNoise[iSector]->GetN()-1,runs[i].getThrE()[iSector],noiseOccupancyBeforeRemovalFromNoiseHisto->GetBinError(iSector+1));
       noiseOccupancyBeforeRemovalIthrVcasnFromNoise[iSector]->SetPoint(noiseOccupancyBeforeRemovalIthrVcasnFromNoise[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),noiseOccupancyBeforeRemovalFromNoiseHisto->GetBinContent(iSector+1));
       noiseOccupancyBeforeRemovalIthrVcasnFromNoise[iSector]->SetPointError(noiseOccupancyBeforeRemovalIthrVcasnFromNoise[iSector]->GetN()-1,0,0,noiseOccupancyBeforeRemovalFromNoiseHisto->GetBinError(iSector+1));
-//      noiseOccupancyAfterRemovalThrFromNoise[iSector]->SetPoint(noiseOccupancyAfterRemovalThrFromNoise[iSector]->GetN(),runs[i].getThr()[iSector],noiseOccupancyAfterRemovalFromNoiseHisto->GetBinContent(iSector+1));
-//      noiseOccupancyAfterRemovalThrFromNoise[iSector]->SetPointError(noiseOccupancyAfterRemovalThrFromNoise[iSector]->GetN()-1,runs[i].getThrE()[iSector],noiseOccupancyAfterRemovalFromNoiseHisto->GetBinError(iSector+1));
-//      noiseOccupancyAfterRemovalIthrVcasnFromNoise[iSector]->SetPoint(noiseOccupancyAfterRemovalIthrVcasnFromNoise[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),noiseOccupancyAfterRemovalFromNoiseHisto->GetBinContent(iSector+1));
-//      noiseOccupancyAfterRemovalIthrVcasnFromNoise[iSector]->SetPointError(noiseOccupancyAfterRemovalIthrVcasnFromNoise[iSector]->GetN()-1,0,0,noiseOccupancyAfterRemovalFromNoiseHisto->GetBinError(iSector+1));
+      noiseOccupancyAfterRemovalThrFromNoise[iSector]->SetPoint(noiseOccupancyAfterRemovalThrFromNoise[iSector]->GetN(),runs[i].getThr()[iSector],noiseOccupancyAfterRemovalFromNoiseHisto->GetBinContent(iSector+1));
+      noiseOccupancyAfterRemovalThrFromNoise[iSector]->SetPointError(noiseOccupancyAfterRemovalThrFromNoise[iSector]->GetN()-1,runs[i].getThrE()[iSector],noiseOccupancyAfterRemovalFromNoiseHisto->GetBinError(iSector+1));
+      noiseOccupancyAfterRemovalIthrVcasnFromNoise[iSector]->SetPoint(noiseOccupancyAfterRemovalIthrVcasnFromNoise[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),noiseOccupancyAfterRemovalFromNoiseHisto->GetBinContent(iSector+1));
+      noiseOccupancyAfterRemovalIthrVcasnFromNoise[iSector]->SetPointError(noiseOccupancyAfterRemovalIthrVcasnFromNoise[iSector]->GetN()-1,0,0,noiseOccupancyAfterRemovalFromNoiseHisto->GetBinError(iSector+1));
 //      noiseOccupancyAfterRemovalFromNoiseIthr[iSector]->SetPoint(noiseOccupancyAfterRemovalFromNoiseIthr[iSector]->GetN(),runs[i].getIthr(),noiseOccupancyAfterRemovalFromNoiseHisto->GetBinContent(iSector+1));
 //      noiseOccupancyAfterRemovalFromNoiseIthr[iSector]->SetPointError(noiseOccupancyAfterRemovalFromNoiseIthr[iSector]->GetN()-1,0,noiseOccupancyAfterRemovalFromNoiseHisto->GetBinError(iSector+1));
     }
@@ -527,8 +529,8 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
 //  Write(noiseOccupancyAfterRemovalIthr, "noiseOccupancyAfterRemovalIthr");
   Write(noiseOccupancyBeforeRemovalThrFromNoise, "noiseOccupancyBeforeRemovalFromNoiseThr");
   Write(noiseOccupancyBeforeRemovalIthrVcasnFromNoise, "noiseOccupancyBeforeRemovalFromNoiseIthrVcasn2D");
-//  Write(noiseOccupancyAfterRemovalThrFromNoise, "noiseOccupancyAfterRemovalFromNoiseThr");
-//  Write(noiseOccupancyAfterRemovalIthrVcasnFromNoise, "noiseOccupancyAfterRemovalFromNoiseIthrVcasn2D");
+  Write(noiseOccupancyAfterRemovalThrFromNoise, "noiseOccupancyAfterRemovalFromNoiseThr");
+  Write(noiseOccupancyAfterRemovalIthrVcasnFromNoise, "noiseOccupancyAfterRemovalFromNoiseIthrVcasn2D");
 //  Write(noiseOccupancyAfterRemovalFromNoiseIthr, "noiseOccupancyAfterRemovalFromNoiseIthr");
   Write(efficiencyThr,"efficiencyThr");
 //  Write(efficiencyIthr,"efficiencyIthr");
@@ -1029,25 +1031,30 @@ void compareDifferentIthrVcasn2D(string file, string hist, int sector, const cha
     vector<TGraph*> graphVcasn1;
     vector<TGraph*> graphIthr2;
     vector<TGraph*> graphVcasn2;
-    double* X1 = graph2D1->GetX();
-    double* Y1 = graph2D1->GetY();
-    double* X2 = 0;
-    double* Y2 = 0;
+    vector<double> X1, Y1, X2, Y2;
+//    double* Z = graph2D1->GetZ();
+    X1.assign(graph2D1->GetX(), graph2D1->GetX() + graph2D1->GetN());
+    std::sort(X1.begin(), X1.end());
+    Y1.assign(graph2D1->GetY(), graph2D1->GetY() + graph2D1->GetN());
+    std::sort(Y1.begin(), Y1.end());
     vector<string> legendStrX;
     if (histV.size() == 2)
     {
       string histname2 = histV[1] + Form("_%d",iSector);
       graph2D2 = (TGraph2DErrors*)graphFile->Get(histname2.c_str());
-      X2 = graph2D2->GetX();
-      Y2 = graph2D2->GetY();
+      X2.assign(graph2D2->GetX(), graph2D2->GetX() + graph2D2->GetN());
+      std::sort(X2.begin(), X2.end());
+      Y2.assign(graph2D2->GetY(), graph2D2->GetY() + graph2D2->GetN());
+      std::sort(Y2.begin(), Y2.end());
     }
     vector<string> legendStrY;
     vector<double> usedX;
     vector<double> usedY;
     string canvas2D1 = Form("canvas2D1_%d",iSector) + histV[0];
-    Draw2D(graph2D1, canvas2D1.c_str(), yTitle1, Form("Sector %d",iSector), log1);
+//    cerr << "graph2D1->GetN(): " << graph2D1->GetN() << endl;
     for (int i=0; i<graph2D1->GetN(); i++)
     {
+ //     cerr << Z[i]  << "\t" << X1[i] << "\t" << Y1[i]<< endl;
       bool isUsedX = false;
       for (unsigned int j=0; j<usedX.size(); j++)
         if (usedX[j] == X1[i]) 
@@ -1082,6 +1089,7 @@ void compareDifferentIthrVcasn2D(string file, string hist, int sector, const cha
             legendStrY.push_back(legendStr);
             usedY.push_back(Y1[i]);
             graphIthr1.push_back(Get1DFrom2D(graph2D1,false,Y1[i]));
+//            cerr << "Y1[i]: " << Y1[i] << endl;
           }
         }
         if (!isUsedX)
@@ -1101,18 +1109,20 @@ void compareDifferentIthrVcasn2D(string file, string hist, int sector, const cha
             legendStrX.push_back(legendStr);
             usedX.push_back(X1[i]);
             graphVcasn1.push_back(Get1DFrom2D(graph2D1,true,X1[i]));
+//            cerr << "X1[i]: " << X1[i] << endl;
           }
         }
       }
     }
+    if (usedX.size() > 1 && usedY.size() > 1) Draw2D(graph2D1, canvas2D1.c_str(), yTitle1, Form("Sector %d",iSector), log1, y1low, y1high);
 
     if (histV.size() == 1) 
     {
       string canvasIthr = histV[0] + Form("_Ithr_Sector_%d",iSector);
       string canvasVcasn = histV[0] + Form("_Vcasn_Sector_%d",iSector);
       string canvasTitle = Form("Sector %d",iSector);
-      Draw(graphVcasn1,canvasVcasn,xTitle2,yTitle1,legendStrX,y1low,y1high,x2low,x2high,log1,canvasTitle.c_str());
-      Draw(graphIthr1,canvasIthr,xTitle1,yTitle1,legendStrY,y1low,y1high,x1low,x1high,log1,canvasTitle.c_str());
+      Draw(graphVcasn1,canvasVcasn,xTitle2,yTitle1,legendStrX,y1low,y1high,line1,x2low,x2high,log1,canvasTitle.c_str());
+      Draw(graphIthr1,canvasIthr,xTitle1,yTitle1,legendStrY,y1low,y1high,line1,x1low,x1high,log1,canvasTitle.c_str());
     }
     else if (histV.size() == 2)
     {
@@ -1170,7 +1180,7 @@ void compareDifferentIthrVcasn2D(string file, string hist, int sector, const cha
         }
       }
       string canvas2D2 = Form("canvas2D2_%d",iSector) + histV[1];
-      Draw2D(graph2D2, canvas2D2.c_str(), yTitle2, Form("Sector %d",iSector),log2);
+      if (usedX.size() > 1 && usedY.size() > 1) Draw2D(graph2D2, canvas2D2.c_str(), yTitle2, Form("Sector %d",iSector),log2,y2low,y2high);
       string canvasIthr = histV[0] + histV[1] + Form("_Ithr_Sector %d",iSector);
       string canvasVcasn = histV[0] + histV[1] + Form("_Vcasn_Sector %d",iSector);
       string canvasTitle = Form("Sector %d",iSector);
@@ -1181,7 +1191,7 @@ void compareDifferentIthrVcasn2D(string file, string hist, int sector, const cha
   }
 }
 
-void Draw2D(TGraph2D* graph, const char* canvas, string zTitle, string title, bool logZ)
+void Draw2D(TGraph2D* graph, const char* canvas, string zTitle, string title, bool logZ, double zlow, double zhigh)
 {
   TCanvas* C = new TCanvas(canvas,"",800,600);
   if (logZ) C->SetLogz();
@@ -1192,14 +1202,19 @@ void Draw2D(TGraph2D* graph, const char* canvas, string zTitle, string title, bo
 //  graph->GetXaxis()->SetTitle("I_{thr} (DAC units)");
 //  graph->GetYaxis()->SetTitle("V_{casn} (DAC units)");
 //  graph->GetZaxis()->SetTitle(zTitle);
+  graph->GetHistogram();
   string titleFinal = title + ";I_{thr} (DAC units);V_{casn} (DAC units);" + zTitle; 
   graph->SetTitle(titleFinal.c_str());
   graph->GetXaxis()->SetTitleOffset(1.3);
   graph->GetYaxis()->SetTitleOffset(1.3);
-  graph->GetZaxis()->SetTitleOffset(1.3);
+//  graph->GetZaxis()->SetTitleOffset(1.3);
   graph->GetXaxis()->SetTitleSize(0.05);
   graph->GetYaxis()->SetTitleSize(0.05);
   graph->GetZaxis()->SetTitleSize(0.05);
+//  graph->GetXaxis()->SetLimits(9,60);
+//  graph->GetYaxis()->SetLimits(70,100);
+//  graph->GetZaxis()->SetLimits(0,110);
+  graph->GetZaxis()->SetRangeUser(zlow,zhigh);
   graph->Draw("TRI2P");
 	
 }
@@ -1393,7 +1408,7 @@ void compareDifferentSectors2D(string file, string hist, bool IthrVcasn, double 
     string canvas1 = histV[0] + Form("%0.f", IthrVcasnValue);
     if (IthrVcasn) canvas1 += "Ithr_C";
     else canvas1 += "Vcasn_C";
-    Draw(graph1V,canvas1,xTitle,yTitle1,legendStr,y1low,y1high,xlow,xhigh,log1,title.c_str());
+    Draw(graph1V,canvas1,xTitle,yTitle1,legendStr,y1low,y1high,line1,xlow,xhigh,log1,title.c_str());
   }
   if (histV.size() == 2)
   {
@@ -1587,7 +1602,7 @@ bool getDefaults(string graph, double& xlow, double& xhigh, double& ylow, double
     xhigh  = 80;
     xTitle = "I_{thr} (DAC units)";
     x2low = 40;
-    x2high  = 160;
+    x2high  = 175;
     xTitle2 = "V_{casn} (DAC units)";
   }
   else if (graph.find("Thr") != string::npos)
@@ -1742,7 +1757,7 @@ void AddPoint(TGraphErrors* graph, double x, double y, double yError)
   graph->SetPointError(graph->GetN() - 1, 0, yError);
 }
 
-void Draw(vector<TGraph*> graph, string canvas, const char* titleX, const char* titleY, vector<string> legendStr, double rangeLow, double rangeHigh, double xLow, double xHigh, bool log, const char* canvasTitle)
+void Draw(vector<TGraph*> graph, string canvas, const char* titleX, const char* titleY, vector<string> legendStr, double rangeLow, double rangeHigh, double line, double xLow, double xHigh, bool log, const char* canvasTitle)
 {
   bool drawLegend = true;
   if (graph.size() != legendStr.size()) 
@@ -1768,6 +1783,11 @@ void Draw(vector<TGraph*> graph, string canvas, const char* titleX, const char* 
 
     graph[i]->Draw(i==0?"APL":"SAMEPL");
   }
+  C->Update();
+  TLine *l1=new TLine(C->GetUxmin(),line,C->GetUxmax(),line);
+  l1->SetLineColor(1);
+  l1->SetLineStyle(2);
+  l1->Draw();
   TLegend * legend = new TLegend(0.1,0.1,0.77,0.3);
   if (drawLegend)
   {

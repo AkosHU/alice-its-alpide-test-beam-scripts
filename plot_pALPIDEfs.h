@@ -145,8 +145,8 @@ void AddPoint(TGraph* graph, double x, double y);
 void AddPoint(TGraphAsymmErrors* graph, double x, double y, double yErrorLow, double yErrorHigh);
 void AddPoint(TGraphErrors* graph, double x, double y, double yError);
 
-void Draw2D(TGraph2D* graph, const char* canvas, string zTitle="", string title="", bool logZ=false);
-void Draw(vector<TGraph*> graph, string canvas, const char* titleX, const char* titleY, vector<string> legendStr, double rangeLow, double rangeHigh, double xLow=90, double xHigh=210, bool log=false, const char* canvasTitle="");
+void Draw2D(TGraph2D* graph, const char* canvas, string zTitle, string title, bool logZ, double zlow, double zhigh);
+void Draw(vector<TGraph*> graph, string canvas, const char* titleX, const char* titleY, vector<string> legendStr, double rangeLow, double rangeHigh, double line, double xLow=90, double xHigh=210, bool log=false, const char* canvasTitle="");
 void DrawSame(vector<TGraph*> graph1, vector<TGraph*> graph2, const char* canvas, const char* titleX, const char* titleY, double xlow, double xhigh, double rangeLow, double rangeHigh, const char* legendTitle, bool log=false);
 void DrawOverSectors(vector<TGraph*> graph1, double rangeLow1, double rangeHigh1, double line1, const char* titleY1, vector<TGraph*> graph2, double rangeLow2, double rangeHigh2, double line2, const char* titleY2, const char* canvas, const char* legendTitle, vector<string> legendStr, double xlow=80, double xhigh=420,bool log1=false, bool log2=false, const char* titleX="Threshold in electrons", const char* title="");
 void DrawOverDifferentGraphs(vector<TGraph*> graph1, double rangeLow1, double rangeHigh1, double line1, const char* titleY1, vector<TGraph*> graph2, double rangeLow2, double rangeHigh2, double line2, const char* titleY2, const char* canvas, const char* legendTitle, vector<string> legendStr, double xlow=80, double xhigh=420,bool log1=false, bool log2=false, const char* titleX="Threshold in electrons",const char* canvasTitle="");

@@ -2,15 +2,21 @@
 sed -i '/'$1'/d' analysis.log
 echo -n -e "\n""Processing run"  $1 "\n" >> analysis.log
 $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option NativePath=$6 --config=$8 -csv $4 converter $1
-mv `printf run"%06d"-maskedPixels_*.txt $1` $5/database/
 name=`printf $5/lcio/run"%06d"-converter.slcio $1`
 nEvent=`lcio_event_counter $name`
 echo "Run contains" $nEvent "good events" > $5/analysis.log
+re='^[-+]?[0-9]*\.?[0-9]+$'
+if ! [[ $nEvent =~ $re ]] ; then
+  echo "Converter failed in run" $1 >> analysis.log
+  echo "Converter failed" >> $5/analysis.log
+  exit 1
+fi
 if (($nEvent < 10000)); then
   echo "Too few events in run" $1 >> analysis.log
   echo "Too few events" >> $5/analysis.log
   exit 1
 fi
+mv `printf run"%06d"-maskedPixels_*.txt $1` $5/database/
 cd $5/logs/
 converterName=`printf converter-"%06d".zip $1`
 unzip $converterName
@@ -28,7 +34,6 @@ if (($place > 100)); then
   unzip `printf converter-"%06d".zip $1`
   converterLog=`printf $5/logs/converter-"%06d".log $1`
   thrFailed=0
-  re='^[-+]?[0-9]*\.?[0-9]+$'
   for ((i=$2;i<=$3;i++)) do
     thresholds=`awk '{a[++i]=$0;}/Firmware version on layer '"$i"' is/{for(j=NR-4;j<NR;j++)print a[j];}' $converterLog | sed -n -e 's/^.*\[ VERBOSE \"UNKOWN\"\] //p'`
     thrArray=($thresholds)
@@ -51,6 +56,9 @@ if (($place > 100)); then
   else
     echo "Processing worked fine" >> $5/analysis.log
     echo "Processing worked fine for run" $1 >> analysis.log
+  fi
+  if [ "$9" != "DEBUG" ]; then
+    rm -r $5/lcio $5/database
   fi
 else
   echo "Treated as data run" >> $5/analysis.log
