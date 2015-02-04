@@ -1038,9 +1038,10 @@ void compareDifferentIthrVcasn2D(string file, string hist, int sector, const cha
     Y1.assign(graph2D1->GetY(), graph2D1->GetY() + graph2D1->GetN());
     std::sort(Y1.begin(), Y1.end());
     vector<string> legendStrX;
+    string histname2="";
     if (histV.size() == 2)
     {
-      string histname2 = histV[1] + Form("_%d",iSector);
+      histname2 = histV[1] + Form("_%d",iSector);
       graph2D2 = (TGraph2DErrors*)graphFile->Get(histname2.c_str());
       X2.assign(graph2D2->GetX(), graph2D2->GetX() + graph2D2->GetN());
       std::sort(X2.begin(), X2.end());
@@ -1075,7 +1076,7 @@ void compareDifferentIthrVcasn2D(string file, string hist, int sector, const cha
         if (!isUsedY)
         {
           bool foundBothY = false;
-          for (int j=0; j<graph2D1->GetN() && histV.size() == 2; j++)
+          for (int j=0; histV.size() == 2 && j<graph2D2->GetN(); j++)
             if (Y1[i] == Y2[j]) 
             {
               foundBothY = true;
@@ -1090,13 +1091,12 @@ void compareDifferentIthrVcasn2D(string file, string hist, int sector, const cha
             usedY.push_back(Y1[i]);
             if (histname1.compare(Form("efficiencyIthrVcasn2D_%d",iSector)) == 0 ) graphIthr1.push_back(Get1DFrom2D(graph2D1,false,Y1[i],true,graphFile,iSector));
             else graphIthr1.push_back(Get1DFrom2D(graph2D1,false,Y1[i]));
-//            cerr << "Y1[i]: " << Y1[i] << endl;
           }
         }
         if (!isUsedX)
         {
           bool foundBothX = false;
-          for (int j=0; j<graph2D1->GetN() && histV.size() == 2; j++)
+          for (int j=0; histV.size() == 2 && j<graph2D2->GetN(); j++)
             if (X1[i] == X2[j]) 
             {
               foundBothX = true;
@@ -1111,7 +1111,6 @@ void compareDifferentIthrVcasn2D(string file, string hist, int sector, const cha
             usedX.push_back(X1[i]);
             if (histname1.compare(Form("efficiencyIthrVcasn2D_%d", iSector)) == 0 ) graphVcasn1.push_back(Get1DFrom2D(graph2D1,true,X1[i],true,graphFile,iSector));
             else graphVcasn1.push_back(Get1DFrom2D(graph2D1,true,X1[i]));
-//            cerr << "X1[i]: " << X1[i] << endl;
           }
         }
       }
@@ -1161,7 +1160,8 @@ void compareDifferentIthrVcasn2D(string file, string hist, int sector, const cha
             if (foundBothY)
             {
               usedY.push_back(Y2[i]);
-              graphIthr2.push_back(Get1DFrom2D(graph2D2,false,Y2[i]));
+              if (histname2.compare(Form("efficiencyIthrVcasn2D_%d",iSector)) == 0 ) graphIthr2.push_back(Get1DFrom2D(graph2D2,false,Y2[i],true,graphFile,iSector));
+              else graphIthr2.push_back(Get1DFrom2D(graph2D2,false,Y2[i]));
             }
           }
           if (!isUsedX)
@@ -1176,7 +1176,8 @@ void compareDifferentIthrVcasn2D(string file, string hist, int sector, const cha
             if (foundBothX)
             {
               usedX.push_back(X2[i]);
-              graphVcasn2.push_back(Get1DFrom2D(graph2D2,true,X2[i]));
+              if (histname2.compare(Form("efficiencyIthrVcasn2D_%d",iSector)) == 0 ) graphVcasn2.push_back(Get1DFrom2D(graph2D2,true,X2[i],true,graphFile,iSector));
+              else graphVcasn2.push_back(Get1DFrom2D(graph2D2,true,X2[i]));
             }
           }
         }
@@ -1387,17 +1388,19 @@ void compareDifferentSectors2D(string file, string hist, bool IthrVcasn, double 
   else title = "V_{casn} = ";
   
   title += Form("%0.f", IthrVcasnValue);
-  for (int i=1; i<4; i++)
+  for (int i=0; i<4; i++)
   {
     string histname0 = histV[0] + Form("_%d",i);
     TGraph2D* graph2D1 = (TGraph2DErrors*)graphFile->Get(histname0.c_str());
-    graph1V.push_back(Get1DFrom2D(graph2D1,IthrVcasn,IthrVcasnValue));
+    if (histname0.compare(Form("efficiencyIthrVcasn2D_%d",i)) == 0) graph1V.push_back(Get1DFrom2D(graph2D1,IthrVcasn,IthrVcasnValue,true,graphFile,i));
+    else graph1V.push_back(Get1DFrom2D(graph2D1,IthrVcasn,IthrVcasnValue));
     legendStr.push_back(legendEntries[i]);
     if (histV.size() == 2)
     {
       string histname1 = histV[1] + Form("_%d",i);
       TGraph2D* graph2D2 = (TGraph2DErrors*)graphFile->Get(histname1.c_str());
-      graph2V.push_back(Get1DFrom2D(graph2D2,IthrVcasn,IthrVcasnValue));
+      if (histname1.compare(Form("efficiencyIthrVcasn2D_%d",i)) == 0) graph2V.push_back(Get1DFrom2D(graph2D2,IthrVcasn,IthrVcasnValue,true,graphFile,i));
+      else graph2V.push_back(Get1DFrom2D(graph2D2,IthrVcasn,IthrVcasnValue));
     }
     else if (histV.size() > 2)
     {
@@ -2057,6 +2060,7 @@ void DrawOverDifferentGraphs(vector<TGraph*> graph1, double rangeLow1, double ra
   axis->SetTitleSize(0.045);
   TLegend * legend = new TLegend(0.1,0.1,0.77,0.3);
 //  TLegend * legend = new TLegend(0.1,0.72,0.9,0.9);
+  if (drawLegend)
   {
     legend->SetFillColor(0);
     legend->SetNColumns(2);
