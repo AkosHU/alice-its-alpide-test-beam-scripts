@@ -151,7 +151,7 @@ void DrawSame(vector<TGraph*> graph1, vector<TGraph*> graph2, const char* canvas
 void DrawOverSectors(vector<TGraph*> graph1, double rangeLow1, double rangeHigh1, double line1, const char* titleY1, vector<TGraph*> graph2, double rangeLow2, double rangeHigh2, double line2, const char* titleY2, const char* canvas, const char* legendTitle, vector<string> legendStr, double xlow=80, double xhigh=420,bool log1=false, bool log2=false, const char* titleX="Threshold in electrons", const char* title="");
 void DrawOverDifferentGraphs(vector<TGraph*> graph1, double rangeLow1, double rangeHigh1, double line1, const char* titleY1, vector<TGraph*> graph2, double rangeLow2, double rangeHigh2, double line2, const char* titleY2, const char* canvas, const char* legendTitle, vector<string> legendStr, double xlow=80, double xhigh=420,bool log1=false, bool log2=false, const char* titleX="Threshold in electrons",const char* canvasTitle="");
 
-TGraphErrors* Get1DFrom2D(TGraph2D* graph, bool IthrVcasn, double value);
+TGraph* Get1DFrom2D(TGraph2D* graph, bool IthrVcasn, double value, bool isEfficiency=false, TFile* graphFile=0, int sector=0);
 
 void Write(vector<TGraphErrors*> graph1, string title);
 void Write(vector<TGraphAsymmErrors*> graph1, string title);

@@ -1088,7 +1088,8 @@ void compareDifferentIthrVcasn2D(string file, string hist, int sector, const cha
             string legendStr = "V_{casn} = " + ostr.str();
             legendStrY.push_back(legendStr);
             usedY.push_back(Y1[i]);
-            graphIthr1.push_back(Get1DFrom2D(graph2D1,false,Y1[i]));
+            if (histname1.compare(Form("efficiencyIthrVcasn2D_%d",iSector)) == 0 ) graphIthr1.push_back(Get1DFrom2D(graph2D1,false,Y1[i],true,graphFile,iSector));
+            else graphIthr1.push_back(Get1DFrom2D(graph2D1,false,Y1[i]));
 //            cerr << "Y1[i]: " << Y1[i] << endl;
           }
         }
@@ -1108,7 +1109,8 @@ void compareDifferentIthrVcasn2D(string file, string hist, int sector, const cha
             string legendStr = "I_{thr} = " + ostr.str();
             legendStrX.push_back(legendStr);
             usedX.push_back(X1[i]);
-            graphVcasn1.push_back(Get1DFrom2D(graph2D1,true,X1[i]));
+            if (histname1.compare(Form("efficiencyIthrVcasn2D_%d", iSector)) == 0 ) graphVcasn1.push_back(Get1DFrom2D(graph2D1,true,X1[i],true,graphFile,iSector));
+            else graphVcasn1.push_back(Get1DFrom2D(graph2D1,true,X1[i]));
 //            cerr << "X1[i]: " << X1[i] << endl;
           }
         }
@@ -2081,12 +2083,25 @@ void DrawOverDifferentGraphs(vector<TGraph*> graph1, double rangeLow1, double ra
 }
 
 
-TGraphErrors* Get1DFrom2D(TGraph2D* graph, bool IthrVcasn, double value)
+TGraph* Get1DFrom2D(TGraph2D* graph, bool IthrVcasn, double value, bool isEfficiency, TFile* graphFile, int sector)
 {
   TGraphErrors* graph1D = new TGraphErrors;
+  TGraphAsymmErrors* graph1DEff = new TGraphAsymmErrors;
+  TGraph2DErrors* graphTr=0;
+  TGraph2DErrors* graphTrFound=0;
+  double* ZTr=0;
+  double* ZTrFound=0;
+  if (isEfficiency)
+  {
+    graphTr = (TGraph2DErrors*)graphFile->Get(Form("nTrIthrVcasn2D_%d",sector));
+    graphTrFound = (TGraph2DErrors*)graphFile->Get(Form("nTrpAIthrVcasn2D_%d",sector));
+    ZTr = graphTr->GetZ();
+    ZTrFound = graphTrFound->GetZ();
+  }
   double* X = graph->GetX();
   double* Y = graph->GetY();
   double* Z = graph->GetZ();
+  double* errorZ = graph->GetEZ();
   double* fixed;  
   double* varying;  
   if (IthrVcasn) 
@@ -2105,13 +2120,25 @@ TGraphErrors* Get1DFrom2D(TGraph2D* graph, bool IthrVcasn, double value)
     if (fixed[i] == value)
     {
 //      cerr << fixed[i] << "\t" << varying[i] << "\t" << Z[i] << endl;
-      graph1D->SetPoint(tmp,varying[i],Z[i]);
+      if (!isEfficiency) 
+      {
+        graph1D->SetPoint(tmp,varying[i],Z[i]);
+        graph1D->SetPointError(tmp,0,errorZ[i]);
+      }
+      else 
+      {
+        double mean = (ZTrFound[i]+1)/(ZTr[i]+2);
+        double sigma = sqrt(((ZTrFound[i]+1)*(ZTrFound[i]+2))/((ZTr[i]+2)*(ZTr[i]+3))-((ZTrFound[i]+1)*(ZTrFound[i]+1))/((ZTr[i]+2)*(ZTr[i]+2)));
+        graph1DEff->SetPoint(tmp,varying[i],Z[i]);
+        graph1DEff->SetPointError(tmp,0,0,Z[i]-(mean-sigma)*100.,(mean+sigma)*.100-Z[i]);
+      }
       tmp++;
     }
   }
   TGraphErrors* graphFinal = new TGraphErrors(graph1D->GetN());
+  TGraphAsymmErrors* graphFinalEff = new TGraphAsymmErrors(graph1DEff->GetN());
   int nPoint = graph1D->GetN();
-  for (int iPoint=0; iPoint<nPoint; iPoint++)
+  for (int iPoint=0; iPoint<nPoint && !isEfficiency; iPoint++)
   {
     int minIndex = TMath::LocMin(graph1D->GetN(),graph1D->GetX());
     double x, y;
@@ -2120,7 +2147,18 @@ TGraphErrors* Get1DFrom2D(TGraph2D* graph, bool IthrVcasn, double value)
     graphFinal->SetPointError(iPoint,graph1D->GetErrorX(minIndex),graph1D->GetErrorY(minIndex));
     graph1D->RemovePoint(minIndex);
   }
-  return graphFinal;
+  nPoint = graph1DEff->GetN();
+  for (int iPoint=0; iPoint<nPoint && isEfficiency; iPoint++)
+  {
+    int minIndex = TMath::LocMin(graph1DEff->GetN(),graph1DEff->GetX());
+    double x, y;
+    graph1DEff->GetPoint(minIndex,x,y);
+    graphFinalEff->SetPoint(iPoint,x,y);
+    graphFinalEff->SetPointError(iPoint,graph1DEff->GetErrorXlow(minIndex),graph1DEff->GetErrorXhigh(minIndex),graph1DEff->GetErrorYlow(minIndex),graph1DEff->GetErrorYhigh(minIndex));
+    graph1DEff->RemovePoint(minIndex);
+  }
+  if (!isEfficiency) return graphFinal;
+  else return graphFinalEff;
 }
 
 void Write(vector<TGraphErrors*> graph1, string title)
