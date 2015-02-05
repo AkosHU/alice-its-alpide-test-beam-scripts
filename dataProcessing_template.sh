@@ -7,7 +7,7 @@ configFile=<configFile>
 withAlign=<withAlign> #1 for aligning each run separately and 0 for using commmon alignment
 
 if [ -z "$EUTELESCOPE" ]; then
-  source /afs/cern.ch/work/m/mkofarag/private/ILCSOFT/v01-17-05/Eutelescope/trunk/build_env.sh
+  source ../v01-17-05/Eutelescope/trunk/build_env.sh #Change to your EUTelescope folder if you changed the folder structure with respest to the default after installing
 fi
 
 if ! [ -d $outputFolder ]; then
