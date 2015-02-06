@@ -982,6 +982,86 @@ void compareDifferentGraphs(string files, string hist, const char* yTitle1, cons
   }
 }
 
+void compareDifferentGraphs2D(string files, string hist, int sector, bool IthrVcasn, double IthrVcasnValue, bool BB, bool irr, bool chip, bool rate)
+{
+  vector<string> histV;
+  std::istringstream histIs(hist);
+  string histStr;
+  while( histIs >> histStr)
+    histV.push_back(histStr);
+
+  bool log1, log2;
+  double x1low, x1high, x2low, x2high, y1low, y1high, line1, y2low, y2high, line2;
+  string xTitle1, xTitle2, yTitle1, yTitle2, legend1, legend2="";
+  bool defaultsFine = false;
+  defaultsFine = getDefaults(histV[0], x1low, x1high, y1low, y1high, line1, log1, xTitle1, yTitle1, legend1, x2low, x2high, xTitle2);
+  if (histV.size() == 2) defaultsFine = getDefaults(histV[1], x1low, x1high, y2low, y2high, line2, log2, xTitle1, yTitle2, legend2, x2low, x2high, xTitle2);
+  string legend = legend1 + "#color[2]{" + legend2 +"}";
+  if (defaultsFine) compareDifferentGraphs2D(files, hist, sector, IthrVcasn, IthrVcasnValue, xTitle1.c_str(), xTitle2.c_str(), x1low, x1high, x2low, x2high, legend.c_str(), yTitle1.c_str(), y1low, y1high, log1, line1, yTitle2.c_str(), y2low, y2high, line2, log2, BB, irr, chip, rate);
+}
+
+void compareDifferentGraphs2D(string files, string hist, int sector, bool IthrVcasn, double IthrVcasnValue, const char* xTitle1, const char* xTitle2, double x1low, double x1high, double x2low, double x2high, const char* legend, const char* yTitle1, double y1low, double y1high, bool log1, double line1, const char* yTitle2, double y2low, double y2high, double line2, bool log2, bool BB, bool irr, bool chip, bool rate)
+{
+  vector<string> filesV;
+  std::istringstream filesIs(files);
+  string filesStr;
+  while( filesIs >> filesStr)
+    filesV.push_back(filesStr);
+
+  vector<TFile*> graphFile(filesV.size());
+  for (unsigned int i=0; i<filesV.size(); i++)
+    graphFile[i] =  new TFile(filesV[i].c_str(),"READONLY");
+
+  vector<string> histV;
+  std::istringstream histIs(hist);
+  string histStr;
+  while( histIs >> histStr)
+    histV.push_back(histStr);
+
+  vector<TGraph2DErrors*> graph1V, graph2V;
+  vector<TGraph*> graph1V1D, graph2V1D;
+  vector<string> legendStr;
+  string histname1 = histV[0] + Form("_%d",sector);
+  string histname2 = "";
+  if (histV.size() == 2) histname2 = histV[1] + Form("_%d",sector); 
+  else if (histV.size() > 2)
+  {
+    cerr << "Give as argument 1 or 2 histograms for plotting." << endl;
+    return;
+  }
+  for (unsigned int i=0; i<graphFile.size(); i++)
+  {
+    if (!graphFile[i] || graphFile[i]->IsZombie())
+      continue;
+    graph1V.push_back((TGraph2DErrors*)graphFile[i]->Get(histname1.c_str()));
+    if (histname1.compare(Form("efficiencyIthrVcasn2D_%d",sector)) == 0 ) graph1V1D.push_back(Get1DFrom2D(graph1V[i],IthrVcasn,IthrVcasnValue,true,graphFile[i],sector));
+    else graph1V1D.push_back(Get1DFrom2D(graph1V[i],IthrVcasn,IthrVcasnValue));
+    if (histV.size() == 2) 
+    {
+      graph2V.push_back((TGraph2DErrors*)graphFile[i]->Get(histname2.c_str()));
+      if (histname2.compare(Form("efficiencyIthrVcasn2D_%d",sector)) == 0 ) graph2V1D.push_back(Get1DFrom2D(graph2V[i],IthrVcasn,IthrVcasnValue,true,graphFile[i],sector));
+      else graph2V1D.push_back(Get1DFrom2D(graph2V[i],IthrVcasn,IthrVcasnValue));
+    }
+    legendStr.push_back(getLegend(filesV[i],BB,irr,chip,rate));
+//      cerr << graphV[j]->GetN() << endl;
+  }
+  string canvasTitle;
+  if (IthrVcasn) canvasTitle= Form("Sector %d, I_{thr} = %.0f", sector,IthrVcasnValue);
+  else canvasTitle= Form("Sector %d, V_{casn} = %.0f", sector,IthrVcasnValue);
+  if (histV.size() == 1)
+  {
+    string canvas = histname1;
+    if (IthrVcasn) Draw(graph1V1D,canvas,xTitle2,yTitle1,legendStr,y1low,y1high,line1,x2low,x2high,log1,canvasTitle.c_str());
+    else Draw(graph1V1D,canvas,xTitle1,yTitle1,legendStr,y1low,y1high,line1,x1low,x1high,log1,canvasTitle.c_str());
+  }
+  else if (histV.size() == 2)
+  {
+    string canvas = histname1 + histname2;
+    if (IthrVcasn) DrawOverDifferentGraphs(graph1V1D,y1low,y1high,line1,yTitle1,graph2V1D,y2low,y2high,line2,yTitle2,canvas.c_str(),legend,legendStr,x2low,x2high,log1,log2,xTitle2,canvasTitle.c_str());
+    else DrawOverDifferentGraphs(graph1V1D,y1low,y1high,line1,yTitle1,graph2V1D,y2low,y2high,line2,yTitle2,canvas.c_str(),legend,legendStr,x1low,x1high,log1,log2,xTitle1,canvasTitle.c_str());
+  }
+}
+
 void compareDifferentIthrVcasn2D(string file, string hist, int sector)
 {
   vector<string> histV;
@@ -1739,7 +1819,8 @@ string getLegend(string file, bool addBB, bool addIrr, bool addChipNumber, bool 
     }
     if (irr != -100) legendEntry += irradiationLevels[irr];
   }
-  if (chipPos != string::npos && addChipNumber) legendEntry += ", " + chipStr;
+  if ((BB != -100 || irr != -100 ) && chipPos != string::npos && addChipNumber) legendEntry += ", " + chipStr;
+  else if (chipPos != string::npos && addChipNumber) legendEntry += chipStr;
   if (ratePos != string::npos && addRate) legendEntry += " " + rateLevels[rate];
   else if (addRate) legendEntry += " Rate unknown";
   return legendEntry;
@@ -2134,7 +2215,7 @@ TGraph* Get1DFrom2D(TGraph2D* graph, bool IthrVcasn, double value, bool isEffici
         double mean = (ZTrFound[i]+1)/(ZTr[i]+2);
         double sigma = sqrt(((ZTrFound[i]+1)*(ZTrFound[i]+2))/((ZTr[i]+2)*(ZTr[i]+3))-((ZTrFound[i]+1)*(ZTrFound[i]+1))/((ZTr[i]+2)*(ZTr[i]+2)));
         graph1DEff->SetPoint(tmp,varying[i],Z[i]);
-        graph1DEff->SetPointError(tmp,0,0,Z[i]-(mean-sigma)*100.,(mean+sigma)*.100-Z[i]);
+        graph1DEff->SetPointError(tmp,0,0,Z[i]-(mean-sigma)*100.,(mean+sigma)*100.-Z[i]);
       }
       tmp++;
     }
