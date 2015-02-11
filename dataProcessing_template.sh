@@ -17,6 +17,8 @@ fi
 
 re='^[0-9]+$'
 
+fileFound=0
+
 IFS=$'\n'
 for line in $(cat $settingsFile)
 do
@@ -73,11 +75,37 @@ do
   git status >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
   git diff   >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
   git log -1 >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
-  if [ "$1" == "DEBUG" ]; then
-    ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1
-  else 
+  if [ "$1" != "DEBUG" ]; then
     ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1 &
+    fileFound=1
     sleep 5
+  elif [ "$#" -eq 2 ]; then
+    ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1
+    fileFound=1
+  else
+    argArr1=(converter deadColumn hotpixel clustering hitmaker prealign align fitter analysis noise)
+    argArr2=(fitter analysis)
+    argArr3=(sync converter)
+    if (( $whichChip == 1)) && [[ " ${argArr3[*]} " == *"$3"* ]]; then
+      if [ -a `printf $outputFolder/run"%06d".raw $2` ]; then
+        rm -r `printf $outputFolder/run"%06d".raw $2`
+      fi
+      $EUDAQ/bin/Converter.exe -s -t native `printf $rawDataFolder/run"%06d".raw $2` -o `printf $outputFolder/run"%06d".raw $2`
+      if [ "$3" == "converter" ]; then
+        $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=`printf $outputFolder/run"%06d"/database ${input[0]}` --option HistogramPath=`printf $outputFolder/run"%06d"/histogram ${input[0]}` --option LcioPath=`printf $outputFolder/run"%06d"/lcio ${input[0]}` --option LogPath=`printf $outputFolder/run"%06d"/logs ${input[0]}` --option NativePath=`printf $outputFolder/run"%06d"/ ${input[0]}` --config=$configFile -csv $settingsFile $3 $2
+      fi
+    elif [[ " ${argArr1[*]} " == *"$3"* ]]; then
+      res=64.38
+
+      if [[ " ${argArr2[*]} " == *"$3"* ]] && [ "$#" -ne 4 ]; then
+        echo "Give as 4th argument the DUT ID"
+        exit 1
+      fi
+      $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=`printf $outputFolder/run"%06d"/database ${input[0]}` --option HistogramPath=`printf $outputFolder/run"%06d"/histogram ${input[0]}` --option LcioPath=`printf $outputFolder/run"%06d"/lcio ${input[0]}` --option LogPath=`printf $outputFolder/run"%06d"/logs ${input[0]}` --option NativePath=$rawDataFolder --option MaxAllowedFiringFreqpALPIDEss=1 --option MaxAllowedFiringFreqpALPIDEfs=1 --option ExcludedPlanes="" --option ExcludePlanes="" --option LCIOInputFiles=`printf $outputFolder/run"%06d"/lcio/run@RunNumber@-converter.slcio ${input[0]}` --option dutID="$4" --option ResolutionX="$res $res $res $res $res $res $res" --option ResolutionY="$res $res $res $res $res $res $res" --config=$configFile -csv $settingsFile $3 $2
+    else
+      echo "Wrong argument, please run without 3rd argument or give one of the following as 3rd argument: converter deadColumn hotpixel clustering hitmaker prealign align fitter analysis noise"
+      exit 1
+    fi
   fi
 done
 
@@ -141,4 +169,13 @@ if [ "$1" == "ALIGN" ]; then
   git diff   >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
   git log -1 >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
   ./run_createAlign $2 $settingsFile `printf $outputFolder/run"%06d"-"%06d" $3 $4` $rawDataFolder $configFile $3 $4
+  fileFound=1
+fi
+
+if (( $fileFound == 0)); then
+  if [ "$#" -eq 0 ]; then
+    echo "No new runs to be processed"
+  else
+    echo "Run not found in settings file or the raw data does not exist"
+  fi
 fi
