@@ -5,9 +5,10 @@ outputFolder=<outputFolder>
 settingsFile=<settingsFile>
 configFile=<configFile>
 withAlign=<withAlign> #1 for aligning each run separately and 0 for using commmon alignment
+whichChip=<whichChip> #0 for full scale, 1 for small scale
 
 if [ -z "$EUTELESCOPE" ]; then
-  source ../v01-17-05/Eutelescope/trunk/build_env.sh #Change to your EUTelescope folder if you changed the folder structure with respest to the default after installing
+  source /home/mkofarag/ILCSOFT/v01-17-05/Eutelescope/trunk/build_env.sh #Change to your EUTelescope folder if you changed the folder structure with respest to the default after installing
 fi
 
 if ! [ -d $outputFolder ]; then
@@ -74,16 +75,16 @@ do
   git log -1 >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
   if (( $withAlign==0 )); then
     if [ "$1" == "DEBUG" ]; then
-      ./run_pALPIDEfs_PS_7_woAlign ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $1
+      ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $1 $whichChip $withAlign
     else 
-      ./run_pALPIDEfs_PS_7_woAlign ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $1 &
+      ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $1 $whichChip $withAlign &
       sleep 5
     fi
   else
     if [ "$1" == "DEBUG" ]; then
-      ./run_pALPIDEfs_PS_7_wAlign ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $1
+      ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $1 $whichChip $withAlign
     else 
-      ./run_pALPIDEfs_PS_7_wAlign ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $1 &
+      ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $1 $whichChip $withAlign &
       sleep 5
     fi
   fi
