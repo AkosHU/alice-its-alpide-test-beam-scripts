@@ -73,20 +73,11 @@ do
   git status >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
   git diff   >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
   git log -1 >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
-  if (( $withAlign==0 )); then
-    if [ "$1" == "DEBUG" ]; then
-      ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $1 $whichChip $withAlign
-    else 
-      ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $1 $whichChip $withAlign &
-      sleep 5
-    fi
-  else
-    if [ "$1" == "DEBUG" ]; then
-      ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $1 $whichChip $withAlign
-    else 
-      ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $1 $whichChip $withAlign &
-      sleep 5
-    fi
+  if [ "$1" == "DEBUG" ]; then
+    ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1
+  else 
+    ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1 &
+    sleep 5
   fi
 done
 
