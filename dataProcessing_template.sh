@@ -8,7 +8,7 @@ withAlign=<withAlign> #1 for aligning each run separately and 0 for using commmo
 whichChip=<whichChip> #0 for full scale, 1 for small scale
 
 if [ -z "$EUTELESCOPE" ]; then
-  source /home/mkofarag/ILCSOFT/v01-17-05/Eutelescope/trunk/build_env.sh #Change to your EUTelescope folder if you changed the folder structure with respest to the default after installing
+  source ../v01-17-05/Eutelescope/trunk/build_env.sh #Change to your EUTelescope folder if you changed the folder structure with respest to the default after installing
 fi
 
 if ! [ -d $outputFolder ]; then
