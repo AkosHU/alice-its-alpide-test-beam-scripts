@@ -15,7 +15,7 @@
 #include "TFile.h"
 using namespace std;
 
-void qualityCheck(int runNumber, int firstDUT, int lastDUT, string histFolder, string outputFolder, int nDetector) 
+void qualityCheckss(int runNumber, int firstDUT, int lastDUT, string histFolder, string outputFolder, int nDetector) 
 {
   vector<TH2*> efficiency(lastDUT-firstDUT+1);
   vector<TH1*> residualX(lastDUT-firstDUT+1);
@@ -55,8 +55,8 @@ void qualityCheck(int runNumber, int firstDUT, int lastDUT, string histFolder, s
       continue;
     }
     efficiency[iDUT] = (TH2F*)analysisFile->Get("efficiencyHisto");
-    residualX[iDUT] = (TH1F*)analysisFile->Get("residualXPAlpide_30.0_1");
-    residualY[iDUT] = (TH1F*)analysisFile->Get("residualYPAlpide_30.0_1");
+    residualX[iDUT] = (TH1F*)analysisFile->Get("residualXPAlpide_30.0");
+    residualY[iDUT] = (TH1F*)analysisFile->Get("residualYPAlpide_30.0");
     efficiencyC[iDUT]->cd();
     efficiency[iDUT]->Draw("COLZ");
     string outputFile = outputFolder + Form("/important/efficiency_DUT%d.pdf",iDUT+firstDUT);

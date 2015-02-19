@@ -15,7 +15,7 @@
 #include "TFile.h"
 using namespace std;
 
-void qualityCheck(int runNumber, int firstDUT, int lastDUT, string histFolder, string outputFolder, int nDetector) 
+void qualityCheckfs(int runNumber, int firstDUT, int lastDUT, string histFolder, string outputFolder, int nDetector) 
 {
   vector<TH2*> rawHitMap(nDetector);
   vector<TH2*> efficiency(lastDUT-firstDUT+1);
