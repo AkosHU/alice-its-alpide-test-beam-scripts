@@ -144,6 +144,18 @@ else
     maffpALPIDEss=0.001
     $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option MaxAllowedFiringFreq=$maffpALPIDEfs --option MaxAllowedFiringFreqpALPIDEss=$maffpALPIDEss --config=$8 -csv $4 hotpixel $1
     $EUTELESCOPE/jobsub/jobsub.py --option ExcludedPlanes="${exludedPlanes[0]} ${exludedPlanes[1]}" --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option LCIOInputFiles=$5/lcio/run@RunNumber@-converter.slcio --config=$8 -csv $4 clustering $1
+    cd $5/logs/
+    clusteringName=`printf clustering-"%06d".zip $1`
+    unzip $clusteringName
+    clusteringLogName=`printf clustering-"%06d".log $1`
+    tooNoisy="contains more than 4096 cluster"
+    if grep -q "$tooNoisy" "$clusteringLogName"; then
+      echo At least one plane had more than 4096 clusters in one event, too noisy exiting > $5/analysis.log
+      echo At least one plane is too noisy run $1 > $5/../analysis.log
+      exit 1
+    fi
+    rm *.log *.xml
+    cd -
     $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 hitmaker $1
     $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 prealign $1
     ./run_align_7 $1 $4 $5 $8 ${exludedPlanes[0]} ${exludedPlanes[1]}
@@ -157,6 +169,18 @@ else
   maffpALPIDEss=1
   $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option MaxAllowedFiringFreq=$maffpALPIDEfs --option MaxAllowedFiringFreqpALPIDEss=$maffpALPIDEss --config=$8 -csv $4 hotpixel $1
   $EUTELESCOPE/jobsub/jobsub.py --option ExcludedPlanes="${exludedPlanes[0]} ${exludedPlanes[1]}" --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option LCIOInputFiles=$5/lcio/run@RunNumber@-converter.slcio --config=$8 -csv $4 clustering $1
+  cd $5/logs/
+  clusteringName=`printf clustering-"%06d".zip $1`
+  unzip $clusteringName
+  clusteringLogName=`printf clustering-"%06d".log $1`
+  tooNoisy="contains more than 4096 cluster"
+  if grep -q "$tooNoisy" "$clusteringLogName"; then
+    echo At least one plane had more than 4096 clusters in one event, too noisy exiting > $5/analysis.log
+    echo At least one plane is too noisy run $1 > $5/../analysis.log
+    exit 1
+  fi
+  rm *.log *.xml
+  cd -
   $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 hitmaker $1
 
   for ((i=$2;i<=$3;i++)) do
@@ -214,13 +238,15 @@ else
   if [ "${11}" != "DEBUG" ]; then
     rm -r $5/lcio $5/database
   fi
+  #Quality checks
+  outputFolder=$5/Plots/
+  mkdir $outputFolder
+  mkdir $outputFolder/important
+  mkdir $outputFolder/others
   if (( $9 == 0)); then
-    #Quality checks
-    outputFolder=$5/Plots/
-    mkdir $outputFolder
-    mkdir $outputFolder/important
-    mkdir $outputFolder/others
-    root -l -q -b qualityCheck.C\($1,$2,$3,"\"$5/histogram\"","\"$outputFolder\"",$7\)
-    echo "QA written to" $outputFolder  >> $5/analysis.log
+    root -l -q -b qualityCheckfs.C\($1,$2,$3,"\"$5/histogram\"","\"$outputFolder\"",$7\)
+  elif (( $9 == 1)); then
+    root -l -q -b qualityCheckss.C\($1,$2,$3,"\"$5/histogram\"","\"$outputFolder\"",$7\)
   fi
+  echo "QA written to" $outputFolder  >> $5/analysis.log
 fi
