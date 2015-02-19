@@ -209,15 +209,13 @@ else
     else
       echo $nTrack "tracks used in DUT" $i >> $5/analysis.log
     fi
-    if (( $9 == 0)); then
-      sed -i '/^'$1' /d' $5/../settings_DUT$i.txt
-    fi
+    sed -i '/^'$1'/d' $5/../settings_DUT$i.txt
     $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option dutID="$i" --config=$8 -csv $4 analysis $1
+    sed -i 's/nan/0/g' $5/../settings_DUT$i.txt
+    cd $5/logs/
+    unzip `printf analysis-"%06d".zip $1`
+    analysisName=`printf analysis-"%06d".log $1`
     if (( $9 == 0)); then
-      sed -i 's/nan/0/g' $5/../settings_DUT$i.txt
-      cd $5/logs/
-      unzip `printf analysis-"%06d".zip $1`
-      analysisName=`printf analysis-"%06d".log $1`
       efficiencies=`awk '/Overall efficiency of pALPIDEfs sectors/{x=NR+4;next}(NR<=x){print}' $analysisName | sed -n -e 's/^.*\[ MESSAGE4 \"Analysis\"\] //p'`
       rm *.log *.xml
       cd -
@@ -230,8 +228,12 @@ else
         echo ${effArray[j-1]} >> $5/analysis.log
       done
       sed -i 's/nan/0/g' $5/../efficiency"_DUT"$i.dat
-      mv `printf $5/logs/analysis-"%06d".zip $1` `printf $5/logs/analysis-"%06d"_DUT$i.zip $1`
+    elif (( $9 == 1)); then
+      grep "Overall efficiency of pAlpide: " $analysisName | sed -n -e 's/^.*\[ MESSAGE4 \"Analysis\"\] //p' >> $5/analysis.log
+      rm *.log *.xml
+      cd -
     fi
+    mv `printf $5/logs/analysis-"%06d".zip $1` `printf $5/logs/analysis-"%06d"_DUT$i.zip $1`
     echo "Processing of DUT" $i "exited without errors for run" $1 >> $5/../analysis.log
     echo "Processing of DUT" $i "exited without errors" >> $5/analysis.log
   done
