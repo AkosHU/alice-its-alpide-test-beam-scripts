@@ -87,12 +87,13 @@ do
     argArr2=(fitter analysis)
     argArr3=(sync converter)
     if (( $whichChip == 1)) && [[ " ${argArr3[*]} " == *"$3"* ]]; then
-      if [ -a `printf $outputFolder/run"%06d".raw $2` ]; then
-        rm -r `printf $outputFolder/run"%06d".raw $2`
+      if [ -a `printf $outputFolder/run"%06d"/run"%06d".raw $2 $2` ]; then
+        rm -r `printf $outputFolder/run"%06d"/run"%06d".raw $2 $2`
       fi
-      $EUDAQ/bin/Converter.exe -s -t native `printf $rawDataFolder/run"%06d".raw $2` -o `printf $outputFolder/run"%06d".raw $2`
+      $EUDAQ/bin/Converter.exe -s -t native `printf $rawDataFolder/run"%06d".raw $2` -o `printf $outputFolder/run"%06d"/run"%06d".raw $2 $2`
       if [ "$3" == "converter" ]; then
         $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=`printf $outputFolder/run"%06d"/database ${input[0]}` --option HistogramPath=`printf $outputFolder/run"%06d"/histogram ${input[0]}` --option LcioPath=`printf $outputFolder/run"%06d"/lcio ${input[0]}` --option LogPath=`printf $outputFolder/run"%06d"/logs ${input[0]}` --option NativePath=`printf $outputFolder/run"%06d"/ ${input[0]}` --config=$configFile -csv $settingsFile $3 $2
+        exit 0
       fi
     elif [[ " ${argArr1[*]} " == *"$3"* ]]; then
       res=64.38
@@ -101,7 +102,8 @@ do
         echo "Give as 4th argument the DUT ID"
         exit 1
       fi
-      $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=`printf $outputFolder/run"%06d"/database ${input[0]}` --option HistogramPath=`printf $outputFolder/run"%06d"/histogram ${input[0]}` --option LcioPath=`printf $outputFolder/run"%06d"/lcio ${input[0]}` --option LogPath=`printf $outputFolder/run"%06d"/logs ${input[0]}` --option NativePath=$rawDataFolder --option MaxAllowedFiringFreqpALPIDEss=1 --option MaxAllowedFiringFreqpALPIDEfs=1 --option ExcludedPlanes="" --option ExcludePlanes="" --option LCIOInputFiles=`printf $outputFolder/run"%06d"/lcio/run@RunNumber@-converter.slcio ${input[0]}` --option dutID="$4" --option ResolutionX="$res $res $res $res $res $res $res" --option ResolutionY="$res $res $res $res $res $res $res" --config=$configFile -csv $settingsFile $3 $2
+      $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=`printf $outputFolder/run"%06d"/database ${input[0]}` --option HistogramPath=`printf $outputFolder/run"%06d"/histogram ${input[0]}` --option LcioPath=`printf $outputFolder/run"%06d"/lcio ${input[0]}` --option LogPath=`printf $outputFolder/run"%06d"/logs ${input[0]}` --option NativePath=$rawDataFolder --option MaxAllowedFiringFreqpALPIDEss=1 --option MaxAllowedFiringFreq=1 --option ExcludedPlanes="" --option ExcludePlanes="" --option LCIOInputFiles=`printf $outputFolder/run"%06d"/lcio/run@RunNumber@-converter.slcio ${input[0]}` --option dutID="$4" --option ResolutionX="$res $res $res $res $res $res $res" --option ResolutionY="$res $res $res $res $res $res $res" --config=$configFile -csv $settingsFile $3 $2
+      exit 0
     else
       echo "Wrong argument, please run without 3rd argument or give one of the following as 3rd argument: converter deadColumn hotpixel clustering hitmaker prealign align fitter analysis noise"
       exit 1
