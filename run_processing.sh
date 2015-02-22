@@ -71,6 +71,11 @@ if (($place > 100)); then
   if [ "${11}" != "DEBUG" ]; then
     rm -r $5/lcio $5/database
   fi
+  #Quality checks for noise
+  outputFolder=$5/Plots/
+  mkdir $outputFolder
+  root -l -q -b qualityCheckNoise.C\($1,"\"$5/histogram\"","\"$outputFolder\"",$7\)
+  echo "QA written to" $outputFolder  >> $5/analysis.log
 else
   echo "Treated as data run" >> $5/analysis.log
   if (( ${10} == 0)); then
@@ -221,13 +226,13 @@ else
       cd -
       echo "Efficiencies of the four sectors in DUT" $i":" >> $5/analysis.log 
       effArray=($efficiencies)
-      sed -i '/^'$1' $/{N; N; N; N; d;}' $5/../efficiency_DUT$i.dat
-      echo -n -e $1 "\n" >> $5/../efficiency"_DUT"$i.dat
+#      sed -i '/^'$1' $/{N; N; N; N; d;}' $5/../efficiency_DUT$i.dat
+#      echo -n -e $1 "\n" >> $5/../efficiency"_DUT"$i.dat
       for ((j=1;j<=10;j=j+3)) do
-        echo ${effArray[j-1]} ${effArray[j]} ${effArray[j+1]}>> $5/../efficiency_DUT$i.dat
+#        echo ${effArray[j-1]} ${effArray[j]} ${effArray[j+1]}>> $5/../efficiency_DUT$i.dat
         echo ${effArray[j-1]} >> $5/analysis.log
       done
-      sed -i 's/nan/0/g' $5/../efficiency"_DUT"$i.dat
+#      sed -i 's/nan/0/g' $5/../efficiency_DUT$i.dat
     elif (( $9 == 1)); then
       grep "Overall efficiency of pAlpide: " $analysisName | sed -n -e 's/^.*\[ MESSAGE4 \"Analysis\"\] //p' >> $5/analysis.log
       rm *.log *.xml
@@ -238,7 +243,8 @@ else
     echo "Processing of DUT" $i "exited without errors" >> $5/analysis.log
   done
   if [ "${11}" != "DEBUG" ]; then
-    rm -r $5/lcio $5/database
+    find $5/lcio -type f -not -name '*track*' | xargs rm # To keep only the output of the fitter
+#    rm -r $5/lcio $5/database # To delete all intermediate steps
   fi
   #Quality checks
   outputFolder=$5/Plots/
