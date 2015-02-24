@@ -214,8 +214,18 @@ else
     else
       echo $nTrack "tracks used in DUT" $i >> $5/analysis.log
     fi
-    sed -i '/^'$1'/d' $5/../settings_DUT$i.txt
+    if [ -f $5/../settings_DUT$i.txt ]; then
+      sed -i '/^'$1'/d' $5/../settings_DUT$i.txt
+    fi
+    if [ -f $5/settings_DUT$i.txt ]; then
+      sed -i '/^'$1'/d' $5/settings_DUT$i.txt
+    fi
     $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option dutID="$i" --config=$8 -csv $4 analysis $1
+    if ! [ -f $5/../settings_DUT$i.txt ]; then
+      cat $5/settings_DUT$i.txt > $5/../settings_DUT$i.txt
+    else
+      tail -n 1 $5/settings_DUT$i.txt >> $5/../settings_DUT$i.txt  
+    fi
     sed -i 's/nan/0/g' $5/../settings_DUT$i.txt
     cd $5/logs/
     unzip `printf analysis-"%06d".zip $1`
