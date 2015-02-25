@@ -29,14 +29,14 @@ then
   nTracks=`cat $name |  sed -n -e "s/^.*Number of tracks used://p" | bc -l`
   if (($nTracks<100))
   then
-    echo "  Alignment step failed," $nTracks "tracks found for alignment in run" $1 >> $currentFolder/analysis.log
+    echo "  Alignment step failed," $nTracks "tracks found for alignment in run" $1 >> $3/../analysis.log
     echo "  Alignment step failed," $nTracks "tracks found for alignment" >> $3/analysis.log
     exit 1
   else
     echo "  Alignment worked fine," $nTracks "tracks found for alignment" >> $3/analysis.log
   fi
 else
-  echo "  Alignment step failed, output is strange in run" $1 >> $currentFolder/analysis.log
+  echo "  Alignment step failed, output is strange in run" $1 >> $3/../analysis.log
   echo "  Alignment step failed, output is strange" >> $3/analysis.log
   exit 1
 fi
