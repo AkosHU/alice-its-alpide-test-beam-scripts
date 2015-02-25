@@ -41,6 +41,10 @@ do
   if ! [ -f `printf $rawDataFolder/run"%06d".raw ${input[0]}` ]; then
     continue
   fi
+  if [ "$#" -gt 0 ] && ! [ "$1" == "REPROCESS" ] && ! [ "$1" == "DEBUG" ] && ! [ "$1" == "ALIGN" ]; then
+    echo "Not a valid option! Choose between REPROCESS, DEBUG, ALIGN or nothing"
+    exit 1
+  fi
   if [ -d `printf $outputFolder/run"%06d" ${input[0]}` ] && ! [ "$1" == "REPROCESS" ] && ! [ "$1" == "DEBUG" ] && ! [ "$1" == "ALIGN" ] ; then
     continue
   fi
