@@ -49,7 +49,544 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
   Run run;
   int tmp = 0;
   ifstream settingsFile;
-  string settingsFileName = settingsFileFolder + Form("settings_DUT%d.txt",dut);
+  string settingsFileName;
+  if (settingsFileFolder.compare("") == 0) {cerr << "if" << endl; settingsFileName = outputFolder + Form("/settings_DUT%d.txt",dut);}
+  else settingsFileName = settingsFileFolder + Form("/settings_DUT%d.txt",dut);
+  settingsFile.open(settingsFileName.c_str());
+  string line;
+  getline(settingsFile,line);
+  int runNumber=0, irr=0, nEvent=0, isData=0;
+  double energy=0, ithr=0, idb=0, vcasn=0, vaux=0, vcasp=0, vreset=0, BB=0, readoutDelay=0, triggerDelay=0, strobeLength=0, strobeBLength=0;
+  string chipID, rate;
+  vector<double> thr(4), thrE(4), noise(4), noiseE(4), eff(4), nTrack(4), nTrackFound(4);
+  while (getline(settingsFile, line))
+  {
+    stringstream strstr(line);
+    string word;
+    int nWords = 0;
+    while (getline(strstr,word, ';'))
+    {
+      switch(nWords) {
+      case 0: 
+        runNumber = std::atoi(word.c_str());
+        break;
+      case 1:
+        energy = std::atof(word.c_str());
+        break;
+      case 2:
+        chipID = word;
+        break;
+      case 3:
+        irr = std::atoi(word.c_str());
+        break;
+      case 4:
+        rate = word;
+        break;
+      case 5:
+        BB = std::atof(word.c_str());
+        break;
+      case 6:
+        ithr = std::atof(word.c_str());
+        break;
+      case 7:
+        idb = std::atof(word.c_str());
+        break;
+      case 8:
+        vcasn = std::atof(word.c_str());
+        break;
+      case 9:
+        vaux = std::atof(word.c_str());
+        break;
+      case 10:
+        vcasp = std::atof(word.c_str());
+        break;
+      case 11:
+        vreset = std::atof(word.c_str());
+        break;
+      case 12:
+        for (int iSector=0; iSector<4; iSector++)
+        {
+          thr[iSector] = std::atof(word.c_str());
+          getline(strstr,word, ';');
+          thrE[iSector] = std::atof(word.c_str());
+          getline(strstr,word, ';');
+        }
+        for (int iSector=0; iSector<4; iSector++)
+        {
+          noise[iSector] = std::atof(word.c_str());
+          getline(strstr,word, ';');
+          noiseE[iSector] = std::atof(word.c_str());
+          if (iSector != 3) getline(strstr,word, ';');
+        }
+        break;
+      case 13:
+        readoutDelay = std::atof(word.c_str());
+        break;
+      case 14:
+        triggerDelay = std::atof(word.c_str());
+        break;
+      case 15:
+        strobeLength = std::atof(word.c_str());
+        break;
+      case 16:
+        strobeBLength = std::atof(word.c_str());
+        break;
+      case 17:
+        isData = std::atoi(word.c_str());
+        break;
+      case 18:
+        nEvent = std::atoi(word.c_str());
+        break;
+      case 19:
+        for (int iSector=0; iSector<4; iSector++)
+        {
+          eff[iSector] = std::atof(word.c_str());
+          getline(strstr,word, ';');
+          nTrack[iSector] = std::atof(word.c_str());
+          getline(strstr,word, ';');
+          nTrackFound[iSector] = std::atof(word.c_str());
+          if (iSector != 3) getline(strstr,word, ';');
+        }
+        break;
+      default:
+        break;
+      }
+      if (Skip(runNumber)) break;
+      nWords++;
+    }
+    if (Skip(runNumber)) continue; 
+    runNumberConvert[runNumber] = tmp;
+//      ithr = ithr/51*500; //Converting to pA
+//    ithrM = ithrM/4096*1000; //Converting to pA
+    for (int iSector=0; iSector<4; iSector++) 
+    {
+      thr[iSector] *= 7.;
+      thrE[iSector] *= 7.;
+      noise[iSector] *= 7.;
+      noiseE[iSector] *= 7.;
+    }
+    bool isNoise = true;
+    if (isData == 1) {isNoise = false;}
+    run.Set(runNumber,vcasn,vaux,vcasp,vreset,ithr,idb,thr,thrE,noise,noiseE,BB,irr,chipID,readoutDelay,triggerDelay,strobeLength,strobeBLength,isNoise);
+    run.setEff(eff);
+    run.setnTr(nTrack);
+    run.setnTrpA(nTrackFound);
+    runs.push_back(run);
+    cout << runs[tmp].getRunNumber() << " (" << tmp << ") : " << runs[tmp].getVcasn() << "\t" << runs[tmp].getIthr() << "\t" << runs[tmp].getBB() << "\t" << runs[tmp].isNoise() << endl;
+    tmp++;
+  }
+  int nRun = tmp;
+  for (int i=0;i<nRun;i++)
+  {
+    if (!runs[i].isNoise()) 
+      for (int j=0;j<nRun;j++)
+      {
+        if (i == j) continue;
+        if (runs[i].equalSettings(runs[j]))
+        {
+//          cerr << runs[i].getRunNumber() << "\t" << runs[j].getRunNumber() << endl;
+          runs[i].setThr(runs[j].getThr());
+          runs[i].setThrE(runs[j].getThrE());
+          runs[i].setNoise(runs[j].getNoise());
+          runs[i].setNoiseE(runs[j].getNoiseE());
+          break;
+        }
+      }
+  }
+//  cerr << nRun << endl;
+  globalBB = runs[0].getBB();
+  globalIrr = runs[0].getIrradiation();
+  globalFileInfo = runs[0].getChipID();
+  for (int i=1;i<nRun;i++)
+  {
+    if (runs[i].getBB() != runs[0].getBB())
+    {
+      cerr << "Back bias is not the same for all runs, strange but continuing" << endl;
+      globalBB = -100;
+    }
+    if (runs[i].getIrradiation() != runs[0].getIrradiation()) 
+    {
+      cerr << "Irradiation level is not the same for all runs, strange but continuing" << endl;
+      globalIrr = -100;
+    }
+    if (runs[i].getChipID() != runs[0].getChipID())
+    {
+      cerr << "Chip ID is not the same for all runs, strange but continuing" << endl;
+      globalFileInfo = "";
+    }
+  }
+
+  settingsFile.close();
+  vector<TGraphAsymmErrors*> efficiencyThr(4);
+//  vector<TGraphAsymmErrors*> efficiencyIthr(4);
+  vector<TGraph2D*> efficiencyIthrVcasn(4);
+  vector<TGraph2D*> nTrIthrVcasn(4);
+  vector<TGraph2D*> nTrpAIthrVcasn(4);
+  for (int i=0; i<4; i++)
+  {
+    efficiencyThr[i] = new TGraphAsymmErrors;
+    efficiencyIthrVcasn[i] = new TGraph2D;
+    nTrIthrVcasn[i] = new TGraph2D;
+    nTrpAIthrVcasn[i] = new TGraph2D;
+//    efficiencyIthr[i] = new TGraphAsymmErrors;
+  }
+  vector<double> nTr0(4,0), nTrpA0(4,0);
+  vector<TH1*> clusterSizeHisto(4);
+  vector<TGraphErrors*> clusterSizeThr(4);
+  vector<TGraph2DErrors*> clusterSizeIthrVcasn(4);
+//  vector<TGraphErrors*> clusterSizeIthr(4);
+  vector<TH1*> residualXHisto(4);
+  vector<TGraphErrors*> residualXThr(4);
+  vector<TGraphErrors*> resolutionXThr(4);
+  vector<TH1*> residualYHisto(4);
+  vector<TGraphErrors*> residualYThr(4);
+  vector<TGraphErrors*> resolutionYThr(4);
+  vector<TGraphErrors*> residualThr(4);
+  vector<TGraph2DErrors*> residualIthrVcasn(4);
+  vector<TGraphErrors*> resolutionThr(4);
+  vector<TGraph2DErrors*> resolutionIthrVcasn(4);
+//  vector<TGraphErrors*> resolutionIthr(4);
+  TH1* noiseOccupancyBeforeRemovalHisto;
+//  TH1* noiseOccupancyAfterRemovalHisto;
+  TH1* noiseOccupancyBeforeRemovalFromNoiseHisto;
+  TH1* noiseOccupancyAfterRemovalFromNoiseHisto;
+  vector<TGraphErrors*> noiseOccupancyBeforeRemovalThr(4);
+//  vector<TGraphErrors*> noiseOccupancyAfterRemovalThr(4);
+  vector<TGraph2DErrors*> noiseOccupancyBeforeRemovalIthrVcasn(4);
+//  vector<TGraph2DErrors*> noiseOccupancyAfterRemovalIthrVcasn(4);
+//  vector<TGraphErrors*> noiseOccupancyAfterRemovalIthr(4);
+  vector<TGraphErrors*> noiseOccupancyBeforeRemovalThrFromNoise(4);
+  vector<TGraphErrors*> noiseOccupancyAfterRemovalThrFromNoise(4);
+  vector<TGraph2DErrors*> noiseOccupancyBeforeRemovalIthrVcasnFromNoise(4);
+  vector<TGraph2DErrors*> noiseOccupancyAfterRemovalIthrVcasnFromNoise(4);
+//  vector<TGraphErrors*> noiseOccupancyAfterRemovalFromNoiseIthr(4);
+
+  for (int i=0; i<4; i++)
+  {
+    noiseOccupancyBeforeRemovalThr[i] = new TGraphErrors;
+    noiseOccupancyBeforeRemovalIthrVcasn[i] = new TGraph2DErrors;
+//    noiseOccupancyAfterRemovalThr[i] = new TGraphErrors;
+//    noiseOccupancyAfterRemovalIthrVcasn[i] = new TGraph2DErrors;
+//    noiseOccupancyAfterRemovalIthr[i] = new TGraphErrors;
+    noiseOccupancyBeforeRemovalThrFromNoise[i] = new TGraphErrors;
+    noiseOccupancyBeforeRemovalIthrVcasnFromNoise[i] = new TGraph2DErrors;
+    noiseOccupancyAfterRemovalThrFromNoise[i] = new TGraphErrors;
+    noiseOccupancyAfterRemovalIthrVcasnFromNoise[i] = new TGraph2DErrors;
+//    noiseOccupancyAfterRemovalFromNoiseIthr[i] = new TGraphErrors;
+    clusterSizeThr[i] = new TGraphErrors;
+    clusterSizeIthrVcasn[i] = new TGraph2DErrors;
+//    clusterSizeIthr[i] = new TGraphErrors;
+    residualXThr[i] = new TGraphErrors;
+    resolutionXThr[i] = new TGraphErrors;
+    residualYThr[i] = new TGraphErrors;
+    resolutionYThr[i] = new TGraphErrors;
+    residualThr[i] = new TGraphErrors;
+    resolutionThr[i] = new TGraphErrors;
+    residualIthrVcasn[i] = new TGraph2DErrors;
+    resolutionIthrVcasn[i] = new TGraph2DErrors;
+//    resolutionIthr[i] = new TGraphErrors;
+  }
+  for (int i=0;i<nRun;i++)
+  {
+    if (runs[i].isNoise()) continue;
+    string fileName = outputFolder +  Form("/run%06d/histogram/run%06d-analysis_DUT%d.root",runs[i].getRunNumber(),runs[i].getRunNumber(),dut);
+    TFile* histFile = new TFile(fileName.c_str(),"READONLY");
+    if (!histFile || histFile->IsZombie())
+      continue;
+    noiseOccupancyBeforeRemovalHisto = (TH1F*)histFile->Get("Analysis/nFakeWithTrackCorrectedHisto");
+//    noiseOccupancyAfterRemovalHisto = CalculateNoise(dut,runs[i].getRunNumber());
+    for (int iSector=0; iSector<4; iSector++)
+    {
+      if (noiseOccupancyBeforeRemovalHisto->GetBinContent(iSector+1) == 0) continue;
+      noiseOccupancyBeforeRemovalThr[iSector]->SetPoint(noiseOccupancyBeforeRemovalThr[iSector]->GetN(),runs[i].getThr()[iSector],noiseOccupancyBeforeRemovalHisto->GetBinContent(iSector+1));
+      noiseOccupancyBeforeRemovalThr[iSector]->SetPointError(noiseOccupancyBeforeRemovalThr[iSector]->GetN()-1,runs[i].getThrE()[iSector],noiseOccupancyBeforeRemovalHisto->GetBinError(iSector+1));
+      noiseOccupancyBeforeRemovalIthrVcasn[iSector]->SetPoint(noiseOccupancyBeforeRemovalIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),noiseOccupancyBeforeRemovalHisto->GetBinContent(iSector+1));
+      noiseOccupancyBeforeRemovalIthrVcasn[iSector]->SetPointError(noiseOccupancyBeforeRemovalIthrVcasn[iSector]->GetN()-1,0,0,noiseOccupancyBeforeRemovalHisto->GetBinError(iSector+1));
+//      noiseOccupancyAfterRemovalThr[iSector]->SetPoint(noiseOccupancyAfterRemovalThr[iSector]->GetN(),runs[i].getThr()[iSector],noiseOccupancyAfterRemovalHisto->GetBinContent(iSector+1));
+//      noiseOccupancyAfterRemovalThr[iSector]->SetPointError(noiseOccupancyAfterRemovalThr[iSector]->GetN()-1,runs[i].getThrE()[iSector],noiseOccupancyAfterRemovalHisto->GetBinError(iSector+1));
+//      noiseOccupancyAfterRemovalIthr[iSector]->SetPoint(noiseOccupancyAfterRemovalIthr[iSector]->GetN(),runs[i].getIthr(),noiseOccupancyAfterRemovalHisto->GetBinContent(iSector+1));
+//      noiseOccupancyAfterRemovalIthr[iSector]->SetPointError(noiseOccupancyAfterRemovalIthr[iSector]->GetN()-1,0,noiseOccupancyAfterRemovalHisto->GetBinError(iSector+1));
+//      cerr << noiseOccupancyAfterRemovalHisto->GetBinContent(iSector+1) << endl;
+      clusterSizeHisto[iSector] = (TH1I*)histFile->Get(Form("Analysis/clusterSizeHisto_%d",iSector));
+      residualXHisto[iSector] = (TH1I*)histFile->Get(Form("Analysis/residualXPAlpide_30.0_%d",iSector));
+      residualYHisto[iSector] = (TH1I*)histFile->Get(Form("Analysis/residualYPAlpide_30.0_%d",iSector));
+//      if (clusterSizeHisto[iSector]->Integral() < 100) continue;
+    }
+    runs[i].setClusterSize(clusterSizeHisto);
+    runs[i].setResidualX(residualXHisto);
+    runs[i].setResidualY(residualYHisto);
+  }
+  vector<TH1*> clusterSizeHisto2(4);
+  vector<TH1*> residualXHisto2(4);
+  vector<TH1*> residualYHisto2(4);
+  for (int i=0;i<nRun;i++)
+  {
+    if (runs[i].isNoise()) continue;
+    clusterSizeHisto = runs[i].getClusterSize();
+    residualXHisto = runs[i].getResidualX();
+    residualYHisto = runs[i].getResidualY();
+    for (int j=i+1;j<nRun;j++)
+    {
+      if (runs[j].isNoise()) continue;
+      if (runs[i].equalSettings(runs[j]))
+      {
+        clusterSizeHisto2 = runs[j].getClusterSize();
+        residualXHisto2 = runs[j].getResidualX();
+        residualYHisto2 = runs[j].getResidualY();
+        for (int iSector=0; iSector<4; iSector++)
+        {
+          clusterSizeHisto[iSector]->Add(clusterSizeHisto2[iSector]);
+          clusterSizeHisto2[iSector]->Reset();
+          residualXHisto[iSector]->Add(residualXHisto2[iSector]);
+          residualXHisto2[iSector]->Reset();
+          residualYHisto[iSector]->Add(residualYHisto2[iSector]);
+          residualYHisto2[iSector]->Reset();
+        }
+        runs[j].setClusterSize(clusterSizeHisto2);
+        runs[j].setResidualX(residualXHisto2);
+        runs[j].setResidualY(residualYHisto2);
+      }
+    }
+    runs[i].setClusterSize(clusterSizeHisto);
+    runs[i].setResidualX(residualXHisto);
+    runs[i].setResidualY(residualYHisto);
+//    if (runs[i].getPlace() == 0 && runs[i].getVcasn() ==145) residualXHisto[0]->Draw("SAME");
+  }
+  for (int i=0;i<nRun;i++)
+  {
+    if (runs[i].isNoise()) continue;
+    for (int iSector=0; iSector<4; iSector++)
+    {
+      clusterSizeHisto = runs[i].getClusterSize();
+      if (clusterSizeHisto[iSector]->Integral() < 100) continue;
+      residualXHisto = runs[i].getResidualX();
+      TFitResultPtr resultX = residualXHisto[iSector]->Fit("gaus","QNOS");
+      Int_t fitStatusX = resultX;
+      residualYHisto = runs[i].getResidualY();
+      TFitResultPtr resultY = residualYHisto[iSector]->Fit("gaus","QNOS");
+      Int_t fitStatusY = resultY;
+      clusterSizeThr[iSector]->SetPoint(clusterSizeThr[iSector]->GetN(),runs[i].getThr()[iSector],clusterSizeHisto[iSector]->GetMean());
+      clusterSizeThr[iSector]->SetPointError(clusterSizeThr[iSector]->GetN()-1,runs[i].getThrE()[iSector],clusterSizeHisto[iSector]->GetMeanError());
+      clusterSizeIthrVcasn[iSector]->SetPoint(clusterSizeIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),clusterSizeHisto[iSector]->GetMean());
+      clusterSizeIthrVcasn[iSector]->SetPointError(clusterSizeIthrVcasn[iSector]->GetN()-1,0,0,clusterSizeHisto[iSector]->GetMeanError());
+//      clusterSizeIthr[iSector]->SetPoint(clusterSizeIthr[iSector]->GetN(),runs[i].getIthr(),clusterSizeHisto[iSector]->GetMean());
+//      clusterSizeIthr[iSector]->SetPointError(clusterSizeIthr[iSector]->GetN()-1,0,clusterSizeHisto[iSector]->GetMeanError());
+      if (fitStatusX == 0)
+      {
+        double resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000);
+        residualXThr[iSector]->SetPoint(residualXThr[iSector]->GetN(),runs[i].getThr()[iSector],resX);
+        residualXThr[iSector]->SetPointError(residualXThr[iSector]->GetN()-1,runs[i].getThrE()[iSector],resultX->ParError(2)*1000);
+        resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000-pointingRes*pointingRes);
+        resolutionXThr[iSector]->SetPoint(resolutionXThr[iSector]->GetN(),runs[i].getThr()[iSector],resX);
+        resolutionXThr[iSector]->SetPointError(resolutionXThr[iSector]->GetN()-1,runs[i].getThrE()[iSector],resultX->ParError(2)*1000);
+      }
+      if (fitStatusY == 0)
+      {
+        double resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000);
+        residualYThr[iSector]->SetPoint(residualYThr[iSector]->GetN(),runs[i].getThr()[iSector],resY);
+        residualYThr[iSector]->SetPointError(residualYThr[iSector]->GetN()-1,runs[i].getThrE()[iSector],resultY->ParError(2)*1000);
+        resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000-pointingRes*pointingRes);
+        resolutionYThr[iSector]->SetPoint(resolutionYThr[iSector]->GetN(),runs[i].getThr()[iSector],resY);
+        resolutionYThr[iSector]->SetPointError(resolutionYThr[iSector]->GetN()-1,runs[i].getThrE()[iSector],resultY->ParError(2)*1000);
+      }
+      if (fitStatusX == 0 && fitStatusY == 0)
+      {
+        double resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000);
+        double resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000);
+        residualThr[iSector]->SetPoint(residualThr[iSector]->GetN(),runs[i].getThr()[iSector],(resX+resY)/2.);
+        residualThr[iSector]->SetPointError(residualThr[iSector]->GetN()-1,runs[i].getThrE()[iSector],sqrt(resultX->ParError(2)*resultX->ParError(2)+resultY->ParError(2)*resultY->ParError(2))*1000);
+        residualIthrVcasn[iSector]->SetPoint(residualIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),(resX+resY)/2.);
+        residualIthrVcasn[iSector]->SetPointError(residualIthrVcasn[iSector]->GetN()-1,0,0,sqrt(resultX->ParError(2)*resultX->ParError(2)+resultY->ParError(2)*resultY->ParError(2))*1000);
+        resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000-pointingRes*pointingRes);
+        resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000-pointingRes*pointingRes);
+        resolutionThr[iSector]->SetPoint(resolutionThr[iSector]->GetN(),runs[i].getThr()[iSector],(resX+resY)/2.);
+        resolutionThr[iSector]->SetPointError(resolutionThr[iSector]->GetN()-1,runs[i].getThrE()[iSector],sqrt(resultX->ParError(2)*resultX->ParError(2)+resultY->ParError(2)*resultY->ParError(2))*1000);
+        resolutionIthrVcasn[iSector]->SetPoint(resolutionIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),(resX+resY)/2.);
+        resolutionIthrVcasn[iSector]->SetPointError(resolutionIthrVcasn[iSector]->GetN()-1,0,0,sqrt(resultX->ParError(2)*resultX->ParError(2)+resultY->ParError(2)*resultY->ParError(2))*1000);
+//        resolutionIthr[iSector]->SetPoint(resolutionIthr[iSector]->GetN(),runs[i].getIthr(),(resX+resY)/2.);
+//        resolutionIthr[iSector]->SetPointError(resolutionIthr[iSector]->GetN()-1,0,sqrt(resultX->ParError(2)*resultX->ParError(2)+resultY->ParError(2)*resultY->ParError(2))*1000);
+      }
+    }
+  }
+  for (int i=0;i<nRun;i++)
+  {
+    if (runs[i].isNoise()) continue;
+//    cerr << runs[i].getRunNumber() << endl;
+    for (int j=i+1;j<nRun;j++)
+    {
+      if (runs[j].isNoise()) continue;
+      if (runs[i].equalSettings(runs[j])) 
+      {
+        vector<double> nTr(4), nTrpA(4);
+        for (int iSector=0; iSector<4; iSector++)
+        {
+//          cerr << runs[i].getRunNumber()  << "\t" << runs[j].getRunNumber() << "\t" << iSector << "\t" << runs[i].getnTr()[iSector] << "\t" << runs[j].getnTr()[iSector] << endl;
+//          cerr << runs[i].getRunNumber() << "\t" << runs[j].getRunNumber() << "\t" << iSector << "\t" << runs[i].getnTrpA()[iSector] <<"\t" << runs[j].getnTrpA()[iSector] << endl;
+          nTr[iSector] = runs[i].getnTr()[iSector]+runs[j].getnTr()[iSector];
+          nTrpA[iSector] = runs[i].getnTrpA()[iSector]+runs[j].getnTrpA()[iSector];
+        }
+        runs[i].setnTr(nTr);
+        runs[i].setnTrpA(nTrpA);
+        runs[j].setnTr(nTr0);
+        runs[j].setnTrpA(nTrpA0);
+      }
+    }
+  }
+
+  for (int i=0;i<nRun;i++)
+  {
+    if (runs[i].isNoise()) continue;
+//    cerr << runs[i].getRunNumber() << endl;
+    for (int iSector=0; iSector<4; iSector++)
+    {
+//      cerr << runs[i].getRunNumber() << endl;
+      if (runs[i].getnTr()[iSector] > 100)
+      {
+        double nTrd = runs[i].getnTr()[iSector];
+        double nTrpAd = runs[i].getnTrpA()[iSector];
+        double effd = nTrpAd/nTrd;
+        double mean = (nTrpAd+1)/(nTrd+2);
+        double sigma = sqrt(((nTrpAd+1)*(nTrpAd+2))/((nTrd+2)*(nTrd+3))-((nTrpAd+1)*(nTrpAd+1))/((nTrd+2)*(nTrd+2)));
+        efficiencyThr[iSector]->SetPoint(efficiencyThr[iSector]->GetN(),runs[i].getThr()[iSector],effd*100.); 
+        efficiencyThr[iSector]->SetPointError(efficiencyThr[iSector]->GetN()-1,runs[i].getThrE()[iSector],runs[i].getThrE()[iSector],(effd-(mean-sigma))*100.,((mean+sigma)-effd)*100.);
+        efficiencyIthrVcasn[iSector]->SetPoint(efficiencyIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),effd*100);
+        nTrIthrVcasn[iSector]->SetPoint(nTrIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),nTrd);
+        nTrpAIthrVcasn[iSector]->SetPoint(nTrpAIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),nTrpAd);
+//        efficiencyIthr[iSector]->SetPoint(efficiencyIthr[iSector]->GetN(),runs[i].getIthr(),effd*100.); 
+//        efficiencyIthr[iSector]->SetPointError(efficiencyIthr[iSector]->GetN()-1,0,0,(effd-(mean-sigma))*100.,((mean+sigma)-effd)*100.);
+      }
+//      else cerr << runs[i].getRunNumber() << "\t" << iSector << endl;
+    }
+  }
+
+
+  for (int i=0;i<nRun;i++)
+  {
+    if (!runs[i].isNoise()) continue;
+    if (Skip(runs[i].getRunNumber())) continue;
+    string fileName = outputFolder +  Form("/run%06d/histogram/run%06d-noise.root",runs[i].getRunNumber(),runs[i].getRunNumber());
+    TFile* histFile = new TFile(fileName.c_str(),"READONLY");
+    if (!histFile || histFile->IsZombie())
+      continue;
+//    if (runs[i].getRunNumber() < 725) dut = 4;
+//    else if (runs[i].getRunNumber() < 896) dut = 3;
+//    else dut = 2;
+    noiseOccupancyBeforeRemovalFromNoiseHisto = (TH1F*)histFile->Get(Form("noiseOccupancy_%d",dut));
+    noiseOccupancyAfterRemovalFromNoiseHisto = (TH1F*)histFile->Get(Form("noiseOccupancyAfterRemoval_%d",dut));
+//    noiseOccupancyAfterRemovalFromNoiseHisto = CalculateNoiseFromNoise(dut,runs[i].getRunNumber());
+    for (int iSector=0; iSector<4; iSector++)
+    {
+      if (noiseOccupancyBeforeRemovalFromNoiseHisto->GetBinContent(iSector+1) == 0) continue;
+      noiseOccupancyBeforeRemovalThrFromNoise[iSector]->SetPoint(noiseOccupancyBeforeRemovalThrFromNoise[iSector]->GetN(),runs[i].getThr()[iSector],noiseOccupancyBeforeRemovalFromNoiseHisto->GetBinContent(iSector+1));
+      noiseOccupancyBeforeRemovalThrFromNoise[iSector]->SetPointError(noiseOccupancyBeforeRemovalThrFromNoise[iSector]->GetN()-1,runs[i].getThrE()[iSector],noiseOccupancyBeforeRemovalFromNoiseHisto->GetBinError(iSector+1));
+      noiseOccupancyBeforeRemovalIthrVcasnFromNoise[iSector]->SetPoint(noiseOccupancyBeforeRemovalIthrVcasnFromNoise[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),noiseOccupancyBeforeRemovalFromNoiseHisto->GetBinContent(iSector+1));
+      noiseOccupancyBeforeRemovalIthrVcasnFromNoise[iSector]->SetPointError(noiseOccupancyBeforeRemovalIthrVcasnFromNoise[iSector]->GetN()-1,0,0,noiseOccupancyBeforeRemovalFromNoiseHisto->GetBinError(iSector+1));
+      noiseOccupancyAfterRemovalThrFromNoise[iSector]->SetPoint(noiseOccupancyAfterRemovalThrFromNoise[iSector]->GetN(),runs[i].getThr()[iSector],noiseOccupancyAfterRemovalFromNoiseHisto->GetBinContent(iSector+1));
+      noiseOccupancyAfterRemovalThrFromNoise[iSector]->SetPointError(noiseOccupancyAfterRemovalThrFromNoise[iSector]->GetN()-1,runs[i].getThrE()[iSector],noiseOccupancyAfterRemovalFromNoiseHisto->GetBinError(iSector+1));
+      noiseOccupancyAfterRemovalIthrVcasnFromNoise[iSector]->SetPoint(noiseOccupancyAfterRemovalIthrVcasnFromNoise[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),noiseOccupancyAfterRemovalFromNoiseHisto->GetBinContent(iSector+1));
+      noiseOccupancyAfterRemovalIthrVcasnFromNoise[iSector]->SetPointError(noiseOccupancyAfterRemovalIthrVcasnFromNoise[iSector]->GetN()-1,0,0,noiseOccupancyAfterRemovalFromNoiseHisto->GetBinError(iSector+1));
+//      noiseOccupancyAfterRemovalFromNoiseIthr[iSector]->SetPoint(noiseOccupancyAfterRemovalFromNoiseIthr[iSector]->GetN(),runs[i].getIthr(),noiseOccupancyAfterRemovalFromNoiseHisto->GetBinContent(iSector+1));
+//      noiseOccupancyAfterRemovalFromNoiseIthr[iSector]->SetPointError(noiseOccupancyAfterRemovalFromNoiseIthr[iSector]->GetN()-1,0,noiseOccupancyAfterRemovalFromNoiseHisto->GetBinError(iSector+1));
+    }
+  }
+  string outputFileName;
+  string BBStr, irrStr, firstRunStr, lastRunStr, pointingResStr;
+  BBStr = Form("%0.f", globalBB);
+  irrStr = Form("%d", globalIrr);
+  firstRunStr = Form("%d", firstRun);
+  lastRunStr = Form("%d", lastRun);
+  pointingResStr = Form("%.2f", pointingRes);
+//  char BBStr [33];
+//  snprintf(BBStr, sizeof(BBStr), "%d", globalBB);
+//  char irrStr [33];
+//  snprintf(irrStr, sizeof(irrStr), "%d", globalIrr);
+//  ostringstream firstRunStr;
+//  firstRunStr << firstRun;
+//  ostringstream lastRunStr;
+//  lastRunStr << lastRun;
+//  ostringstream pointingResStr;
+//  pointingResStr << pointingRes;
+  outputFileName = outputFolder + "/graphs";
+  if (globalFileInfo != "") outputFileName += "_" + globalFileInfo;
+  if (globalBB != -100) outputFileName += "_BB" + BBStr + "V";
+  if (globalIrr != -100) outputFileName += "_Irr" + irrStr;
+  outputFileName += "_" + firstRunStr + "-" + lastRunStr + "_PR" + pointingResStr + "um.root";
+  cerr << outputFileName << endl;
+//  cerr << fileName << endl;
+  TFile* outputFile = new TFile(outputFileName.c_str(),"RECREATE");
+  Write(noiseOccupancyBeforeRemovalThr, "noiseOccupancyThr");
+  Write(noiseOccupancyBeforeRemovalIthrVcasn, "noiseOccupancyIthrVcasn2D");
+//  Write(noiseOccupancyAfterRemovalThr, "noiseOccupancyAfterRemovalThr");
+//  Write(noiseOccupancyAfterRemovalIthr, "noiseOccupancyAfterRemovalIthr");
+  Write(noiseOccupancyBeforeRemovalThrFromNoise, "noiseOccupancyBeforeRemovalFromNoiseThr");
+  Write(noiseOccupancyBeforeRemovalIthrVcasnFromNoise, "noiseOccupancyBeforeRemovalFromNoiseIthrVcasn2D");
+  Write(noiseOccupancyAfterRemovalThrFromNoise, "noiseOccupancyAfterRemovalFromNoiseThr");
+  Write(noiseOccupancyAfterRemovalIthrVcasnFromNoise, "noiseOccupancyAfterRemovalFromNoiseIthrVcasn2D");
+//  Write(noiseOccupancyAfterRemovalFromNoiseIthr, "noiseOccupancyAfterRemovalFromNoiseIthr");
+  Write(efficiencyThr,"efficiencyThr");
+//  Write(efficiencyIthr,"efficiencyIthr");
+  Write(efficiencyIthrVcasn,"efficiencyIthrVcasn2D");
+  Write(nTrIthrVcasn,"nTrIthrVcasn2D");
+  Write(nTrpAIthrVcasn,"nTrpAIthrVcasn2D");
+  Write(clusterSizeThr,"clusterSizeThr");
+  Write(clusterSizeIthrVcasn,"clusterSizeIthrVcasn2D");
+//  Write(clusterSizeIthr,"clusterSizeIthr");
+//  Write(residualXThr,"residualXThr");
+//  Write(residualYThr,"residualYThr");
+  Write(residualThr,"residualThr");
+  Write(residualIthrVcasn,"residualIthrVcasn2D");
+//  Write(resolutionXThr,"resolutionXThr");
+//  Write(resolutionYThr,"resolutionYThr");
+  Write(resolutionThr,"resolutionThr");
+  Write(resolutionIthrVcasn,"resolutionIthrVcasn2D");
+//  Write(resolutionIthr,"resolutionIthr");
+  outputFile->Close();
+//  WriteTextFile(efficiencyThr,"efficiency");
+//  WriteTextFile(noiseOccupancyAfterRemovalThr, "noiseOccupancy");
+
+}
+
+void WriteGraph_old(string outputFolder, int dut, int firstRun, int lastRun, string toSkip, double pointingRes, string settingsFileFolder)
+{
+  double globalBB;
+  int globalIrr;
+  string globalFileInfo;
+  lowestRunNumber = firstRun;
+  highestRunNumber = lastRun;
+  toSkipV.clear();
+  std::istringstream toSkipIs(toSkip);
+  string toSkip1;
+  while( toSkipIs >> toSkip1)
+  {
+    size_t intervalPos = toSkip1.find("-");
+    if (intervalPos == string::npos)
+    {
+      int toSkipInt = 0;
+      std::istringstream toSkipIs1(toSkip1);
+      toSkipIs1 >>toSkipInt;
+      toSkipV.push_back(toSkipInt);
+    }
+    else 
+    {
+      int lower = 0;
+      std::istringstream lowerIs(toSkip1.substr(0,intervalPos));
+      lowerIs >> lower;
+      int higher = 0;
+      std::istringstream higherIs(toSkip1.substr(intervalPos+1)); 
+      higherIs >> higher;
+      if (lower > higher) cerr << "Wrong order for runs to be skipped" << endl;
+      for (int i=lower; i<=higher; i++)
+        toSkipV.push_back(i);
+    }    
+  }
+  std::map<int,int> runNumberConvert;
+  vector<Run> runs;
+  Run run;
+  int tmp = 0;
+  ifstream settingsFile;
+  string settingsFileName;
+  if (settingsFileFolder.compare("") == 0) settingsFileName = outputFolder + Form("/settings_DUT%d.txt",dut);
+  else settingsFileName = settingsFileFolder + Form("/settings_DUT%d.txt",dut);
   settingsFile.open(settingsFileName.c_str());
   string line;
   getline(settingsFile,line);
@@ -151,7 +688,7 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
       cerr << "Couldn't decide if run " << runNumber << " is noise or data, skipping it" << endl;
       continue;
     }
-    run.Set(runNumber,vcasn,vaux,vcasp,vreset,ithr,thr,thrE,noise,noiseE,BB,irr,chipID,readoutDelay,triggerDelay,strobeLength,strobeBLength,isNoise);
+    run.Set(runNumber,vcasn,vaux,vcasp,vreset,ithr,-1,thr,thrE,noise,noiseE,BB,irr,chipID,readoutDelay,triggerDelay,strobeLength,strobeBLength,isNoise);
     runs.push_back(run);
     cout << runs[tmp].getRunNumber() << " (" << tmp << ") : " << runs[tmp].getVcasn() << "\t" << runs[tmp].getIthr() << "\t" << runs[tmp].getBB() << "\t" << runs[tmp].isNoise() << endl;
     tmp++;
@@ -523,8 +1060,8 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
   cerr << outputFileName << endl;
 //  cerr << fileName << endl;
   TFile* outputFile = new TFile(outputFileName.c_str(),"RECREATE");
-  Write(noiseOccupancyBeforeRemovalThr, "noiseOccupancyBeforeRemovalThr");
-  Write(noiseOccupancyBeforeRemovalIthrVcasn, "noiseOccupancyBeforeRemovalIthrVcasn2D");
+  Write(noiseOccupancyBeforeRemovalThr, "noiseOccupancyThr");
+  Write(noiseOccupancyBeforeRemovalIthrVcasn, "noiseOccupancyIthrVcasn2D");
 //  Write(noiseOccupancyAfterRemovalThr, "noiseOccupancyAfterRemovalThr");
 //  Write(noiseOccupancyAfterRemovalIthr, "noiseOccupancyAfterRemovalIthr");
   Write(noiseOccupancyBeforeRemovalThrFromNoise, "noiseOccupancyBeforeRemovalFromNoiseThr");
