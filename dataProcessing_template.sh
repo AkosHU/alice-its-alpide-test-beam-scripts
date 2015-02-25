@@ -19,6 +19,15 @@ re='^[0-9]+$'
 
 fileFound=0
 
+# check whether we can use slurm
+command -v sbatch >/dev/null 2>&1
+if [[ "$?" -eq 0 ]]
+then
+  CMD_PREFIX=srun
+else
+  CMD_PREFIX=
+fi
+
 IFS=$'\n'
 for line in $(cat $settingsFile)
 do
@@ -76,7 +85,7 @@ do
   git diff   >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
   git log -1 >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
   if [ "$1" != "DEBUG" ]; then
-    ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1 &
+    $CMD_PREFIX ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1 & 
     fileFound=1
     sleep 5
   elif [ "$#" -eq 2 ]; then
