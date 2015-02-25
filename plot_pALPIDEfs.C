@@ -546,7 +546,7 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
 
 }
 
-void WriteGraph_old(string outputFolder, int dut, int firstRun, int lastRun, string toSkip, double pointingRes, string settingsFileFolder)
+void WriteGraph_old(string outputFolder, int dut, int firstRun, int lastRun, string toSkip, double pointingRes, string settingsFileFolder, string efficiencyFileFolder)
 {
   double globalBB;
   int globalIrr;
@@ -749,7 +749,9 @@ void WriteGraph_old(string outputFolder, int dut, int firstRun, int lastRun, str
 //    efficiencyIthr[i] = new TGraphAsymmErrors;
   }
   ifstream efficiencyFile;
-  string efficiencyFileName = settingsFileFolder + Form("efficiency_DUT%d.dat",dut);
+  string efficiencyFileName;
+  if (efficiencyFileFolder.compare("") == 0) efficiencyFileName = outputFolder + Form("/efficiency_DUT%d.dat",dut);
+  else efficiencyFileName = efficiencyFileFolder + Form("/efficiency_DUT%d.dat",dut);
   efficiencyFile.open(efficiencyFileName.c_str());
 //  getline(efficiencyFile,line);
   while (!efficiencyFile.eof())

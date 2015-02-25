@@ -127,7 +127,7 @@ TH1F* CalculateNoise(int dut, int run);
 TH1F* CalculateNoiseFromNoise(int dut, int run);
 
 void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string toSkip="", double pointingRes=0, string settingsFileFolder="");
-void WriteGraph_old(string outputFolder, int dut, int firstRun, int lastRun, string toSkip="", double pointingRes=0, string settingsFileFolder="");
+void WriteGraph_old(string outputFolder, int dut, int firstRun, int lastRun, string toSkip="", double pointingRes=0, string settingsFileFolder="", string efficiencyFileFolder="");
 
 void compareDifferentGraphs(string files, string hist, const char* yTitle1, const char* yTitle2,const char* xTitle, const char* legend, double y1low=1e-11, double y1high=1e-3, double line1=1e-5, double y2low=92, double y2high=100.1, double line2=99, double xlow=85, double xhigh=195, bool log1=false, bool log2=false);
 void compareDifferentGraphs2D(string files, string hist, int sector, bool IthrVcasn, double IthrVcasnValue, bool BB=true, bool irr=true, bool chip=true, bool rate=false);
