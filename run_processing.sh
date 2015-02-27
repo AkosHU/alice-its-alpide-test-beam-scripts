@@ -1,7 +1,25 @@
 #! /bin/bash
+#
+#  1: run number
+#  2: first DUT id
+#  3: last DUT id
+#  4: settings file
+#  5: output folder
+#  6: input data folder
+#  7: number of planes in the telescope
+#  8: config file
+#  9: chip type (0: pALPIDE(fs) , 1: pALPIDEss)
+# 10: alignment method (0 common alignment, 1: run-by-run alignment)
+# 11: Prcoessing type: DEBUG (all temporary output is kept), REPROCESS
+
+# TODO assign names to the variables
+
 sed -i '/'$1'/d' $5/../analysis.log
 echo -n -e "\n""Processing run"  $1 "\n" >> $5/../analysis.log
 nativeFolder=$6
+if [ -n $SLURM_JOB_ID ]; then
+    echo $SLURM_JOB_ID > $5/slurm_job_id.txt
+fi
 if (( $9 == 1)); then
   if [ "${11}" == "DEBUG" ] && [ -a `printf $5/run"%06d".raw $1` ]; then
     rm -r `printf $5/run"%06d".raw $1`
@@ -117,7 +135,7 @@ else
     then
       echo "Alignment file doesn't exist" >> $5/analysis.log
       echo "Alignment file doesn't exist for run" $1 >> $5/../analysis.log
-      echo "Please create align file named align_FirstRunItIsToBeUsed-LastRunItIsToBeUsed.slcio or use run_pALPIDEfs_PS_7_wAlign to do alignment for all runs separately" >> $5/analysis.log 
+      echo "Please create align file named align_FirstRunItIsToBeUsed-LastRunItIsToBeUsed.slcio or use run_pALPIDEfs_PS_7_wAlign to do alignment for all runs separately" >> $5/analysis.log
       exit 1
     fi
   fi
@@ -166,7 +184,7 @@ else
     ./run_align_7 $1 $4 $5 $8 ${exludedPlanes[0]} ${exludedPlanes[1]}
     error=`echo $?`
     if (($error > 0))
-    then 
+    then
       exit 1
     fi
   fi
@@ -226,7 +244,7 @@ else
     if ! [ -f $5/../settings_DUT$i.txt ]; then
       cat $5/settings_DUT$i.txt > $5/../settings_DUT$i.txt
     else
-      tail -n 1 $5/settings_DUT$i.txt >> $5/../settings_DUT$i.txt  
+      tail -n 1 $5/settings_DUT$i.txt >> $5/../settings_DUT$i.txt
     fi
     sed -i 's/nan/0/g' $5/../settings_DUT$i.txt
     cd $5/logs/
@@ -236,7 +254,7 @@ else
       efficiencies=`awk '/Overall efficiency of pALPIDEfs sectors/{x=NR+4;next}(NR<=x){print}' $analysisName | sed -n -e 's/^.*\[ MESSAGE4 \"Analysis\"\] //p'`
       rm *.log *.xml
       cd -
-      echo "Efficiencies of the four sectors in DUT" $i":" >> $5/analysis.log 
+      echo "Efficiencies of the four sectors in DUT" $i":" >> $5/analysis.log
       effArray=($efficiencies)
 #      sed -i '/^'$1' $/{N; N; N; N; d;}' $5/../efficiency_DUT$i.dat
 #      echo -n -e $1 "\n" >> $5/../efficiency"_DUT"$i.dat
