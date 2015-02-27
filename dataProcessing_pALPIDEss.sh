@@ -19,6 +19,15 @@ re='^[0-9]+$'
 
 fileFound=0
 
+# check whether we can use slurm
+command -v sbatch >/dev/null 2>&1
+if [[ "$?" -eq 0 ]]
+then
+  CMD_PREFIX=srun
+else
+  CMD_PREFIX=
+fi
+
 IFS=$'\n'
 for line in $(cat $settingsFile)
 do
@@ -31,6 +40,10 @@ do
   fi
   if ! [ -f `printf $rawDataFolder/run"%06d".raw ${input[0]}` ]; then
     continue
+  fi
+  if [ "$#" -gt 0 ] && ! [ "$1" == "REPROCESS" ] && ! [ "$1" == "DEBUG" ] && ! [ "$1" == "ALIGN" ]; then
+    echo "Not a valid option! Choose between REPROCESS, DEBUG, ALIGN or nothing"
+    exit 1
   fi
   if [ -d `printf $outputFolder/run"%06d" ${input[0]}` ] && ! [ "$1" == "REPROCESS" ] && ! [ "$1" == "DEBUG" ] && ! [ "$1" == "ALIGN" ] ; then
     continue
@@ -76,11 +89,11 @@ do
   git diff   >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
   git log -1 >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
   if [ "$1" != "DEBUG" ]; then
-    srun ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1 &
+    $CMD_PREFIX ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1 &
     fileFound=1
     sleep 5
   elif [ "$#" -eq 2 ]; then
-    srun ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1
+    ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1
     fileFound=1
   else
     argArr1=(converter deadColumn hotpixel clustering hitmaker prealign align fitter analysis noise)
