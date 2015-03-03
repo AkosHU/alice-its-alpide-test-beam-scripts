@@ -91,7 +91,7 @@ else
         if (($last>=$1)); then
           if (($prealignExists==1)); then
             echo "More than one possible prealign files were found, please keep only one prealignment and one alignment file for each run" >> $5/analysis.log
-            echo "More than one possible prealign files were found for run" $1 >> analysis.log
+            echo "More than one possible prealign files were found for run" $1 >> $5/../analysis.log
             exit 1
           fi
           firstFinal=$first
@@ -106,7 +106,7 @@ else
     if (($prealignExists == 0))
     then
       echo "Prealignment file doesn't exist" >> $5/analysis.log
-      echo "Prealignment file doesn't exist for run" $1 >> analysis.log
+      echo "Prealignment file doesn't exist for run" $1 >> $5/../analysis.log
       echo "Please create prealign file named prealign_FirstRunItIsToBeUsed-LastRunItIsToBeUsed.slcio or use run_pALPIDEfs_PS_7_wAlign to do alignment for all runs separately" >> $5/analysis.log
       exit 1
     fi
@@ -116,7 +116,7 @@ else
     if (($error > 0))
     then
       echo "Alignment file doesn't exist" >> $5/analysis.log
-      echo "Alignment file doesn't exist for run" $1 >> analysis.log
+      echo "Alignment file doesn't exist for run" $1 >> $5/../analysis.log
       echo "Please create align file named align_FirstRunItIsToBeUsed-LastRunItIsToBeUsed.slcio or use run_pALPIDEfs_PS_7_wAlign to do alignment for all runs separately" >> $5/analysis.log 
       exit 1
     fi
@@ -184,6 +184,8 @@ else
     echo At least one plane is too noisy run $1 > $5/../analysis.log
     exit 1
   fi
+  minTimeStamp=`cat $clusteringLogName |  sed -n -e "s/^.*Maximum of the time stamp histo is at //p" | bc -l`
+  minTimeStamp=`echo "$minTimeStamp+2400" | bc -l`
   rm *.log *.xml
   cd -
   $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 hitmaker $1
@@ -220,7 +222,7 @@ else
     if [ -f $5/settings_DUT$i.txt ]; then
       sed -i '/^'$1'/d' $5/settings_DUT$i.txt
     fi
-    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option dutID="$i" --config=$8 -csv $4 analysis $1
+    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option dutID="$i" --option MinTimeStamp=$minTimeStamp --config=$8 -csv $4 analysis $1
     if ! [ -f $5/../settings_DUT$i.txt ]; then
       cat $5/settings_DUT$i.txt > $5/../settings_DUT$i.txt
     else
