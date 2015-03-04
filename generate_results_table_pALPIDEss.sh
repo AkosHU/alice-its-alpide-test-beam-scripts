@@ -15,6 +15,8 @@ if [ -z "$EUTELESCOPE" ]; then
   source ../v01-17-05/Eutelescope/trunk/build_env.sh #Change to your EUTelescope folder if you changed the folder structure with respest to the default after installing
 fi
 
+echo "#Run number;Energy;Chip ID;Irradiation level(0-nonIrradiated,1-2.5e12,2-1e13,3-700krad,4-combined:1e13+700krad);Rate;Vbb;Ithr;Vcasn;Vcasp;Vrst;Vlight;Trigger delay;Acq time; Data (1) or noise (0);Efficiency;Number of tracks;Number of tracks with associated hit;Config Filename" > ${resultsTable}
+
 for r in $(seq ${runFirst} ${runLast})
 do
     rStr=$(printf "run%06d" $r)
@@ -35,6 +37,9 @@ do
         case $subStr in
             "Vbb="*)
                 vbb=${subStr:4}
+                ;;
+            "Ithr="*)
+                ithr=${subStr:5}
                 ;;
             "Vcasn="*)
                 vcasn=${subStr:6}
@@ -74,5 +79,5 @@ do
     #echo ${acqTime}
     #echo ${trigDelay}
     #echo ${config}
-    echo ${r},${energy},${dut},${radLevel},${rate},${vbb},${vcasn},${vcasp},${vrst},${vlight},${trigDelay},${acqTime},1,${efficiency},${refTracks},${matchedTracks},${config} >> ${resultsTable}
+    echo ${r}";"${energy}";"${dut}";"${radLevel}";"${rate}";"${vbb}";"${ithr}";"${vcasn}";"${vcasp}";"${vrst}";"${vlight}";"${trigDelay}";"${acqTime}";"1";"${efficiency}";"${refTracks}";"${matchedTracks}";"${config} >> ${resultsTable}
 done
