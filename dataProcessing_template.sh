@@ -169,21 +169,22 @@ if [ "$1" == "ALIGN" ]; then
   mkdir `printf $outputFolder/run"%06d"-"%06d" $3 $4` `printf $outputFolder/run"%06d"-"%06d"/histogram $3 $4` `printf $outputFolder/run"%06d"-"%06d"/lcio $3 $4` `printf $outputFolder/run"%06d"-"%06d"/database $3 $4` `printf $outputFolder/run"%06d"-"%06d"/logs $3 $4`
   cd $EUTELESCOPE
   echo "EUTELESCOPE: " > `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
-  git status >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
-  git diff   >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
-  git log -1 >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
+  git status >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
+  git diff   >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
+  git log -1 >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
   cd -
   cd $EUDAQ
   echo -e "\n \n \n \nEUDAQ" >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
-  git status >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
-  git diff   >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
-  git log -1 >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
+  git status >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
+  git diff   >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
+  git log -1 >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
   cd -
   echo -e "\n \n\n \npalpidefs_scripts:" >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
-  git status >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
-  git diff   >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
-  git log -1 >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
+  git status >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
+  git diff   >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
+  git log -1 >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
   ./run_createAlign $2 $settingsFile `printf $outputFolder/run"%06d"-"%06d" $3 $4` $rawDataFolder $configFile $3 $4
+
   fileFound=1
 fi
 

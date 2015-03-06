@@ -1,5 +1,5 @@
 #! /bin/bash
-echo -n -e "\n""Processing runs" $1 for align "\n" >> analysis.log
+echo -n -e "\n""Processing runs" $1 for align "\n" >> $3/../../analysis.log
 $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$3/database --option HistogramPath=$3/histogram --option LcioPath=$3/lcio --option LogPath=$3/logs --option NativePath=$4 --config=$5 -csv $2 converter $1
 IFS=' ' read -ra runs <<< "$1"
 for ((iRun=0; iRun<${#runs[@]}; iRun++)) do
@@ -45,5 +45,5 @@ mv `printf $3/database/run"%06d"-alignment.slcio ${runsGood[0]}` $3/../../align_
 echo Prelign file moved to $3/../../prealign_$6-$7.slcio >> $3/analysis.log
 echo Align file moved to $3/../../align_$6-$7.slcio >> $3/analysis.log
 echo "Finished aligning successfully" >> $3/analysis.log
-echo "Finished aligning runs" $1 "successfully"  >> analysis.log
+echo "Finished aligning runs" $1 "successfully"  >> $3/../../analysis.log
 rm -r $3/lcio/ $3/database/
