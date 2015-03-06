@@ -50,7 +50,7 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
   int tmp = 0;
   ifstream settingsFile;
   string settingsFileName;
-  if (settingsFileFolder.compare("") == 0) {cerr << "if" << endl; settingsFileName = outputFolder + Form("/settings_DUT%d.txt",dut);}
+  if (settingsFileFolder.compare("") == 0) settingsFileName = outputFolder + Form("/settings_DUT%d.txt",dut);
   else settingsFileName = settingsFileFolder + Form("/settings_DUT%d.txt",dut);
   settingsFile.open(settingsFileName.c_str());
   string line;
@@ -167,7 +167,7 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
     }
     bool isNoise = true;
     if (isData == 1) {isNoise = false;}
-    run.Set(runNumber,vcasn,vaux,vcasp,vreset,ithr,idb,thr,thrE,noise,noiseE,BB,irr,chipID,readoutDelay,triggerDelay,strobeLength,strobeBLength,isNoise);
+    run.Set(runNumber,vcasn,vaux,vcasp,vreset,ithr,idb,thr,thrE,noise,noiseE,BB,irr,chipID,readoutDelay,triggerDelay,strobeLength,strobeBLength,isNoise,nEvent);
     run.setEff(eff);
     run.setnTr(nTrack);
     run.setnTrpA(nTrackFound);
@@ -248,6 +248,7 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
 //  vector<TGraphErrors*> resolutionIthr(4);
   TH1* noiseOccupancyBeforeRemovalHisto;
 //  TH1* noiseOccupancyAfterRemovalHisto;
+  TH2* fakeHitHistoFromNoise;
   TH1* noiseOccupancyBeforeRemovalFromNoiseHisto;
   TH1* noiseOccupancyAfterRemovalFromNoiseHisto;
   vector<TGraphErrors*> noiseOccupancyBeforeRemovalThr(4);
@@ -417,6 +418,7 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
       if (runs[j].isNoise()) continue;
       if (runs[i].equalSettings(runs[j])) 
       {
+//        cerr << runs[i].getRunNumber() << "\t" << runs[j].getRunNumber() << endl;
         vector<double> nTr(4), nTrpA(4);
         for (int iSector=0; iSector<4; iSector++)
         {
@@ -472,8 +474,9 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
 //    else if (runs[i].getRunNumber() < 896) dut = 3;
 //    else dut = 2;
     noiseOccupancyBeforeRemovalFromNoiseHisto = (TH1F*)histFile->Get(Form("noiseOccupancy_%d",dut));
-    noiseOccupancyAfterRemovalFromNoiseHisto = (TH1F*)histFile->Get(Form("noiseOccupancyAfterRemoval_%d",dut));
-//    noiseOccupancyAfterRemovalFromNoiseHisto = CalculateNoiseFromNoise(dut,runs[i].getRunNumber());
+    fakeHitHistoFromNoise = (TH2I*)histFile->Get(Form("noiseMap_%d",dut));
+//    noiseOccupancyAfterRemovalFromNoiseHisto = (TH1F*)histFile->Get(Form("noiseOccupancyAfterRemoval_%d",dut));
+    noiseOccupancyAfterRemovalFromNoiseHisto = CalculateNoiseFromNoise(fakeHitHistoFromNoise,i,runs);
     for (int iSector=0; iSector<4; iSector++)
     {
       if (noiseOccupancyBeforeRemovalFromNoiseHisto->GetBinContent(iSector+1) == 0) continue;
@@ -688,7 +691,7 @@ void WriteGraph_old(string outputFolder, int dut, int firstRun, int lastRun, str
       cerr << "Couldn't decide if run " << runNumber << " is noise or data, skipping it" << endl;
       continue;
     }
-    run.Set(runNumber,vcasn,vaux,vcasp,vreset,ithr,-1,thr,thrE,noise,noiseE,BB,irr,chipID,readoutDelay,triggerDelay,strobeLength,strobeBLength,isNoise);
+    run.Set(runNumber,vcasn,vaux,vcasp,vreset,ithr,-1,thr,thrE,noise,noiseE,BB,irr,chipID,readoutDelay,triggerDelay,strobeLength,strobeBLength,isNoise,0);
     runs.push_back(run);
     cout << runs[tmp].getRunNumber() << " (" << tmp << ") : " << runs[tmp].getVcasn() << "\t" << runs[tmp].getIthr() << "\t" << runs[tmp].getBB() << "\t" << runs[tmp].isNoise() << endl;
     tmp++;
@@ -1303,19 +1306,9 @@ TH1F* CalculateNoise(int dut, int run)
 //  }
 }
 
-TH1F* CalculateNoiseFromNoise(int dut, int run) 
+TH1F* CalculateNoiseFromNoise(TH2* fakeHitHisto, int runNumberIndex, vector<Run> runs) 
 {
-  string line;
-  ifstream nEventFile;
-  nEventFile.open ("./nEventFromNoise.dat");
-  getline(nEventFile,line);
-  int runNumber=0, nEvent=0;
-  while (!nEventFile.eof())
-  {
-    nEventFile >> runNumber >> nEvent;
-    if (runNumber == run) break;
-  }
-//  cerr << nEventWithTrack << endl;
+  int nEvent = runs[runNumberIndex].getnEvent();
 #if DEBUG
   TH1* noiseOccupancyBeforeRemovalHisto;
   TH1F* noiseOccupancyAfterRemovalHisto;
@@ -1324,134 +1317,119 @@ TH1F* CalculateNoiseFromNoise(int dut, int run)
   TH1F* removedPixelsHisto2 = new TH1F("removedPixelsHisto2","removedPixelsHisto2",4,0,4);
 #endif
   TH1F* noiseOccupancyAfterRemovalHisto2 = new TH1F("noiseOccupancyAfterRemovalHisto2","noiseOccupancyAfterRemovalHisto2",4,0,4);
-  TH1F* noiseOccupancyAfterRemovalHisto3 = new TH1F("noiseOccupancyAfterRemovalHisto2","noiseOccupancyAfterRemovalHisto2",4,0,4);
-  TH2* fakeHitHisto;
+  TH1F* noiseOccupancyAfterRemovalHisto3 = new TH1F("noiseOccupancyAfterRemovalHisto3","noiseOccupancyAfterRemovalHisto3",4,0,4);
   TH1I* firingFrequency[4];
   for (int i=0; i<4; i++)
   {
     firingFrequency[i] = new TH1I(Form("firingFrequency_%d",i),Form("firingFrequency_%d",i),1000,0,1);
   }
-    const char * fileName;
-    fileName = Form("./histogram/run%06d-noise.root",run);
-    TFile* histFile = new TFile(fileName,"READONLY");
-    if (!histFile || histFile->IsZombie())
-      return 0;
-#if DEBUG
-    noiseOccupancyBeforeRemovalHisto = (TH1F*)histFile->Get(Form("noiseOccupancy_%d",dut));
-    noiseOccupancyAfterRemovalHisto = (TH1F*)histFile->Get(Form("noiseOccupancyAfterRemoval_%d",dut));
-#endif
-    int noiseWithRemove2[4] = {0};
-    int removedPixels2[4] = {0};
-    fakeHitHisto = (TH2I*)histFile->Get(Form("noiseMap_%d",dut));
-    int noise[4] = {0};
-    int noiseWithRemove[4] = {0};
-    for (int x=0; x<fakeHitHisto->GetNbinsX(); x++)
-    {
-      int index = -1;
-      for (int iSector=0; iSector<4; iSector++)
-        if (x>=1024/4.*iSector && x<1024/4.*(iSector+1))
-        {
-          index = iSector;
-          break;
-        }
-      if (index == -1) {cerr << x << endl; continue;}
-      for (int y=0; y<fakeHitHisto->GetNbinsY(); y++)
+  int maxNPixels = 20;
+  int noiseWithRemove2[4] = {0};
+  int removedPixels2[4] = {0};
+  int noise[4] = {0};
+  int noiseWithRemove[4] = {0};
+  for (int x=0; x<fakeHitHisto->GetNbinsX(); x++)
+  {
+    int index = -1;
+    for (int iSector=0; iSector<4; iSector++)
+      if (x>=1024/4.*iSector && x<1024/4.*(iSector+1))
       {
-        if (fakeHitHisto->GetBinContent(x,y)!=0)
-          firingFrequency[index]->Fill((double)fakeHitHisto->GetBinContent(x,y)/nEvent);
-        if ((double)fakeHitHisto->GetBinContent(x,y)/nEvent < 0.01)
-          noiseWithRemove[index] += fakeHitHisto->GetBinContent(x,y);
+        index = iSector;
+        break;
+      }
+    if (index == -1) {cerr << x << endl; continue;}
+    for (int y=0; y<fakeHitHisto->GetNbinsY(); y++)
+    {
+      if (fakeHitHisto->GetBinContent(x,y)!=0)
+        firingFrequency[index]->Fill((double)fakeHitHisto->GetBinContent(x,y)/nEvent);
+      if ((double)fakeHitHisto->GetBinContent(x,y)/nEvent < 0.01)
+        noiseWithRemove[index] += fakeHitHisto->GetBinContent(x,y);
 #if DEBUG
-        else
-          removedPixelsHisto->Fill(index);
+      else
+        removedPixelsHisto->Fill(index);
 #endif
-        noise[index] += fakeHitHisto->GetBinContent(x,y);
+      noise[index] += fakeHitHisto->GetBinContent(x,y);
+    }
+  }
+ 
+  for (int iSector=0; iSector<4; iSector++)
+    noiseWithRemove2[iSector] = noise[iSector];
+  int index = -1;
+  bool lowEnough[4] = {false};
+  for (int iSector=0; iSector<4; iSector++)
+    if (!lowEnough[iSector] && noiseWithRemove2[iSector] == 0) {/*cerr << iSector << "done" << endl;*/ lowEnough[iSector] = true;}
+  while (1)
+  {
+    int x=0, y=0, z=0;
+    fakeHitHisto->GetBinXYZ(fakeHitHisto->GetMaximumBin(),x,y,z);
+    for (int iSector=0; iSector<4; iSector++)
+    {
+      if (x>=256*iSector && x<256*(iSector+1))
+      {
+        index = iSector;
+        break;
       }
     }
- 
-//#if DEBUG
-   for (int iSector=0; iSector<4; iSector++)
-      noiseWithRemove2[iSector] = noise[iSector];
-    int index = -1;
-    bool lowEnough[4] = {false};
-    for (int iSector=0; iSector<4; iSector++)
-      if (!lowEnough[iSector] && noiseWithRemove2[iSector] == 0) {/*cerr << iSector << "done" << endl;*/ lowEnough[iSector] = true;}
-    while (1)
+    if (index == -1) {cerr << x << endl; continue;}
+    if (!lowEnough[index] && removedPixels2[index] < maxNPixels)// && (double)noiseWithRemove2[index]/nEvent/131072 > 1e-8)
     {
-      int x=0, y=0, z=0;
-      fakeHitHisto->GetBinXYZ(fakeHitHisto->GetMaximumBin(),x,y,z);
-      for (int iSector=0; iSector<4; iSector++)
-      {
-        if (x>=256*iSector && x<256*(iSector+1))
-        {
-          index = iSector;
-          break;
-        }
-      }
-      if (index == -1) {cerr << x << endl; continue;}
-      int maxNPixels = 100;
-      if (!lowEnough[index] && removedPixels2[index] < maxNPixels)// && (double)noiseWithRemove2[index]/nEvent/131072 > 1e-8)
-      {
-        noiseWithRemove2[index] -= fakeHitHisto->GetBinContent(x,y);
+      noiseWithRemove2[index] -= fakeHitHisto->GetBinContent(x,y);
 //        cerr << "sector " << index << " lowered by " << fakeHitHisto->GetBinContent(x,y) << endl;
         removedPixels2[index]++;
 //        removedPixelsHisto2->Fill(index);
-      }
-      else if (!lowEnough[index] && removedPixels2[index] >= maxNPixels)
-      {
-        lowEnough[index] = true;
-        cerr << "More than " << maxNPixels << " pixels needed to go below limit in sector " << index << endl;
-//        cerr << index << "done" << endl;
-      }
-      else if (!lowEnough[index])
-      {
-        lowEnough[index] = true; 
-//        cerr << index << "done" << endl;
-      }
-      fakeHitHisto->SetBinContent(x,y,0);
-      if (lowEnough[0] && lowEnough[1] && lowEnough[2] && lowEnough[3]) break;
-//      cerr << x << "\t" << y << "\t" << z << endl;
     }
-#if DEBUG
-    TCanvas* firingFrequencyC = new TCanvas("firingFrequencyC","firingFrequencyC",800,600);
-    firingFrequencyC->Divide(2,2);
-#endif
-    for (int iSector=0; iSector<4; iSector++)
+    else if (!lowEnough[index] && removedPixels2[index] >= maxNPixels)
     {
-#if DEBUG
-      firingFrequencyC->cd(iSector+1)->SetLogy();
-      firingFrequency[iSector]->Draw();
-//      noiseOccupancyBeforeRemovalThr[iSector]->SetPoint(noiseOccupancyBeforeRemovalThr[iSector]->GetN(),runs[i].getThr()[iSector],noiseOccupancyBeforeRemovalHisto->GetBinContent(iSector+1));
-//      noiseOccupancyBeforeRemovalThr[iSector]->SetPointError(noiseOccupancyBeforeRemovalThr[iSector]->GetN()-1,runs[i].getThrE()[iSector],noiseOccupancyBeforeRemovalHisto->GetBinError(iSector+1));
-      noiseOccupancyBeforeRemovalHisto2->SetBinContent(iSector+1,(double)noise[iSector]/nEvent/131072);
-#endif
-      noiseOccupancyAfterRemovalHisto2->SetBinContent(iSector+1,(double)noiseWithRemove[iSector]/nEvent/131072);
-      noiseOccupancyAfterRemovalHisto2->SetBinError(iSector+1,sqrt((double)noiseWithRemove[iSector])/nEvent/131072);
-      noiseOccupancyAfterRemovalHisto3->SetBinContent(iSector+1,(double)noiseWithRemove2[iSector]/nEvent/131072);
-      noiseOccupancyAfterRemovalHisto3->SetBinError(iSector+1,sqrt((double)noiseWithRemove2[iSector])/nEvent/131072);
-#if DEBUG
-      removedPixelsHisto2->SetBinContent(iSector+1,removedPixels2[iSector]);
-#endif
+      lowEnough[index] = true;
+      cerr << "More than " << maxNPixels << " pixels needed to go below limit in sector " << index << endl;
+//        cerr << index << "done" << endl;
     }
+    else if (!lowEnough[index])
+    {
+      lowEnough[index] = true; 
+//        cerr << index << "done" << endl;
+    }
+    fakeHitHisto->SetBinContent(x,y,0);
+    if (lowEnough[0] && lowEnough[1] && lowEnough[2] && lowEnough[3]) break;
+//      cerr << x << "\t" << y << "\t" << z << endl;
+  }
 #if DEBUG
-    TCanvas* noiseOccupancyC = new TCanvas("noiseOccupancyC","noiseOccupancyC",800,600);
-    noiseOccupancyC->SetLogy();
-    noiseOccupancyBeforeRemovalHisto->Draw(); 
-    noiseOccupancyBeforeRemovalHisto2->SetLineColor(2);
-    noiseOccupancyBeforeRemovalHisto2->Draw("SAME");
-    noiseOccupancyAfterRemovalHisto->SetLineColor(1);
-    noiseOccupancyAfterRemovalHisto->Draw("SAME");
-    noiseOccupancyAfterRemovalHisto2->SetLineColor(3);
-    noiseOccupancyAfterRemovalHisto2->Draw("SAME");
-    noiseOccupancyAfterRemovalHisto3->SetLineColor(4);
-    noiseOccupancyAfterRemovalHisto3->Draw("SAME");
-    new TCanvas("removedPixelsC","removedPixelsC",800,600);
-    removedPixelsHisto->Draw();
-    removedPixelsHisto2->SetLineColor(2);
-    removedPixelsHisto2->Draw("SAME");
+  TCanvas* firingFrequencyC = new TCanvas("firingFrequencyC","firingFrequencyC",800,600);
+  firingFrequencyC->Divide(2,2);
+#endif
+  for (int iSector=0; iSector<4; iSector++)
+  {
+#if DEBUG
+    firingFrequencyC->cd(iSector+1)->SetLogy();
+    firingFrequency[iSector]->Draw();
+    noiseOccupancyBeforeRemovalHisto2->SetBinContent(iSector+1,(double)noise[iSector]/nEvent/131072);
+#endif
+    noiseOccupancyAfterRemovalHisto2->SetBinContent(iSector+1,(double)noiseWithRemove[iSector]/nEvent/131072);
+    noiseOccupancyAfterRemovalHisto2->SetBinError(iSector+1,sqrt((double)noiseWithRemove[iSector])/nEvent/131072);
+    noiseOccupancyAfterRemovalHisto3->SetBinContent(iSector+1,(double)noiseWithRemove2[iSector]/nEvent/131072);
+    noiseOccupancyAfterRemovalHisto3->SetBinError(iSector+1,sqrt((double)noiseWithRemove2[iSector])/nEvent/131072);
+#if DEBUG
+    removedPixelsHisto2->SetBinContent(iSector+1,removedPixels2[iSector]);
+#endif
+  }
+#if DEBUG
+  TCanvas* noiseOccupancyC = new TCanvas("noiseOccupancyC","noiseOccupancyC",800,600);
+  noiseOccupancyC->SetLogy();
+  noiseOccupancyBeforeRemovalHisto->Draw(); 
+  noiseOccupancyBeforeRemovalHisto2->SetLineColor(2);
+  noiseOccupancyBeforeRemovalHisto2->Draw("SAME");
+  noiseOccupancyAfterRemovalHisto->SetLineColor(1);
+  noiseOccupancyAfterRemovalHisto->Draw("SAME");
+  noiseOccupancyAfterRemovalHisto2->SetLineColor(3);
+  noiseOccupancyAfterRemovalHisto2->Draw("SAME");
+  noiseOccupancyAfterRemovalHisto3->SetLineColor(4);
+  noiseOccupancyAfterRemovalHisto3->Draw("SAME");
+  new TCanvas("removedPixelsC","removedPixelsC",800,600);
+  removedPixelsHisto->Draw();
+  removedPixelsHisto2->SetLineColor(2);
+  removedPixelsHisto2->Draw("SAME");
 #endif
   return noiseOccupancyAfterRemovalHisto3;
-//  }
 }
 
 void compareDifferentGraphs(string files, string hist, const char* yTitle1, const char* yTitle2,const char* xTitle, const char* legend, double y1low, double y1high, double line1, double y2low, double y2high, double line2, double xlow, double xhigh, bool log1, bool log2)
@@ -2393,17 +2371,19 @@ void Draw(vector<TGraph*> graph, string canvas, const char* titleX, const char* 
   TCanvas * C = new TCanvas(canvas.c_str(),"",800,600);
   C->cd();
   if (log) C->SetLogy();
+  int markerColorShift = 0;
   for (unsigned int i=0; i<graph.size(); i++)
   {
+    if (i==4 || i==5) markerColorShift++;
     graph[i]->GetXaxis()->SetTitle(titleX);
     graph[i]->GetYaxis()->SetTitle(titleY);
     graph[i]->SetTitle(canvasTitle);
     graph[i]->SetFillColor(0);
     graph[i]->GetYaxis()->SetRangeUser(rangeLow,rangeHigh);
-    graph[i]->SetLineColor(i+1);
+    graph[i]->SetLineColor(i+1+markerColorShift);
     graph[i]->SetMarkerStyle(i+20);
     graph[i]->SetMarkerSize(1.3);
-    graph[i]->SetMarkerColor(i+1);
+    graph[i]->SetMarkerColor(i+1+markerColorShift);
     graph[i]->GetXaxis()->SetLimits(xLow,xHigh);
 
     graph[i]->Draw(i==0?"APL":"SAMEPL");

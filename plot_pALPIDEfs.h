@@ -29,7 +29,7 @@
 using namespace std;
 
 class Run {
-    int runNumber, irradiation;
+    int runNumber, irradiation, nEvent;
     double ithr, idb, vcasn, vaux, vcasp, vreset, BB, readoutDelay, triggerDelay, strobeLength, strobeBLength;
     vector<double> eff, nTr, nTrpA, thr, thrE, noise, noiseE;
     vector<TH1*> clusterSize, residualX, residualY;
@@ -39,7 +39,7 @@ class Run {
     Run(){
       runNumber = -1;
     }
-    Run(int r, double casn, double aux, double casp, double reset, double i, double db, vector<double> t, vector<double> tE, vector<double> n, vector<double> nE, double bb, int irr, string id, double rD, double tD, double sL, double sBL, bool nR){
+    Run(int r, double casn, double aux, double casp, double reset, double i, double db, vector<double> t, vector<double> tE, vector<double> n, vector<double> nE, double bb, int irr, string id, double rD, double tD, double sL, double sBL, bool nR, int nEv){
       runNumber = r;
       vcasn = casn;
       vaux = aux;
@@ -59,8 +59,9 @@ class Run {
       BB = bb;
       irradiation = irr;
       chipID = id;
+      nEvent = nEv;
     }
-    void Set(int r, double casn, double aux, double casp, double reset, double i, double db, vector<double> t, vector<double> tE, vector<double> n, vector<double> nE, double bb, int irr, string id, double rD, double tD, double sL, double sBL, bool nR){
+    void Set(int r, double casn, double aux, double casp, double reset, double i, double db, vector<double> t, vector<double> tE, vector<double> n, vector<double> nE, double bb, int irr, string id, double rD, double tD, double sL, double sBL, bool nR, int nEv){
       runNumber = r;
       vcasn = casn;
       vaux = aux;
@@ -80,6 +81,7 @@ class Run {
       BB = bb;
       irradiation = irr;
       chipID = id;
+      nEvent = nEv;
     }
     int getRunNumber() {return runNumber;}
     double getVcasn() {return vcasn;}
@@ -87,12 +89,14 @@ class Run {
     double getVcasp() {return vcasp;}
     double getVreset() {return vreset;}
     double getIthr() {return ithr;}
+    double getIdb() {return idb;}
     double getBB() {return BB;}
     string getChipID() {return chipID;}
     double getReadoutDelay() {return readoutDelay;}
     double getTriggerDelay() {return triggerDelay;}
     double getStrobeLength() {return strobeLength;}
     double getStrobeBLength() {return strobeBLength;}
+    double getnEvent() {return nEvent;}
     int getIrradiation() {return irradiation;}
     void setEff(vector<double> e) {eff = e; return;}
     void setnTr(vector<double> tr) {nTr=tr; return;}
@@ -117,14 +121,14 @@ class Run {
     bool isNoise() {return noiseRun;}
     bool equalSettings(Run run2)
     {
-      if (vcasn == run2.getVcasn() && vaux == run2.getVaux() && vcasp == run2.getVcasp() && vreset == run2.getVreset() && ithr == run2.getIthr() && readoutDelay == run2.getReadoutDelay() && triggerDelay == run2.getTriggerDelay() && strobeLength == run2.getStrobeLength() && strobeBLength == run2.getStrobeBLength() && BB == run2.getBB() && irradiation == run2.getIrradiation() && chipID == run2.getChipID()) return true;
+      if (vcasn == run2.getVcasn() && vaux == run2.getVaux() && vcasp == run2.getVcasp() && vreset == run2.getVreset() && ithr == run2.getIthr() && idb == run2.getIdb() && readoutDelay == run2.getReadoutDelay() && triggerDelay == run2.getTriggerDelay() && strobeLength == run2.getStrobeLength() && strobeBLength == run2.getStrobeBLength() && BB == run2.getBB() && irradiation == run2.getIrradiation() && chipID == run2.getChipID()) return true;
      else return false;
     }
 };
 
 bool Skip(int runNumber);
 TH1F* CalculateNoise(int dut, int run);
-TH1F* CalculateNoiseFromNoise(int dut, int run);
+TH1F* CalculateNoiseFromNoise(TH2* fakeHitHisto, int runNumberIndex, vector<Run> runs);
 
 void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string toSkip="", double pointingRes=0, string settingsFileFolder="");
 void WriteGraph_old(string outputFolder, int dut, int firstRun, int lastRun, string toSkip="", double pointingRes=0, string settingsFileFolder="", string efficiencyFileFolder="");
