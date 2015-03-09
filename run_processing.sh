@@ -41,11 +41,23 @@ if ! [[ $nEvent =~ $re ]] ; then
   if [ -f `printf run"%06d"-maskedPixels_*.txt $1` ]; then
     rm `printf run"%06d"-maskedPixels_*.txt $1`
   fi
+  if [ "${11}" != "DEBUG" ]; then
+    rm -r $5/lcio/ 
+    if [ -f `printf *"%06d"* ${input[0]}` ]; then
+      rm `printf *"%06d"* ${input[0]}`
+    fi
+  fi
   exit 1
 fi
 if (($nEvent < 10000)); then
   echo "Too few events in run" $1 >> $5/../analysis.log
   echo "Too few events" >> $5/analysis.log
+  if [ "${11}" != "DEBUG" ]; then
+    rm -r $5/lcio
+    if [ -f `printf *"%06d"* ${input[0]}` ]; then
+      rm `printf *"%06d"* ${input[0]}`
+    fi
+  fi
   rm `printf run"%06d"-maskedPixels_*.txt $1`
   exit 1
 fi
@@ -62,7 +74,19 @@ rm *.log *.xml
 cd -
 if (($place > 100)); then
   echo "Treated as noise run" >> $5/analysis.log
+  if [ -f $5/../settings_DUT$i.txt ]; then
+    sed -i '/^'$1'/d' $5/../settings_DUT$i.txt
+  fi
+  if [ -f $5/settings_DUT$i.txt ]; then
+    sed -i '/^'$1'/d' $5/settings_DUT$i.txt
+  fi
   $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 noise $1
+  if ! [ -f $5/../settings_DUT$i.txt ]; then
+    cat $5/settings_DUT$i.txt > $5/../settings_DUT$i.txt
+  else
+    tail -n 1 $5/settings_DUT$i.txt >> $5/../settings_DUT$i.txt
+  fi
+  sed -i 's/nan/0/g' $5/../settings_DUT$i.txt
   cd $5/logs/
   unzip `printf converter-"%06d".zip $1`
   converterLog=`printf $5/logs/converter-"%06d".log $1`
@@ -114,6 +138,12 @@ else
           if (($prealignExists==1)); then
             echo "More than one possible prealign files were found, please keep only one prealignment and one alignment file for each run" >> $5/analysis.log
             echo "More than one possible prealign files were found for run" $1 >> $5/../analysis.log
+            if [ "${11}" != "DEBUG" ]; then
+              rm -r $5/lcio
+              if [ -f `printf *"%06d"* ${input[0]}` ]; then
+                rm `printf *"%06d"* ${input[0]}`
+              fi
+            fi
             exit 1
           fi
           firstFinal=$first
@@ -130,6 +160,12 @@ else
       echo "Prealignment file doesn't exist" >> $5/analysis.log
       echo "Prealignment file doesn't exist for run" $1 >> $5/../analysis.log
       echo "Please create prealign file named prealign_FirstRunItIsToBeUsed-LastRunItIsToBeUsed.slcio or use run_pALPIDEfs_PS_7_wAlign to do alignment for all runs separately" >> $5/analysis.log
+      if [ "${11}" != "DEBUG" ]; then
+        rm -r $5/lcio
+        if [ -f `printf *"%06d"* ${input[0]}` ]; then
+          rm `printf *"%06d"* ${input[0]}`
+        fi
+      fi
       exit 1
     fi
     alignFile=$5/../align_$firstFinal-$lastFinal.slcio
@@ -140,6 +176,12 @@ else
       echo "Alignment file doesn't exist" >> $5/analysis.log
       echo "Alignment file doesn't exist for run" $1 >> $5/../analysis.log
       echo "Please create align file named align_FirstRunItIsToBeUsed-LastRunItIsToBeUsed.slcio or use run_pALPIDEfs_PS_7_wAlign to do alignment for all runs separately" >> $5/analysis.log
+      if [ "${11}" != "DEBUG" ]; then
+        rm -r $5/lcio
+        if [ -f `printf *"%06d"* ${input[0]}` ]; then
+          rm `printf *"%06d"* ${input[0]}`
+        fi
+      fi
       exit 1
     fi
   fi
@@ -163,6 +205,12 @@ else
   elif ((${#exludedPlanes[@]}>2)); then
     echo "More than 2 noise planes (planes" ${exludedPlanes[@]} "), exiting" >> $5/analysis.log
     echo "More than 2 noise planes (planes" ${exludedPlanes[@]} ") in run" $1", exiting" >> $5/../analysis.log
+    if [ "${11}" != "DEBUG" ]; then
+      rm -r $5/lcio
+      if [ -f `printf *"%06d"* ${input[0]}` ]; then
+        rm `printf *"%06d"* ${input[0]}`
+      fi
+    fi
     exit 1
   fi
   excludedPlanesTmp=${exludedPlanes[@]}
@@ -170,7 +218,7 @@ else
     maffpALPIDEfs=0.0001
     maffpALPIDEss=0.001
     $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option MaxAllowedFiringFreq=$maffpALPIDEfs --option MaxAllowedFiringFreqpALPIDEss=$maffpALPIDEss --config=$8 -csv $4 hotpixel $1
-    $EUTELESCOPE/jobsub/jobsub.py --option ExcludedPlanes="${exludedPlanes[0]} ${exludedPlanes[1]}" --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option LCIOInputFiles=$5/lcio/run@RunNumber@-converter.slcio --config=$8 -csv $4 clustering $1
+    $EUTELESCOPE/jobsub/jobsub.py --option ExcludedPlanes="" --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option LCIOInputFiles=$5/lcio/run@RunNumber@-converter.slcio --config=$8 -csv $4 clustering $1
     cd $5/logs/
     clusteringName=`printf clustering-"%06d".zip $1`
     unzip $clusteringName
@@ -179,6 +227,12 @@ else
     if grep -q "$tooNoisy" "$clusteringLogName"; then
       echo At least one plane had more than 4096 clusters in one event, too noisy exiting > $5/analysis.log
       echo At least one plane is too noisy run $1 > $5/../analysis.log
+      if [ "${11}" != "DEBUG" ]; then
+        rm -r $5/lcio
+        if [ -f `printf *"%06d"* ${input[0]}` ]; then
+          rm `printf *"%06d"* ${input[0]}`
+        fi
+      fi
       exit 1
     fi
     rm *.log *.xml
@@ -200,6 +254,12 @@ else
         root -l -q -b qualityCheckss.C\($1,$2,$3,"\"$5/histogram\"","\"$outputFolder\"",$7\)
       fi
       echo "QA written to" $outputFolder  >> $5/analysis.log
+      if [ "${11}" != "DEBUG" ]; then
+        rm -r $5/lcio
+        if [ -f `printf *"%06d"* ${input[0]}` ]; then
+          rm `printf *"%06d"* ${input[0]}`
+        fi
+      fi
       exit 1
     fi
   fi
@@ -215,6 +275,12 @@ else
   if grep -q "$tooNoisy" "$clusteringLogName"; then
     echo At least one plane had more than 4096 clusters in one event, too noisy exiting > $5/analysis.log
     echo At least one plane is too noisy run $1 > $5/../analysis.log
+    if [ "${11}" != "DEBUG" ]; then
+      rm -r $5/lcio
+      if [ -f `printf *"%06d"* ${input[0]}` ]; then
+        rm `printf *"%06d"* ${input[0]}`
+      fi
+    fi
     exit 1
   fi
   minTimeStamp=`cat $clusteringLogName |  sed -n -e "s/^.*Maximum of the time stamp histo is at //p" | bc -l`
