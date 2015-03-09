@@ -57,12 +57,40 @@ do
     fi
     echo -e "\n \n \n REPROCESSING RUN ${input[0]}!!! \n \n \n"
   elif [ "$1" == "REPROCESS" ]; then
-    if [[ $2 =~ $re ]]; then
-      if ! [[ $2 == ${input[0]} ]] ; then
-        continue
+    if [ "$#" -gt 1 ]; then
+      if [[ $2 =~ $re ]]; then
+        if ! [[ $2 == ${input[0]} ]] ; then
+          continue
+        else
+          echo -e "\n \n \n REPROCESSING RUN ${input[0]}!!! \n \n \n"
+          rm -r `printf $outputFolder/run"%06d" ${input[0]}`
+        fi
       else
-        rm -r `printf $outputFolder/run"%06d" ${input[0]}`
-        echo -e "\n \n \n REPROCESSING RUN ${input[0]}!!! \n \n \n"
+        IFS='-' read -ra range <<< "$2"
+        if (( ${#range[@]} != 2)); then
+          echo "Add one run number or a range in the format 1-10 or nothing as argument to REPROCESS"
+         exit 1
+        fi
+        if ! [[ ${range[0]} =~ $re ]] || ! [[ ${range[1]} =~ $re ]]; then
+          echo "Not a number"
+          echo "Add one run number or a range in the format 1-10 or nothing as argument to REPROCESS"
+          exit 1
+        fi
+        for (( run=${range[0]}; run<=${range[1]}; run++ ))
+        do
+          runFound=0
+          if ! [[ $run == ${input[0]} ]] ; then
+            continue
+          else
+            runFound=1
+            echo -e "\n \n \n REPROCESSING RUN IN RANGE ${range[0]}-${range[1]}, CURRENTLY AT RUN ${input[0]}!!! \n \n \n"
+            rm -r `printf $outputFolder/run"%06d" ${input[0]}`
+            break
+          fi
+        done
+        if (( $runFound==0 ));then
+          continue
+        fi
       fi
     else
       echo -e "\n \n \n REPROCESSING ALL RUNS, CURRENTLY AT RUN ${input[0]}!!! \n \n \n"
