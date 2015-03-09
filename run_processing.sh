@@ -15,7 +15,7 @@
 # TODO assign names to the variables
 
 sed -i '/'$1'/d' $5/../analysis.log
-echo -n -e "\n""Processing run"  $1 "\n" >> $5/../analysis.log
+echo -n -e "Processing run"  $1 >> $5/../analysis.log
 nativeFolder=$6
 if [ -n $SLURM_JOB_ID ]; then
     echo $SLURM_JOB_ID > $5/slurm_job_id.txt
@@ -38,11 +38,15 @@ re='^[-+]?[0-9]*\.?[0-9]+$'
 if ! [[ $nEvent =~ $re ]] ; then
   echo "Converter failed in run" $1 >> $5/../analysis.log
   echo "Converter failed" >> $5/analysis.log
+  if [ -f `printf run"%06d"-maskedPixels_*.txt $1` ]; then
+    rm `printf run"%06d"-maskedPixels_*.txt $1`
+  fi
   exit 1
 fi
 if (($nEvent < 10000)); then
   echo "Too few events in run" $1 >> $5/../analysis.log
   echo "Too few events" >> $5/analysis.log
+  rm `printf run"%06d"-maskedPixels_*.txt $1`
   exit 1
 fi
 mv `printf run"%06d"-maskedPixels_*.txt $1` $5/database/
@@ -185,6 +189,17 @@ else
     error=`echo $?`
     if (($error > 0))
     then
+      #Quality checks
+      outputFolder=$5/Plots/
+      mkdir $outputFolder
+      mkdir $outputFolder/important
+      mkdir $outputFolder/others
+      if (( $9 == 0)); then
+        root -l -q -b qualityCheckfs.C\($1,$2,$3,"\"$5/histogram\"","\"$outputFolder\"",$7\)
+      elif (( $9 == 1)); then
+        root -l -q -b qualityCheckss.C\($1,$2,$3,"\"$5/histogram\"","\"$outputFolder\"",$7\)
+      fi
+      echo "QA written to" $outputFolder  >> $5/analysis.log
       exit 1
     fi
   fi
