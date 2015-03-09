@@ -74,19 +74,23 @@ rm *.log *.xml
 cd -
 if (($place > 100)); then
   echo "Treated as noise run" >> $5/analysis.log
-  if [ -f $5/../settings_DUT$i.txt ]; then
-    sed -i '/^'$1'/d' $5/../settings_DUT$i.txt
-  fi
-  if [ -f $5/settings_DUT$i.txt ]; then
-    sed -i '/^'$1'/d' $5/settings_DUT$i.txt
-  fi
+  for ((i=$2;i<=$3;i++)) do
+    if [ -f $5/../settings_DUT$i.txt ]; then
+      sed -i '/^'$1'/d' $5/../settings_DUT$i.txt
+    fi
+    if [ -f $5/settings_DUT$i.txt ]; then
+      sed -i '/^'$1'/d' $5/settings_DUT$i.txt
+    fi
+  done
   $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 noise $1
-  if ! [ -f $5/../settings_DUT$i.txt ]; then
-    cat $5/settings_DUT$i.txt > $5/../settings_DUT$i.txt
-  else
-    tail -n 1 $5/settings_DUT$i.txt >> $5/../settings_DUT$i.txt
-  fi
-  sed -i 's/nan/0/g' $5/../settings_DUT$i.txt
+  for ((i=$2;i<=$3;i++)) do
+    if ! [ -f $5/../settings_DUT$i.txt ]; then
+      cat $5/settings_DUT$i.txt > $5/../settings_DUT$i.txt
+    else
+      tail -n 1 $5/settings_DUT$i.txt >> $5/../settings_DUT$i.txt
+    fi
+    sed -i 's/nan/0/g' $5/../settings_DUT$i.txt
+  done
   cd $5/logs/
   unzip `printf converter-"%06d".zip $1`
   converterLog=`printf $5/logs/converter-"%06d".log $1`
