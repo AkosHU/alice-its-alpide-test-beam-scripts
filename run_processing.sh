@@ -80,7 +80,7 @@ if (( ( ${13}==0 && $place > 100) || ${13}==2 )); then
       sed -i '/^'$1'/d' $5/../settings_DUT$i.txt
     fi
     if [ -f $5/settings_DUT$i.txt ]; then
-      sed -i '/^'$1'/d' $5/settings_DUT$i.txt
+      rm $5/settings_DUT$i.txt
     fi
   done
   $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 noise $1
@@ -330,7 +330,7 @@ elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
       sed -i '/^'$1'/d' $5/../settings_DUT$i.txt
     fi
     if [ -f $5/settings_DUT$i.txt ]; then
-      sed -i '/^'$1'/d' $5/settings_DUT$i.txt
+     rm $5/settings_DUT$i.txt
     fi
     echo "Using events with a timestamp larger than" $minTimeStamp >> $5/analysis.log
     $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option dutID="$i" --option MinTimeStamp=$minTimeStamp --config=$8 -csv $4 analysis $1
