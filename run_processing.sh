@@ -10,12 +10,12 @@
 #  8: config file
 #  9: chip type (0: pALPIDE(fs) , 1: pALPIDEss)
 # 10: alignment method (0 common alignment, 1: run-by-run alignment)
-# 11: Prcoessing type: DEBUG (all temporary output is kept), REPROCESS
-
+# 11: Processing type: DEBUG (all temporary output is kept), REPROCESS
+# 12: Extra busy time
 # TODO assign names to the variables
 
 sed -i '/'$1'/d' $5/../analysis.log
-echo -n -e "Processing run"  $1 >> $5/../analysis.log
+echo -n -e "Processing run" $1 "\n" >> $5/../analysis.log
 nativeFolder=$6
 if [ -n $SLURM_JOB_ID ]; then
     echo $SLURM_JOB_ID > $5/slurm_job_id.txt
@@ -30,7 +30,7 @@ if (( $9 == 1)); then
 elif (( $9 == 0)); then
   echo "DUT(s) are set to be a pALPIDEfs" >> $5/analysis.log
 fi
-$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option NativePath=$nativeFolder --config=$8 -csv $4 converter $1
+#$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option NativePath=$nativeFolder --config=$8 -csv $4 converter $1
 name=`printf $5/lcio/run"%06d"-converter.slcio $1`
 nEvent=`lcio_event_counter $name`
 echo "Run contains" $nEvent "good events" > $5/analysis.log
@@ -82,7 +82,7 @@ if (($place > 100)); then
       sed -i '/^'$1'/d' $5/settings_DUT$i.txt
     fi
   done
-  $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 noise $1
+  #$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 noise $1
   for ((i=$2;i<=$3;i++)) do
     if ! [ -f $5/../settings_DUT$i.txt ]; then
       cat $5/settings_DUT$i.txt > $5/../settings_DUT$i.txt
@@ -189,9 +189,9 @@ else
       exit 1
     fi
   fi
-  if (( $9 == 0 )); then
-    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 deadColumn $1
-  fi
+#  if (( $9 == 0 )); then
+    #$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 deadColumn $1
+#  fi
   cd $5/logs
   unzip `printf deadColumn-"%06d".zip $1`
   deadColumnName=`printf deadColumn-"%06d".log $1`
@@ -221,8 +221,8 @@ else
   if (( ${10} == 1 )); then
     maffpALPIDEfs=0.0001
     maffpALPIDEss=0.001
-    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option MaxAllowedFiringFreq=$maffpALPIDEfs --option MaxAllowedFiringFreqpALPIDEss=$maffpALPIDEss --config=$8 -csv $4 hotpixel $1
-    $EUTELESCOPE/jobsub/jobsub.py --option ExcludedPlanes="" --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option LCIOInputFiles=$5/lcio/run@RunNumber@-converter.slcio --config=$8 -csv $4 clustering $1
+    #$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option MaxAllowedFiringFreq=$maffpALPIDEfs --option MaxAllowedFiringFreqpALPIDEss=$maffpALPIDEss --config=$8 -csv $4 hotpixel $1
+    #$EUTELESCOPE/jobsub/jobsub.py --option ExcludedPlanes="" --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option LCIOInputFiles=$5/lcio/run@RunNumber@-converter.slcio --config=$8 -csv $4 clustering $1
     cd $5/logs/
     clusteringName=`printf clustering-"%06d".zip $1`
     unzip $clusteringName
@@ -241,9 +241,9 @@ else
     fi
     rm *.log *.xml
     cd -
-    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 hitmaker $1
-    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 prealign $1
-    ./run_align_7 $1 $4 $5 $8 ${exludedPlanes[0]} ${exludedPlanes[1]}
+    #$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 hitmaker $1
+    #$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 prealign $1
+#    ./run_align_7 $1 $4 $5 $8 ${exludedPlanes[0]} ${exludedPlanes[1]}
     error=`echo $?`
     if (($error > 0))
     then
@@ -269,8 +269,8 @@ else
   fi
   maffpALPIDEfs=0.001
   maffpALPIDEss=1
-  $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option MaxAllowedFiringFreq=$maffpALPIDEfs --option MaxAllowedFiringFreqpALPIDEss=$maffpALPIDEss --config=$8 -csv $4 hotpixel $1
-  $EUTELESCOPE/jobsub/jobsub.py --option ExcludedPlanes="${exludedPlanes[0]} ${exludedPlanes[1]}" --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option LCIOInputFiles=$5/lcio/run@RunNumber@-converter.slcio --config=$8 -csv $4 clustering $1
+  #$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option MaxAllowedFiringFreq=$maffpALPIDEfs --option MaxAllowedFiringFreqpALPIDEss=$maffpALPIDEss --config=$8 -csv $4 hotpixel $1
+  #$EUTELESCOPE/jobsub/jobsub.py --option ExcludedPlanes="${exludedPlanes[0]} ${exludedPlanes[1]}" --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option LCIOInputFiles=$5/lcio/run@RunNumber@-converter.slcio --config=$8 -csv $4 clustering $1
   cd $5/logs/
   clusteringName=`printf clustering-"%06d".zip $1`
   unzip $clusteringName
@@ -287,11 +287,17 @@ else
     fi
     exit 1
   fi
-  minTimeStamp=`cat $clusteringLogName |  sed -n -e "s/^.*Maximum of the time stamp histo is at //p" | bc -l`
-  minTimeStamp=`echo "$minTimeStamp+2400" | bc -l`
+  minTimeStamp=0
+  if (( $9==0 )); then
+    minTimeStamp=`cat $clusteringLogName |  sed -n -e "s/^.*Maximum of the time stamp histo is at //p" | bc -l`
+    minTimeStamp=`echo "$minTimeStamp+${12}" | bc -l`
+  fi
+  if (( ${12}==0)); then
+    minTimeStamp=0
+  fi
   rm *.log *.xml
   cd -
-  $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 hitmaker $1
+  #$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 hitmaker $1
 
   for ((i=$2;i<=$3;i++)) do
     isExlcuded=0
@@ -304,7 +310,7 @@ else
     if (($isExlcuded==1)); then
       continue
     fi
-    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option dutID="$i" --config=$8 -csv $4 fitter $1
+    #$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option dutID="$i" --config=$8 -csv $4 fitter $1
     cd $5/logs/
     unzip `printf fitter-"%06d".zip $1`
     fitterName=`printf fitter-"%06d".log $1`
@@ -325,6 +331,7 @@ else
     if [ -f $5/settings_DUT$i.txt ]; then
       sed -i '/^'$1'/d' $5/settings_DUT$i.txt
     fi
+    echo "Using events with a timestamp larger than" $minTimeStamp >> $5/analysis.log
     $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option dutID="$i" --option MinTimeStamp=$minTimeStamp --config=$8 -csv $4 analysis $1
     if ! [ -f $5/../settings_DUT$i.txt ]; then
       cat $5/settings_DUT$i.txt > $5/../settings_DUT$i.txt
@@ -341,13 +348,9 @@ else
       cd -
       echo "Efficiencies of the four sectors in DUT" $i":" >> $5/analysis.log
       effArray=($efficiencies)
-#      sed -i '/^'$1' $/{N; N; N; N; d;}' $5/../efficiency_DUT$i.dat
-#      echo -n -e $1 "\n" >> $5/../efficiency"_DUT"$i.dat
       for ((j=1;j<=10;j=j+3)) do
-#        echo ${effArray[j-1]} ${effArray[j]} ${effArray[j+1]}>> $5/../efficiency_DUT$i.dat
         echo ${effArray[j-1]} >> $5/analysis.log
       done
-#      sed -i 's/nan/0/g' $5/../efficiency_DUT$i.dat
     elif (( $9 == 1)); then
       grep "Overall efficiency of pAlpide: " $analysisName | sed -n -e 's/^.*\[ MESSAGE4 \"Analysis\"\] //p' >> $5/analysis.log
       rm *.log *.xml
