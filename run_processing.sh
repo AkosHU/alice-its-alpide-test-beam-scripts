@@ -12,6 +12,7 @@
 # 10: alignment method (0 common alignment, 1: run-by-run alignment)
 # 11: Processing type: DEBUG (all temporary output is kept), REPROCESS
 # 12: Extra busy time
+# 13: 0: decide from the data if it's noise or data run, 1: force it to be treated as data, 2: force it to be treated as noise
 # TODO assign names to the variables
 
 sed -i '/'$1'/d' $5/../analysis.log
@@ -30,7 +31,7 @@ if (( $9 == 1)); then
 elif (( $9 == 0)); then
   echo "DUT(s) are set to be a pALPIDEfs" >> $5/analysis.log
 fi
-#$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option NativePath=$nativeFolder --config=$8 -csv $4 converter $1
+$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option NativePath=$nativeFolder --config=$8 -csv $4 converter $1
 name=`printf $5/lcio/run"%06d"-converter.slcio $1`
 nEvent=`lcio_event_counter $name`
 echo "Run contains" $nEvent "good events" > $5/analysis.log
@@ -72,7 +73,7 @@ if (($place == -100)); then
 fi
 rm *.log *.xml
 cd -
-if (($place > 100)); then
+if (( ( ${13}==0 && $place > 100) || ${13}==2 )); then
   echo "Treated as noise run" >> $5/analysis.log
   for ((i=$2;i<=$3;i++)) do
     if [ -f $5/../settings_DUT$i.txt ]; then
@@ -82,7 +83,7 @@ if (($place > 100)); then
       sed -i '/^'$1'/d' $5/settings_DUT$i.txt
     fi
   done
-  #$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 noise $1
+  $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 noise $1
   for ((i=$2;i<=$3;i++)) do
     if ! [ -f $5/../settings_DUT$i.txt ]; then
       cat $5/settings_DUT$i.txt > $5/../settings_DUT$i.txt
@@ -126,7 +127,7 @@ if (($place > 100)); then
   mkdir $outputFolder
   root -l -q -b qualityCheckNoise.C\($1,"\"$5/histogram\"","\"$outputFolder\"",$7\)
   echo "QA written to" $outputFolder  >> $5/analysis.log
-else
+elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
   echo "Treated as data run" >> $5/analysis.log
   if (( ${10} == 0)); then
     prealignFiles=`ls $5/../prealign_*.slcio`
@@ -189,9 +190,9 @@ else
       exit 1
     fi
   fi
-#  if (( $9 == 0 )); then
-    #$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 deadColumn $1
-#  fi
+  if (( $9 == 0 )); then
+    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 deadColumn $1
+  fi
   cd $5/logs
   unzip `printf deadColumn-"%06d".zip $1`
   deadColumnName=`printf deadColumn-"%06d".log $1`
@@ -221,8 +222,8 @@ else
   if (( ${10} == 1 )); then
     maffpALPIDEfs=0.0001
     maffpALPIDEss=0.001
-    #$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option MaxAllowedFiringFreq=$maffpALPIDEfs --option MaxAllowedFiringFreqpALPIDEss=$maffpALPIDEss --config=$8 -csv $4 hotpixel $1
-    #$EUTELESCOPE/jobsub/jobsub.py --option ExcludedPlanes="" --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option LCIOInputFiles=$5/lcio/run@RunNumber@-converter.slcio --config=$8 -csv $4 clustering $1
+    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option MaxAllowedFiringFreq=$maffpALPIDEfs --option MaxAllowedFiringFreqpALPIDEss=$maffpALPIDEss --config=$8 -csv $4 hotpixel $1
+    $EUTELESCOPE/jobsub/jobsub.py --option ExcludedPlanes="" --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option LCIOInputFiles=$5/lcio/run@RunNumber@-converter.slcio --config=$8 -csv $4 clustering $1
     cd $5/logs/
     clusteringName=`printf clustering-"%06d".zip $1`
     unzip $clusteringName
@@ -241,13 +242,13 @@ else
     fi
     rm *.log *.xml
     cd -
-    #$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 hitmaker $1
-    #$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 prealign $1
-#    ./run_align_7 $1 $4 $5 $8 ${exludedPlanes[0]} ${exludedPlanes[1]}
+    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 hitmaker $1
+    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 prealign $1
+    ./run_align_7 $1 $4 $5 $8 ${exludedPlanes[0]} ${exludedPlanes[1]}
     error=`echo $?`
     if (($error > 0))
     then
-      #Quality checks
+      #Quality checks if alignment failed
       outputFolder=$5/Plots/
       mkdir $outputFolder
       mkdir $outputFolder/important
@@ -269,8 +270,8 @@ else
   fi
   maffpALPIDEfs=0.001
   maffpALPIDEss=1
-  #$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option MaxAllowedFiringFreq=$maffpALPIDEfs --option MaxAllowedFiringFreqpALPIDEss=$maffpALPIDEss --config=$8 -csv $4 hotpixel $1
-  #$EUTELESCOPE/jobsub/jobsub.py --option ExcludedPlanes="${exludedPlanes[0]} ${exludedPlanes[1]}" --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option LCIOInputFiles=$5/lcio/run@RunNumber@-converter.slcio --config=$8 -csv $4 clustering $1
+  $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option MaxAllowedFiringFreq=$maffpALPIDEfs --option MaxAllowedFiringFreqpALPIDEss=$maffpALPIDEss --config=$8 -csv $4 hotpixel $1
+  $EUTELESCOPE/jobsub/jobsub.py --option ExcludedPlanes="${exludedPlanes[0]} ${exludedPlanes[1]}" --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option LCIOInputFiles=$5/lcio/run@RunNumber@-converter.slcio --config=$8 -csv $4 clustering $1
   cd $5/logs/
   clusteringName=`printf clustering-"%06d".zip $1`
   unzip $clusteringName
@@ -297,7 +298,7 @@ else
   fi
   rm *.log *.xml
   cd -
-  #$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 hitmaker $1
+  $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 hitmaker $1
 
   for ((i=$2;i<=$3;i++)) do
     isExlcuded=0
@@ -310,7 +311,7 @@ else
     if (($isExlcuded==1)); then
       continue
     fi
-    #$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option dutID="$i" --config=$8 -csv $4 fitter $1
+    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option dutID="$i" --config=$8 -csv $4 fitter $1
     cd $5/logs/
     unzip `printf fitter-"%06d".zip $1`
     fitterName=`printf fitter-"%06d".log $1`
@@ -375,4 +376,6 @@ else
     root -l -q -b qualityCheckss.C\($1,$2,$3,"\"$5/histogram\"","\"$outputFolder\"",$7\)
   fi
   echo "QA written to" $outputFolder  >> $5/analysis.log
+else
+  echo -n -e "Not able to decide if it's noise or data. Please use one of the following settings in dataProcessing: \n  0: decide from the data if it's noise or data run \n  1: force it to be treated as data, \n  2: force it to be treated as noise \n"
 fi
