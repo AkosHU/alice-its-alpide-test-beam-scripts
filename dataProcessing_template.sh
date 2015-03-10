@@ -9,6 +9,21 @@ whichChip=<whichChip> #0 for full scale, 1 for small scale
 extraBusyTime=<extraBusyTime> #Time to add after normal busy in which events are not considered (in clock cycles). Used for past protection to avoid efficiency loss because of pulse duration differences in tracking planes and DUTs. Only working for pALPIDEfs DUTs
 isNoise=<isNoise> #0: decide from the data if it's noise or data run, 1: force it to be treated as data, 2: force it to be treated as noise
 
+if (( $withAlign!=0 && $withAlign!=1 )); then
+  echo -n -e "Wrong setting for withAlign, please use \n  1 for aligning each run separately and \n  0 for using commmon alignment \n"
+  exit 1
+fi
+
+if (( $whichChip!=0 && $whichChip!=1 )); then
+  echo -n -e "Wrong setting for whichChip, please use \n  0 for full scale \n  1 for small scale \n"
+  exit 1
+fi
+
+if (( $isNoise<0 || $isNoise>2 )); then
+  echo -n -e "Not able to decide if it's noise or data. Please use one of the following settings in dataProcessing: \n  0: decide from the data if it's noise or data run \n  1: force it to be treated as data, \n  2: force it to be treated as noise \n"
+  exit 1
+fi
+
 if [ -z "$EUTELESCOPE" ]; then
   source ../v01-17-05/Eutelescope/trunk/build_env.sh #Change to your EUTelescope folder if you changed the folder structure with respest to the default after installing
 fi
@@ -119,7 +134,11 @@ do
   git diff   >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
   git log -1 >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
   if [ "$1" != "DEBUG" ]; then
-    $CMD_PREFIX ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1 $extraBusyTime $isNoise &
+    if [ "$#" -eq 0 ]; then
+      $CMD_PREFIX ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign "NORMAL" $extraBusyTime $isNoise &
+    else
+      $CMD_PREFIX ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1 $extraBusyTime $isNoise &
+    fi
     fileFound=1
     sleep 5
   elif [ "$#" -eq 2 ]; then
