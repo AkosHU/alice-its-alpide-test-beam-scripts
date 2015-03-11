@@ -75,9 +75,9 @@ void qualityCheckfs(int runNumber, int firstDUT, int lastDUT, string histFolder,
 	    cerr << "No analysis file " << fileName << endl;
 	    continue;
     }
-    efficiency[iDUT] = (TH2F*)analysisFile->Get("efficiencyHisto");
-    residualX[iDUT] = (TH1F*)analysisFile->Get("Analysis/residualXPAlpide_30.0_1");
-    residualY[iDUT] = (TH1F*)analysisFile->Get("Analysis/residualYPAlpide_30.0_1");
+    efficiency[iDUT] = (TH2F*)analysisFile->Get("Analysis/efficiencyHisto");
+    residualX[iDUT] = (TH1F*)analysisFile->Get("Analysis/Sector_1/residualXPAlpide_30.0_1");
+    residualY[iDUT] = (TH1F*)analysisFile->Get("Analysis/Sector_1/residualYPAlpide_30.0_1");
     efficiencyC[iDUT]->cd();
     efficiency[iDUT]->Draw("COLZ");
     string outputFile = outputFolder + Form("/important/efficiency_DUT%d.pdf",iDUT+firstDUT);
