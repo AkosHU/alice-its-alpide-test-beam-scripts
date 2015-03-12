@@ -15,6 +15,12 @@
 # 13: 0: decide from the data if it's noise or data run, 1: force it to be treated as data, 2: force it to be treated as noise
 # TODO assign names to the variables
 
+if [ "${11}" == "DEBUG" ]; then
+  redirect=" /dev/stdout"
+else
+  redirect=" /dev/null"
+fi
+
 sed -i '/'$1'/d' $5/../analysis.log
 echo -n -e "Processing run" $1 "\n" >> $5/../analysis.log
 nativeFolder=$6
@@ -31,7 +37,7 @@ if (( $9 == 1)); then
 elif (( $9 == 0)); then
   echo "DUT(s) are set to be a pALPIDEfs" >> $5/analysis.log
 fi
-$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option NativePath=$nativeFolder --config=$8 -csv $4 converter $1
+$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option NativePath=$nativeFolder --config=$8 -csv $4 converter $1 > $redirect 2>&1
 name=`printf $5/lcio/run"%06d"-converter.slcio $1`
 nEvent=`lcio_event_counter $name`
 echo "Run contains" $nEvent "good events" > $5/analysis.log
@@ -48,7 +54,7 @@ if ! [[ $nEvent =~ $re ]] ; then
       rm `printf *"%06d"* ${input[0]}`
     fi
   fi
-  exit 1
+  exit 0
 fi
 if (($nEvent < 10000)); then
   echo "Too few events in run" $1 >> $5/../analysis.log
@@ -60,19 +66,19 @@ if (($nEvent < 10000)); then
     fi
   fi
   rm `printf run"%06d"-maskedPixels_*.txt $1`
-  exit 1
+  exit 0
 fi
 mv `printf run"%06d"-maskedPixels_*.txt $1` $5/database/
 cd $5/logs/
 converterName=`printf converter-"%06d".zip $1`
-unzip $converterName
+unzip $converterName > /dev/null 2>&1 
 converterLogName=`printf converter-"%06d".log $1`
 place=`cat $converterLogName | sed -n -e "s/^.*Place of telescope://p" | bc -l`
 if (($place == -100)); then
   place=`cat $converterLogName | sed -n -e "s/^.*Place of telescope from config file://p" | bc -l`
 fi
 rm *.log *.xml
-cd -
+cd - > /dev/null 2>&1
 if (( ( ${13}==0 && $place > 100) || ${13}==2 )); then
   echo "Treated as noise run" >> $5/analysis.log
   for ((i=$2;i<=$3;i++)) do
@@ -83,7 +89,7 @@ if (( ( ${13}==0 && $place > 100) || ${13}==2 )); then
       rm $5/settings_DUT$i.txt
     fi
   done
-  $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 noise $1
+  $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 noise $1 > $redirect 2>&1
   for ((i=$2;i<=$3;i++)) do
     if ! [ -f $5/../settings_DUT$i.txt ]; then
       cat $5/settings_DUT$i.txt > $5/../settings_DUT$i.txt
@@ -93,7 +99,7 @@ if (( ( ${13}==0 && $place > 100) || ${13}==2 )); then
     sed -i 's/nan/0/g' $5/../settings_DUT$i.txt
   done
   cd $5/logs/
-  unzip `printf converter-"%06d".zip $1`
+  unzip `printf converter-"%06d".zip $1` > /dev/null 2>&1 
   converterLog=`printf $5/logs/converter-"%06d".log $1`
   thrFailed=0
   for ((i=$2;i<=$3;i++)) do
@@ -111,7 +117,7 @@ if (( ( ${13}==0 && $place > 100) || ${13}==2 )); then
     done
   done
   rm *.log *.xml
-  cd -
+  cd - > /dev/null 2>&1
   if (( $thrFailed == 1)); then
     echo "Threshold and noise calculation failed" >> $5/analysis.log
     echo "Threshold and noise calculation failed in run" $1 >> $5/../analysis.log
@@ -125,7 +131,7 @@ if (( ( ${13}==0 && $place > 100) || ${13}==2 )); then
   #Quality checks for noise
   outputFolder=$5/Plots/
   mkdir $outputFolder
-  root -l -q -b qualityCheckNoise.C\($1,"\"$5/histogram\"","\"$outputFolder\"",$7\)
+  root -l -q -b qualityCheckNoise.C\($1,"\"$5/histogram\"","\"$outputFolder\"",$7\) > /dev/null 2>&1
   echo "QA written to" $outputFolder  >> $5/analysis.log
 elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
   echo "Treated as data run" >> $5/analysis.log
@@ -149,7 +155,7 @@ elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
                 rm `printf *"%06d"* ${input[0]}`
               fi
             fi
-            exit 1
+            exit 0
           fi
           firstFinal=$first
           lastFinal=$last
@@ -171,7 +177,7 @@ elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
           rm `printf *"%06d"* ${input[0]}`
         fi
       fi
-      exit 1
+      exit 0
     fi
     alignFile=$5/../align_$firstFinal-$lastFinal.slcio
     cp $alignFile `printf $5/database/run"%06d"-alignment.slcio $1`
@@ -187,14 +193,14 @@ elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
           rm `printf *"%06d"* ${input[0]}`
         fi
       fi
-      exit 1
+      exit 0
     fi
   fi
   if (( $9 == 0 )); then
-    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 deadColumn $1
+    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 deadColumn $1 > $redirect 2>&1
   fi
   cd $5/logs
-  unzip `printf deadColumn-"%06d".zip $1`
+  unzip `printf deadColumn-"%06d".zip $1` > /dev/null 2>&1 
   deadColumnName=`printf deadColumn-"%06d".log $1`
   averageHits=`awk '/Average number of hits per event:/{x=NR+'"$7"';next}(NR<=x){print}' $deadColumnName | sed -n -e 's/^.*\[ MESSAGE5 \"deadColumn\"\] Layer [0-9]//p'`
   averageHitsArray=($averageHits)
@@ -204,7 +210,7 @@ elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
     fi
   done
   echo "Excluded planes:" ${exludedPlanes[@]} >> $5/analysis.log
-  cd -
+  cd - > /dev/null 2>&1
   if ((${#exludedPlanes[@]}==0)); then
     exludedPlanes[0]=-1
   elif ((${#exludedPlanes[@]}>2)); then
@@ -216,17 +222,17 @@ elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
         rm `printf *"%06d"* ${input[0]}`
       fi
     fi
-    exit 1
+    exit 0
   fi
   excludedPlanesTmp=${exludedPlanes[@]}
   if (( ${10} == 1 )); then
     maffpALPIDEfs=0.0001
     maffpALPIDEss=0.001
-    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option MaxAllowedFiringFreq=$maffpALPIDEfs --option MaxAllowedFiringFreqpALPIDEss=$maffpALPIDEss --config=$8 -csv $4 hotpixel $1
-    $EUTELESCOPE/jobsub/jobsub.py --option ExcludedPlanes="" --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option LCIOInputFiles=$5/lcio/run@RunNumber@-converter.slcio --config=$8 -csv $4 clustering $1
+    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option MaxAllowedFiringFreq=$maffpALPIDEfs --option MaxAllowedFiringFreqpALPIDEss=$maffpALPIDEss --config=$8 -csv $4 hotpixel $1 > $redirect 2>&1
+    $EUTELESCOPE/jobsub/jobsub.py --option ExcludedPlanes="" --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option LCIOInputFiles=$5/lcio/run@RunNumber@-converter.slcio --config=$8 -csv $4 clustering $1 > $redirect 2>&1
     cd $5/logs/
     clusteringName=`printf clustering-"%06d".zip $1`
-    unzip $clusteringName
+    unzip $clusteringName > /dev/null 2>&1 
     clusteringLogName=`printf clustering-"%06d".log $1`
     tooNoisy="contains more than 4096 cluster"
     if grep -q "$tooNoisy" "$clusteringLogName"; then
@@ -238,13 +244,13 @@ elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
           rm `printf *"%06d"* ${input[0]}`
         fi
       fi
-      exit 1
+      exit 0
     fi
     rm *.log *.xml
-    cd -
-    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 hitmaker $1
-    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 prealign $1
-    ./run_align_7 $1 $4 $5 $8 ${exludedPlanes[0]} ${exludedPlanes[1]}
+    cd - > /dev/null 2>&1
+    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 hitmaker $1 > $redirect 2>&1
+    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 prealign $1 > $redirect 2>&1
+    ./run_align_7 $1 $4 $5 $8 ${exludedPlanes[0]} ${exludedPlanes[1]} > $redirect 2>&1
     error=`echo $?`
     if (($error > 0))
     then
@@ -254,9 +260,9 @@ elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
       mkdir $outputFolder/important
       mkdir $outputFolder/others
       if (( $9 == 0)); then
-        root -l -q -b qualityCheckfs.C\($1,$2,$3,"\"$5/histogram\"","\"$outputFolder\"",$7\)
+        root -l -q -b qualityCheckfs.C\($1,$2,$3,"\"$5/histogram\"","\"$outputFolder\"",$7\) > /dev/null 2>&1
       elif (( $9 == 1)); then
-        root -l -q -b qualityCheckss.C\($1,$2,$3,"\"$5/histogram\"","\"$outputFolder\"",$7\)
+        root -l -q -b qualityCheckss.C\($1,$2,$3,"\"$5/histogram\"","\"$outputFolder\"",$7\) > /dev/null 2>&1
       fi
       echo "QA written to" $outputFolder  >> $5/analysis.log
       if [ "${11}" != "DEBUG" ]; then
@@ -265,16 +271,16 @@ elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
           rm `printf *"%06d"* ${input[0]}`
         fi
       fi
-      exit 1
+      exit 0
     fi
   fi
   maffpALPIDEfs=0.001
   maffpALPIDEss=1
-  $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option MaxAllowedFiringFreq=$maffpALPIDEfs --option MaxAllowedFiringFreqpALPIDEss=$maffpALPIDEss --config=$8 -csv $4 hotpixel $1
-  $EUTELESCOPE/jobsub/jobsub.py --option ExcludedPlanes="${exludedPlanes[0]} ${exludedPlanes[1]}" --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option LCIOInputFiles=$5/lcio/run@RunNumber@-converter.slcio --config=$8 -csv $4 clustering $1
+  $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option MaxAllowedFiringFreq=$maffpALPIDEfs --option MaxAllowedFiringFreqpALPIDEss=$maffpALPIDEss --config=$8 -csv $4 hotpixel $1 > $redirect 2>&1
+  $EUTELESCOPE/jobsub/jobsub.py --option ExcludedPlanes="${exludedPlanes[0]} ${exludedPlanes[1]}" --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option LCIOInputFiles=$5/lcio/run@RunNumber@-converter.slcio --config=$8 -csv $4 clustering $1 > $redirect 2>&1
   cd $5/logs/
   clusteringName=`printf clustering-"%06d".zip $1`
-  unzip $clusteringName
+  unzip $clusteringName > /dev/null 2>&1 
   clusteringLogName=`printf clustering-"%06d".log $1`
   tooNoisy="contains more than 4096 cluster"
   if grep -q "$tooNoisy" "$clusteringLogName"; then
@@ -286,7 +292,7 @@ elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
         rm `printf *"%06d"* ${input[0]}`
       fi
     fi
-    exit 1
+    exit 0
   fi
   minTimeStamp=0
   if (( $9==0 )); then
@@ -297,8 +303,8 @@ elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
     minTimeStamp=0
   fi
   rm *.log *.xml
-  cd -
-  $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 hitmaker $1
+  cd - > /dev/null 2>&1
+  $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 hitmaker $1 > $redirect 2>&1
 
   for ((i=$2;i<=$3;i++)) do
     isExlcuded=0
@@ -311,13 +317,13 @@ elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
     if (($isExlcuded==1)); then
       continue
     fi
-    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option dutID="$i" --config=$8 -csv $4 fitter $1
+    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option dutID="$i" --config=$8 -csv $4 fitter $1 > $redirect 2>&1
     cd $5/logs/
-    unzip `printf fitter-"%06d".zip $1`
+    unzip `printf fitter-"%06d".zip $1` > /dev/null 2>&1 
     fitterName=`printf fitter-"%06d".log $1`
     nTrack=`cat $fitterName |  sed -n -e "s/^.*Total number of reconstructed tracks//p" | bc -l`
     rm *.log *.xml
-    cd -
+    cd - > /dev/null 2>&1
     if (($nTrack<100))
     then
       echo "Too few tracks found in DUT" $i", moving to next DUT" >> $5/analysis.log
@@ -333,7 +339,7 @@ elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
      rm $5/settings_DUT$i.txt
     fi
     echo "Using events with a timestamp larger than" $minTimeStamp >> $5/analysis.log
-    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option dutID="$i" --option MinTimeStamp=$minTimeStamp --config=$8 -csv $4 analysis $1
+    $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option dutID="$i" --option MinTimeStamp=$minTimeStamp --config=$8 -csv $4 analysis $1 > $redirect 2>&1
     if ! [ -f $5/../settings_DUT$i.txt ]; then
       cat $5/settings_DUT$i.txt > $5/../settings_DUT$i.txt
     else
@@ -341,12 +347,12 @@ elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
     fi
     sed -i 's/nan/0/g' $5/../settings_DUT$i.txt
     cd $5/logs/
-    unzip `printf analysis-"%06d".zip $1`
+    unzip `printf analysis-"%06d".zip $1` > /dev/null 2>&1 
     analysisName=`printf analysis-"%06d".log $1`
     if (( $9 == 0)); then
       efficiencies=`awk '/Overall efficiency of pALPIDEfs sectors/{x=NR+4;next}(NR<=x){print}' $analysisName | sed -n -e 's/^.*\[ MESSAGE4 \"Analysis\"\] //p'`
       rm *.log *.xml
-      cd -
+      cd - > /dev/null 2>&1
       echo "Efficiencies of the four sectors in DUT" $i":" >> $5/analysis.log
       effArray=($efficiencies)
       for ((j=1;j<=10;j=j+3)) do
@@ -355,7 +361,7 @@ elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
     elif (( $9 == 1)); then
       grep "Overall efficiency of pAlpide: " $analysisName | sed -n -e 's/^.*\[ MESSAGE4 \"Analysis\"\] //p' >> $5/analysis.log
       rm *.log *.xml
-      cd -
+      cd - > /dev/null 2>&1
     fi
     mv `printf $5/logs/analysis-"%06d".zip $1` `printf $5/logs/analysis-"%06d"_DUT$i.zip $1`
     echo "Processing of DUT" $i "exited without errors for run" $1 >> $5/../analysis.log
@@ -371,9 +377,9 @@ elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
   mkdir $outputFolder/important
   mkdir $outputFolder/others
   if (( $9 == 0)); then
-    root -l -q -b qualityCheckfs.C\($1,$2,$3,"\"$5/histogram\"","\"$outputFolder\"",$7\)
+    root -l -q -b qualityCheckfs.C\($1,$2,$3,"\"$5/histogram\"","\"$outputFolder\"",$7\) > /dev/null 2>&1
   elif (( $9 == 1)); then
-    root -l -q -b qualityCheckss.C\($1,$2,$3,"\"$5/histogram\"","\"$outputFolder\"",$7\)
+    root -l -q -b qualityCheckss.C\($1,$2,$3,"\"$5/histogram\"","\"$outputFolder\"",$7\) > /dev/null 2>&1
   fi
   echo "QA written to" $outputFolder  >> $5/analysis.log
 else

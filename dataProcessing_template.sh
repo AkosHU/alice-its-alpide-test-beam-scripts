@@ -9,6 +9,10 @@ whichChip=<whichChip> #0 for full scale, 1 for small scale
 extraBusyTime=<extraBusyTime> #Time to add after normal busy in which events are not considered (in clock cycles). Used for past protection to avoid efficiency loss because of pulse duration differences in tracking planes and DUTs. Only working for pALPIDEfs DUTs
 isNoise=<isNoise> #0: decide from the data if it's noise or data run, 1: force it to be treated as data, 2: force it to be treated as noise
 
+if [ -z "$EUTELESCOPE" ]; then
+  source ../v01-17-05/Eutelescope/trunk/build_env.sh #Change to your EUTelescope folder if you changed the folder structure with respest to the default after installing
+fi
+
 if (( $withAlign!=0 && $withAlign!=1 )); then
   echo -n -e "Wrong setting for withAlign, please use \n  1 for aligning each run separately and \n  0 for using commmon alignment \n"
   exit 1
@@ -22,10 +26,6 @@ fi
 if (( $isNoise<0 || $isNoise>2 )); then
   echo -n -e "Not able to decide if it's noise or data. Please use one of the following settings in dataProcessing: \n  0: decide from the data if it's noise or data run \n  1: force it to be treated as data, \n  2: force it to be treated as noise \n"
   exit 1
-fi
-
-if [ -z "$EUTELESCOPE" ]; then
-  source ../v01-17-05/Eutelescope/trunk/build_env.sh #Change to your EUTelescope folder if you changed the folder structure with respest to the default after installing
 fi
 
 if ! [ -d $outputFolder ]; then
@@ -48,6 +48,19 @@ fi
 IFS=$'\n'
 for line in $(cat $settingsFile)
 do
+  if [ $CMD_PREFIX == "srun" ] && [ "$1" != "DEBUG" ]; then
+    if (( $(($(squeue -u $USER | wc -l) -1)) > 100 )); then
+      echo "("$(date)") More than a 100 jobs queued for slurm, waiting for one to finish before submitting the next" >> $outputFolder/analysis.log
+      echo -e "More than a 100 jobs queued for slurm, waiting for one to finish before submitting the next"
+      while (( $(($(squeue -u $USER | wc -l) -1)) > 100 ))
+      do
+        sleep 10
+      done
+      echo "("$(date)") Less than a 100 jobs queued for slurm, starting submitting new ones" >> $outputFolder/analysis.log
+      echo "Less than a 100 jobs queued for slurm, starting submitting new ones"
+    fi
+  fi
+
   if [ "$1" == "ALIGN" ]; then
     break
   fi
@@ -79,7 +92,7 @@ do
         if ! [[ $2 == ${input[0]} ]] ; then
           continue
         else
-          echo -e "\n \n \n REPROCESSING RUN ${input[0]}!!! \n \n \n"
+          echo "REPROCESSING RUN ${input[0]}!!!"
           rm -r `printf $outputFolder/run"%06d" ${input[0]}`
         fi
       else
@@ -100,7 +113,7 @@ do
             continue
           else
             runFound=1
-            echo -e "\n \n \n REPROCESSING RUN IN RANGE ${range[0]}-${range[1]}, CURRENTLY AT RUN ${input[0]}!!! \n \n \n"
+            echo "REPROCESSING RUN IN RANGE ${range[0]}-${range[1]}, CURRENTLY AT RUN ${input[0]}!!!"
             rm -r `printf $outputFolder/run"%06d" ${input[0]}`
             break
           fi
@@ -110,7 +123,7 @@ do
         fi
       fi
     else
-      echo -e "\n \n \n REPROCESSING ALL RUNS, CURRENTLY AT RUN ${input[0]}!!! \n \n \n"
+      echo "REPROCESSING ALL RUNS, CURRENTLY AT RUN ${input[0]}!!!"
       rm -r `printf $outputFolder/run"%06d" ${input[0]}`
     fi
   fi
@@ -122,22 +135,23 @@ do
   git status >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
   git diff   >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
   git log -1 >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
-  cd -
+  cd - > /dev/null
   cd $EUDAQ
   echo -e "\n \n \n \nEUDAQ" >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
   git status >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
   git diff   >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
   git log -1 >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
-  cd -
+  cd - > /dev/null
   echo -e "\n \n\n \npalpidefs_scripts:" >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
   git status >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
   git diff   >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
   git log -1 >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
   if [ "$1" != "DEBUG" ]; then
     if [ "$#" -eq 0 ]; then
-      $CMD_PREFIX ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign "NORMAL" $extraBusyTime $isNoise &
+      echo "Processing of run" ${input[0]} "started"
+      $CMD_PREFIX ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign "NORMAL" $extraBusyTime $isNoise > `printf $outputFolder/run"%06d"/crash.log ${input[0]}` 2>&1 &
     else
-      $CMD_PREFIX ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1 $extraBusyTime $isNoise &
+      $CMD_PREFIX ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1 $extraBusyTime $isNoise > `printf $outputFolder/run"%06d"/crash.log ${input[0]}` 2>&1 &
     fi
     fileFound=1
     sleep 5
@@ -208,7 +222,7 @@ if [ "$1" == "ALIGN" ]; then
       fi
     fi
   done
-  echo -e "\n \n \n Running in alignment mode \n \n \n"
+  echo -e " Running in alignment mode"
   outputAlign=$outputFolder/align/
   outputFolder=$outputAlign
   echo $outputFolder
@@ -221,18 +235,18 @@ if [ "$1" == "ALIGN" ]; then
   git status >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
   git diff   >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
   git log -1 >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
-  cd -
+  cd - > /dev/null
   cd $EUDAQ
   echo -e "\n \n \n \nEUDAQ" >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
   git status >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
   git diff   >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
   git log -1 >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
-  cd -
-  echo -e "\n \n\n \npalpidefs_scripts:" >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
+  cd - > /dev/null
+  echo -e "\n \n \n \npalpidefs_scripts:" >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
   git status >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
   git diff   >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
   git log -1 >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
-  ./run_createAlign $2 $settingsFile `printf $outputFolder/run"%06d"-"%06d" $3 $4` $rawDataFolder $configFile $3 $4
+  ./run_createAlign $2 $settingsFile `printf $outputFolder/run"%06d"-"%06d" $3 $4` $rawDataFolder $configFile $3 $4  > `printf $outputFolder/run"%06d"-"%06d"/crash.log $3 $4` 2>&1 &
 
   fileFound=1
 fi
@@ -243,4 +257,6 @@ if (( $fileFound == 0)); then
   else
     echo "Run not found in settings file or the raw data does not exist"
   fi
+else
+  echo "All runs sent in for processing"
 fi
