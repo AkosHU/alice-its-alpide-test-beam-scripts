@@ -296,6 +296,10 @@ elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
   fi
   minTimeStamp=0
   minTimeStamp=`cat $clusteringLogName |  sed -n -e "s/^.*Maximum of the time stamp histo is at //p" | bc -l`
+  if [[ ${9} -eq 1 ]] && [[ $minTimeStamp -lt 12000 ]]; then
+      echo "Minimum timestamp was too low ("$minTimeStamp") overidding it with 12000"
+      minTimeStamp=12000
+  fi
   minTimeStamp=`echo "$minTimeStamp+${12}" | bc -l`
   if (( ${12}==0)); then
     minTimeStamp=0
