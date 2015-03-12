@@ -295,10 +295,8 @@ elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
     exit 0
   fi
   minTimeStamp=0
-  if (( $9==0 )); then
-    minTimeStamp=`cat $clusteringLogName |  sed -n -e "s/^.*Maximum of the time stamp histo is at //p" | bc -l`
-    minTimeStamp=`echo "$minTimeStamp+${12}" | bc -l`
-  fi
+  minTimeStamp=`cat $clusteringLogName |  sed -n -e "s/^.*Maximum of the time stamp histo is at //p" | bc -l`
+  minTimeStamp=`echo "$minTimeStamp+${12}" | bc -l`
   if (( ${12}==0)); then
     minTimeStamp=0
   fi
