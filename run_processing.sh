@@ -49,7 +49,7 @@ if ! [[ $nEvent =~ $re ]] ; then
     rm `printf run"%06d"-maskedPixels_*.txt $1`
   fi
   if [ "${11}" != "DEBUG" ]; then
-    rm -r $5/lcio/ 
+    rm -r $5/lcio/
     if [ -f `printf *"%06d"* ${input[0]}` ]; then
       rm `printf *"%06d"* ${input[0]}`
     fi
@@ -71,7 +71,7 @@ fi
 mv `printf run"%06d"-maskedPixels_*.txt $1` $5/database/
 cd $5/logs/
 converterName=`printf converter-"%06d".zip $1`
-unzip $converterName > /dev/null 2>&1 
+unzip $converterName > /dev/null 2>&1
 converterLogName=`printf converter-"%06d".log $1`
 place=`cat $converterLogName | sed -n -e "s/^.*Place of telescope://p" | bc -l`
 if (($place == -100)); then
@@ -99,7 +99,7 @@ if (( ( ${13}==0 && $place > 100) || ${13}==2 )); then
     sed -i 's/nan/0/g' $5/../settings_DUT$i.txt
   done
   cd $5/logs/
-  unzip `printf converter-"%06d".zip $1` > /dev/null 2>&1 
+  unzip `printf converter-"%06d".zip $1` > /dev/null 2>&1
   converterLog=`printf $5/logs/converter-"%06d".log $1`
   thrFailed=0
   for ((i=$2;i<=$3;i++)) do
@@ -200,7 +200,7 @@ elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
     $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --config=$8 -csv $4 deadColumn $1 > $redirect 2>&1
   fi
   cd $5/logs
-  unzip `printf deadColumn-"%06d".zip $1` > /dev/null 2>&1 
+  unzip `printf deadColumn-"%06d".zip $1` > /dev/null 2>&1
   deadColumnName=`printf deadColumn-"%06d".log $1`
   averageHits=`awk '/Average number of hits per event:/{x=NR+'"$7"';next}(NR<=x){print}' $deadColumnName | sed -n -e 's/^.*\[ MESSAGE5 \"deadColumn\"\] Layer [0-9]//p'`
   averageHitsArray=($averageHits)
@@ -232,7 +232,7 @@ elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
     $EUTELESCOPE/jobsub/jobsub.py --option ExcludedPlanes="" --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option LCIOInputFiles=$5/lcio/run@RunNumber@-converter.slcio --config=$8 -csv $4 clustering $1 > $redirect 2>&1
     cd $5/logs/
     clusteringName=`printf clustering-"%06d".zip $1`
-    unzip $clusteringName > /dev/null 2>&1 
+    unzip $clusteringName > /dev/null 2>&1
     clusteringLogName=`printf clustering-"%06d".log $1`
     tooNoisy="contains more than 4096 cluster"
     if grep -q "$tooNoisy" "$clusteringLogName"; then
@@ -280,7 +280,7 @@ elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
   $EUTELESCOPE/jobsub/jobsub.py --option ExcludedPlanes="${exludedPlanes[0]} ${exludedPlanes[1]}" --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option LCIOInputFiles=$5/lcio/run@RunNumber@-converter.slcio --config=$8 -csv $4 clustering $1 > $redirect 2>&1
   cd $5/logs/
   clusteringName=`printf clustering-"%06d".zip $1`
-  unzip $clusteringName > /dev/null 2>&1 
+  unzip $clusteringName > /dev/null 2>&1
   clusteringLogName=`printf clustering-"%06d".log $1`
   tooNoisy="contains more than 4096 cluster"
   if grep -q "$tooNoisy" "$clusteringLogName"; then
@@ -321,7 +321,7 @@ elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
     fi
     $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$5/database --option HistogramPath=$5/histogram --option LcioPath=$5/lcio --option LogPath=$5/logs --option dutID="$i" --config=$8 -csv $4 fitter $1 > $redirect 2>&1
     cd $5/logs/
-    unzip `printf fitter-"%06d".zip $1` > /dev/null 2>&1 
+    unzip `printf fitter-"%06d".zip $1` > /dev/null 2>&1
     fitterName=`printf fitter-"%06d".log $1`
     nTrack=`cat $fitterName |  sed -n -e "s/^.*Total number of reconstructed tracks//p" | bc -l`
     rm *.log *.xml
@@ -349,7 +349,7 @@ elif (( ( ${13}==0 && $place <= 100) || ${13}==1)); then
     fi
     sed -i 's/nan/0/g' $5/../settings_DUT$i.txt
     cd $5/logs/
-    unzip `printf analysis-"%06d".zip $1` > /dev/null 2>&1 
+    unzip `printf analysis-"%06d".zip $1` > /dev/null 2>&1
     analysisName=`printf analysis-"%06d".log $1`
     if (( $9 == 0)); then
       efficiencies=`awk '/Overall efficiency of pALPIDEfs sectors/{x=NR+4;next}(NR<=x){print}' $analysisName | sed -n -e 's/^.*\[ MESSAGE4 \"Analysis\"\] //p'`
