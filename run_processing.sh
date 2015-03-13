@@ -376,14 +376,11 @@ elif (( ( ${dataType}==0 && $place <= 100) || ${dataType}==1)); then
         echo ${effArray[j-1]} >> ${outputFolder}/analysis.log
       done
     elif (( ${dutType} == 1)); then
-      efficiencies=`awk '/Overall efficiency of pALPIDEss sectors/{x=NR+4;next}(NR<=x){print}' $analysisName | sed -n -e 's/^.*\[ MESSAGE4 \"Analysis\"\] //p'`
-      rm *.log *.xml
-      cd - > /dev/null 2>&1
       echo "Efficiencies of the four sectors in DUT" $i":" >> ${outputFolder}/analysis.log
       effArray=($efficiencies)
-      for ((j=1;j<=10;j=j+3)) do
-        echo ${effArray[j-1]} >> ${outputFolder}/analysis.log
-      done
+      cat $analysisName | grep Sector | sed -n -e 's/^.*\[ MESSAGE4 \"Analysis\"\] //p' >> ${outputFolder}/analysis.log
+      rm *.log *.xml
+      cd - > /dev/null 2>&1
     fi
     mv `printf ${outputFolder}/logs/analysis-"%06d".zip ${runNumber}` `printf ${outputFolder}/logs/analysis-"%06d"_DUT$i.zip ${runNumber}`
     echo "Processing of DUT" $i "exited without errors for run" ${runNumber} >> ${outputFolder}/../analysis.log
