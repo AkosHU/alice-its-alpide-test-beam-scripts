@@ -2,7 +2,7 @@
 currentFolder=`pwd`
 echo "Aligning planes" >> $3/analysis.log
 res=64.38
-$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$3/database --option HistogramPath=$3/histogram --option LcioPath=$3/lcio --option LogPath=$3/logs --option ResolutionX="$res $res $res $res $res $res $res" --option ResolutionY="$res $res $res $res $res $res $res" --option ExcludePlanes="$5 $6"  --config=$4 -csv $2 align $1
+$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$3/database --option HistogramPath=$3/histogram --option LcioPath=$3/lcio --option LogPath=$3/logs --option ResolutionX="$res $res $res $res $res $res $res" --option ResolutionY="$res $res $res $res $res $res $res" --option ExcludePlanes="$5"  --config=$4 -csv $2 align $1
 cd $3/logs/
 rm *.log *.xml 
 zipname=`printf align-"%06d".zip $1`
@@ -17,7 +17,7 @@ then
   echo "  New resolution: " $res >> $3/analysis.log
   rm *.log *.xml 
   cd $currentFolder
-  $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$3/database --option HistogramPath=$3/histogram --option LcioPath=$3/lcio --option LogPath=$3/logs --option ResolutionX="$res $res $res $res $res $res $res" --option ResolutionY="$res $res $res $res $res $res $res" --option ExcludePlanes="$5 $6" --config=$4 -csv $2 align $1
+  $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$3/database --option HistogramPath=$3/histogram --option LcioPath=$3/lcio --option LogPath=$3/logs --option ResolutionX="$res $res $res $res $res $res $res" --option ResolutionY="$res $res $res $res $res $res $res" --option ExcludePlanes="$5" --config=$4 -csv $2 align $1
 else
   rm *.log *.xml 
   echo "  Resolution was fine" >> $3/analysis.log

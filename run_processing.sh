@@ -221,16 +221,19 @@ elif (( ( ${dataType}==0 && $place <= 100) || ${dataType}==1)); then
   averageHitsArray=($averageHits)
   for ((i=0;i<${#averageHitsArray[@]};i++)) do
     if (( $(bc <<< "${averageHitsArray[i]} > 100") )); then
-      exludedPlanes[${#exludedPlanes[@]}]=$i
+      excludedPlanes[${#excludedPlanes[@]}]=$i
+    elif (( $(bc <<< "${averageHitsArray[i]} == 0") )); then
+      emptyPlanes[${#emptyPlanes[@]}]=$i
     fi
   done
-  echo "Excluded planes:" ${exludedPlanes[@]} >> ${outputFolder}/analysis.log
+  echo "Excluded planes:" ${excludedPlanes[@]} >> ${outputFolder}/analysis.log
+  echo "Empty planes: " ${emptyPlanes[@]} >> $5/analysis.log
   cd - > /dev/null 2>&1
-  if ((${#exludedPlanes[@]}==0)); then
-    exludedPlanes[0]=-1
-  elif ((${#exludedPlanes[@]}>2)); then
-    echo "More than 2 noise planes (planes" ${exludedPlanes[@]} "), exiting" >> ${outputFolder}/analysis.log
-    echo "More than 2 noise planes (planes" ${exludedPlanes[@]} ") in run" ${runNumber}", exiting" >> ${outputFolder}/../analysis.log
+  if ((${#excludedPlanes[@]}==0)); then
+    excludedPlanes[0]=-1
+  elif ((${#excludedPlanes[@]}>2)); then
+    echo "More than 2 noise planes (planes" ${excludedPlanes[@]} "), exiting" >> ${outputFolder}/analysis.log
+    echo "More than 2 noise planes (planes" ${excludedPlanes[@]} ") in run" ${runNumber}", exiting" >> ${outputFolder}/../analysis.log
     if [ "${processingMode}" != "DEBUG" ]; then
       rm -r ${outputFolder}/lcio
       if [ -f `printf *"%06d"* ${input[0]}` ]; then
@@ -239,7 +242,12 @@ elif (( ( ${dataType}==0 && $place <= 100) || ${dataType}==1)); then
     fi
     exit 0
   fi
-  excludedPlanesTmp=${exludedPlanes[@]}
+  if ((${#emptyPlanes[@]}==0)); then
+    emptyPlanes[0]=-1
+  elif ((${#emptyPlanes[@]}>1)); then
+    echo "More than 1 completely empty plane, strange, exiting" >> $5/analysis.log
+    echo "More than 1 completely empty plane in run" $1", strange, exiting" >> $5/../analysis.log
+  fi
   if (( ${alignMethod} == 1 )); then
     maffpALPIDEfs=0.0001
     maffpALPIDEss=0.001
@@ -265,7 +273,7 @@ elif (( ( ${dataType}==0 && $place <= 100) || ${dataType}==1)); then
     cd - > /dev/null 2>&1
     $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} hitmaker ${runNumber} > $redirect 2>&1
     $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} prealign ${runNumber} > $redirect 2>&1
-    ./run_align_7 ${runNumber} ${settingsFile} ${outputFolder} ${configFile} ${exludedPlanes[0]} ${exludedPlanes[1]} > $redirect 2>&1
+    ./run_align_7 ${runNumber} ${settingsFile} ${outputFolder} ${configFile} ${emptyPlanes[0]} > $redirect 2>&1
     error=`echo $?`
     if (($error > 0))
     then
@@ -292,7 +300,7 @@ elif (( ( ${dataType}==0 && $place <= 100) || ${dataType}==1)); then
   maffpALPIDEfs=0.001
   maffpALPIDEss=1
   $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option MaxAllowedFiringFreq=$maffpALPIDEfs --option MaxAllowedFiringFreqpALPIDEss=$maffpALPIDEss  hotpixel ${runNumber} > $redirect 2>&1
-  $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option LCIOInputFiles=${outputFolder}/lcio/run@RunNumber@-converter.slcio --option ExcludedPlanes="${exludedPlanes[0]} ${exludedPlanes[1]}" clustering ${runNumber} > $redirect 2>&1
+  $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option LCIOInputFiles=${outputFolder}/lcio/run@RunNumber@-converter.slcio --option ExcludedPlanes="${excludedPlanes[0]} ${excludedPlanes[1]}" clustering ${runNumber} > $redirect 2>&1
   cd ${outputFolder}/logs/
   clusteringName=`printf clustering-"%06d".zip ${runNumber}`
   unzip $clusteringName > /dev/null 2>&1
@@ -324,14 +332,17 @@ elif (( ( ${dataType}==0 && $place <= 100) || ${dataType}==1)); then
   $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} hitmaker ${runNumber} > $redirect 2>&1
 
   for ((i=${firstDUTid};i<=${lastDUTid};i++)) do
-    isExlcuded=0
-    for ((j=0;j<${#exludedPlanes[@]};j++)) do
-      if ((${exludedPlanes[j]}==$i)); then
-        isExlcuded=1
+    isExcluded=0
+    for ((j=0;j<${#excludedPlanes[@]};j++)) do
+      if ((${excludedPlanes[j]}==$i)); then
+        isExcluded=1
         break
       fi
     done
-    if (($isExlcuded==1)); then
+    if (($isExcluded==1)); then
+      continue
+    fi
+    if ((${emptyPlanes[0]}==$i)); then
       continue
     fi
     $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option dutID="$i" fitter ${runNumber} > $redirect 2>&1
