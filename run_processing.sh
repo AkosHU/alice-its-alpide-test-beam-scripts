@@ -144,10 +144,10 @@ if (( ( ${dataType}==0 && $place > 100) || ${dataType}==2 )); then
     rm -r ${outputFolder}/lcio ${outputFolder}/database
   fi
   #Quality checks for noise
-  outputFolder=${outputFolder}/Plots/
-  mkdir $outputFolder
-  root -l -q -b qualityCheckNoise.C\(${runNumber},"\"${outputFolder}/histogram\"","\"$outputFolder\"",${nTelescopePlanes}\) > /dev/null 2>&1
-  echo "QA written to" $outputFolder  >> ${outputFolder}/analysis.log
+  outputFolderQA=${outputFolder}/Plots/
+  mkdir $outputFolderQA
+  root -l -q -b qualityCheckNoise.C\(${runNumber},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
+  echo "QA written to" $outputFolderQA >> ${outputFolder}/analysis.log
 elif (( ( ${dataType}==0 && $place <= 100) || ${dataType}==1)); then
   echo "Treated as data run" >> ${outputFolder}/analysis.log
   if (( ${alignMethod} == 0)); then
@@ -278,16 +278,16 @@ elif (( ( ${dataType}==0 && $place <= 100) || ${dataType}==1)); then
     if (($error > 0))
     then
       #Quality checks if alignment failed
-      outputFolder=${outputFolder}/Plots/
-      mkdir $outputFolder
-      mkdir $outputFolder/important
-      mkdir $outputFolder/others
+      outputFolderQA=${outputFolder}/Plots/
+      mkdir $outputFolderQA
+      mkdir $outputFolderQA/important
+      mkdir $outputFolderQA/others
       if (( ${dutType} == 0)); then
-        root -l -q -b qualityCheckfs.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolder\"",${nTelescopePlanes}\) > /dev/null 2>&1
+        root -l -q -b qualityCheckfs.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
       elif (( ${dutType} == 1)); then
-        root -l -q -b qualityCheckss.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolder\"",${nTelescopePlanes}\) > /dev/null 2>&1
+        root -l -q -b qualityCheckss.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
       fi
-      echo "QA written to" $outputFolder  >> ${outputFolder}/analysis.log
+      echo "QA written to" $outputFolderQA >> ${outputFolder}/analysis.log
       if [ "${processingMode}" != "DEBUG" ]; then
         rm -r ${outputFolder}/lcio
         if [ -f `printf *"%06d"* ${input[0]}` ]; then
@@ -402,16 +402,16 @@ elif (( ( ${dataType}==0 && $place <= 100) || ${dataType}==1)); then
 #    rm -r ${outputFolder}/lcio ${outputFolder}/database # To delete all intermediate steps
   fi
   #Quality checks
-  outputFolder=${outputFolder}/Plots/
-  mkdir $outputFolder
-  mkdir $outputFolder/important
-  mkdir $outputFolder/others
+  outputFolderQA=${outputFolder}/Plots/
+  mkdir $outputFolderQA
+  mkdir $outputFolderQA/important
+  mkdir $outputFolderQA/others
   if (( ${dutType} == 0)); then
-    root -l -q -b qualityCheckfs.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolder\"",${nTelescopePlanes}\) > /dev/null 2>&1
+    root -l -q -b qualityCheckfs.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
   elif (( ${dutType} == 1)); then
-    root -l -q -b qualityCheckss.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolder\"",${nTelescopePlanes}\) > /dev/null 2>&1
+    root -l -q -b qualityCheckss.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
   fi
-  echo "QA written to" $outputFolder  >> ${outputFolder}/analysis.log
+  echo "QA written to" $outputFolderQA >> ${outputFolder}/analysis.log
 else
   echo -n -e "Not able to decide if it's noise or data. Please use one of the following settings in dataProcessing: \n  0: decide from the data if it's noise or data run \n  1: force it to be treated as data, \n  2: force it to be treated as noise \n"
 fi
