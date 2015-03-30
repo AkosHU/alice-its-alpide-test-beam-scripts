@@ -34,7 +34,7 @@ else
 fi
 $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$3/database --option HistogramPath=$3/histogram --option LcioPath=$3/lcio --option LogPath=$3/logs --config=$5 -csv $2 hitmaker ${runsGood[0]} > /dev/null 2>&1
 $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$3/database --option HistogramPath=$3/histogram --option LcioPath=$3/lcio --option LogPath=$3/logs --config=$5 -csv $2 prealign ${runsGood[0]} > /dev/null 2>&1
-./run_align_PS_7 ${runsGood[0]} $2 $3 $5 > /dev/null 2>&1
+./run_align_7 ${runsGood[0]} $2 $3 $5 > /dev/null 2>&1
 error=`echo $?`
 if (($error > 0))
 then 
