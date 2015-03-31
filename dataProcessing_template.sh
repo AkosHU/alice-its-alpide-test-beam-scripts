@@ -48,7 +48,7 @@ fi
 IFS=$'\n'
 for line in $(cat $settingsFile)
 do
-  if [ $CMD_PREFIX == "srun" ] && [ "$1" != "DEBUG" ]; then
+  if [ "$CMD_PREFIX" == "srun" ] && [ "$1" != "DEBUG" ]; then
     if (( $(($(squeue -u $USER | wc -l) -1)) > 100 )); then
       echo "("$(date)") More than a 100 jobs queued for slurm, waiting for one to finish before submitting the next" >> $outputFolder/analysis.log
       echo -e "More than a 100 jobs queued for slurm, waiting for one to finish before submitting the next"
