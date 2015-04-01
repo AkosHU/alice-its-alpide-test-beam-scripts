@@ -308,9 +308,9 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
 //      noiseOccupancyAfterRemovalIthr[iSector]->SetPoint(noiseOccupancyAfterRemovalIthr[iSector]->GetN(),runs[i].getIthr(),noiseOccupancyAfterRemovalHisto->GetBinContent(iSector+1));
 //      noiseOccupancyAfterRemovalIthr[iSector]->SetPointError(noiseOccupancyAfterRemovalIthr[iSector]->GetN()-1,0,noiseOccupancyAfterRemovalHisto->GetBinError(iSector+1));
 //      cerr << noiseOccupancyAfterRemovalHisto->GetBinContent(iSector+1) << endl;
-      clusterSizeHisto[iSector] = (TH1I*)histFile->Get(Form("Analysis/clusterSizeHisto_%d",iSector));
-      residualXHisto[iSector] = (TH1I*)histFile->Get(Form("Analysis/residualXPAlpide_30.0_%d",iSector));
-      residualYHisto[iSector] = (TH1I*)histFile->Get(Form("Analysis/residualYPAlpide_30.0_%d",iSector));
+      clusterSizeHisto[iSector] = (TH1I*)histFile->Get(Form("Analysis/Sector_%d/clusterSizeHisto_%d",iSector,iSector));
+      residualXHisto[iSector] = (TH1I*)histFile->Get(Form("Analysis/Sector_%d/residualXPAlpide_30.0_%d",iSector,iSector));
+      residualYHisto[iSector] = (TH1I*)histFile->Get(Form("Analysis/Sector_%d/residualYPAlpide_30.0_%d",iSector,iSector));
 //      if (clusterSizeHisto[iSector]->Integral() < 100) continue;
     }
     runs[i].setClusterSize(clusterSizeHisto);
