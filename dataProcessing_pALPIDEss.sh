@@ -4,7 +4,7 @@ rawDataFolder=/data0/alice_u/freidt/pALPIDEss/testbeam/2015/DESY/2015-02-09/pALP
 outputFolder=/data0/alice_u/freidt/pALPIDEss/testbeam/2015/DESY/2015-02-09/pALPIDEss/output
 settingsFile=/data0/alice_u/freidt/ilcsoft/v01-17-05/Eutelescope/trunk/jobsub/examples/pALPIDEss/runlist_pALPIDEss.csv
 configFile=/data0/alice_u/freidt/ilcsoft/v01-17-05/Eutelescope/trunk/jobsub/examples/pALPIDEss/config_pALPIDEss.cfg
-withAlign=1 #1 for aligning each run separately and 0 for using commmon alignment
+withAlign=0 #1 for aligning each run separately and 0 for using commmon alignment
 whichChip=1 #0 for full scale, 1 for small scale
 extraBusyTime=2400 #Time to add after normal busy in which events are not considered (in clock cycles). Used for past protection to avoid efficiency loss because of pulse duration differences in tracking planes and DUTs. Only working for pALPIDEfs DUTs
 isNoise=1 #0: decide from the data if it's noise or data run, 1: force it to be treated as data, 2: force it to be treated as noise
@@ -159,7 +159,7 @@ do
     ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1 $extraBusyTime $isNoise
     fileFound=1
   else
-    argArr1=(converter deadColumn hotpixel clustering hitmaker prealign align fitter analysis noise)
+    argArr1=(converter deadColumn hotpixel clustering hitmaker prealign align fitter analysis noise align-check)
     argArr2=(fitter analysis)
     argArr3=(sync converter)
     if (( $whichChip == 1)) && [[ " ${argArr3[*]} " == *"$3"* ]]; then
