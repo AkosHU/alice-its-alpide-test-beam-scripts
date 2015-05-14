@@ -1826,7 +1826,7 @@ void DrawSame(vector<TGraph*> graph1, vector<TGraph*> graph2, const char* canvas
     graph1[i]->SetMarkerSize(1.3);
     graph1[i]->SetMarkerColor(1);
 
-    graph1[i]->DrawClone(i==3?"P":"SAMEP");
+    graph1[i]->DrawClone(i==3?"PL":"SAMEPL");
   }
   for (unsigned int i=0; i<graph2.size(); i++)
   {
@@ -1839,7 +1839,7 @@ void DrawSame(vector<TGraph*> graph1, vector<TGraph*> graph2, const char* canvas
     graph2[i]->SetMarkerSize(1.3);
     graph2[i]->SetMarkerColor(2);
 
-    graph2[i]->DrawClone("SAMEP");
+    graph2[i]->DrawClone("SAMEPL");
   }
   TLegend * legend = new TLegend(0.1,0.1,0.77,0.3);
   if (drawLegend)
