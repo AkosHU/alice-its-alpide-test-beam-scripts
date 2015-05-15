@@ -716,73 +716,6 @@ TH1F* CalculateNoiseFromNoise(TH2* fakeHitHisto, int runNumberIndex, vector<Run>
   return noiseOccupancyAfterRemovalHisto3;
 }
 
-void compareDifferentGraphs(string files, string hist, const char* yTitle1, const char* yTitle2,const char* xTitle, const char* legend, double y1low, double y1high, double line1, double y2low, double y2high, double line2, double xlow, double xhigh, bool log1, bool log2)
-{
-//  int marker[5] = {20, 25, 3, 34, 23};
-//  int marker[5] = {20, 20, 20, 21, 22};
-//  int color[5] = {1, 2, 4, 8, 6};
-  vector<string> filesV;
-  std::istringstream filesIs(files);
-  string filesStr;
-  while( filesIs >> filesStr)
-    filesV.push_back("graphs_"+filesStr+".root");
-
-  vector<TFile*> graphFile(filesV.size());
-  for (unsigned int i=0; i<filesV.size(); i++)
-    graphFile[i] =  new TFile(filesV[i].c_str(),"READONLY");
-
-  vector<string> histV;
-  std::istringstream histIs(hist);
-  string histStr;
-  while( histIs >> histStr)
-    histV.push_back(histStr);
-
-//  vector<TCanvas *> graphC(4);
-/*  for (int i=0; i<4; i++)
-  {
-    string canvasName = hist+Form("_%dC",i);
-    graphC[i] = new TCanvas(canvasName.c_str(),"",800,600);
-    if (log) graphC[i]->SetLogy();
-  }
-*///  TLegend * legend = new TLegend(0.65,0.7,0.9,0.9);
-//  legend->SetFillColor(0);
-  for (int i=0; i<4; i++)
-  {
-    vector<TGraph*> graph1V(filesV.size());
-    vector<TGraph*> graph2V(filesV.size());
-    string histname0 = histV[0] + Form("_%d",i);
-    string histname1 = histV[1] + Form("_%d",i);
-    for (unsigned int j=0; j<graphFile.size(); j++)
-    {
-      if (!graphFile[j] || graphFile[j]->IsZombie())
-        continue;
-      graph1V[j] = (TGraphErrors*)graphFile[j]->Get(histname0.c_str());
-      graph2V[j] = (TGraphErrors*)graphFile[j]->Get(histname1.c_str());
-//      cerr << graphV[j]->GetN() << endl;
-    }
-    string canvas = histV[0] + histV[1] + Form("C_%d",i);
-    vector<string> legendStr;
-    for (unsigned int j=0; j<graph1V.size(); j++)
-    {
-      legendStr.push_back(getLegend(filesV[j], true, false, false));
-    }
-      string canvasTitle = Form("Sector %d",i);
-//    legendStr.push_back("   Non irradiated");
-//    legendStr.push_back("   Irradiated with 0.25e13 1 Mev n_{eq}/cm^{2}");
-//    legendStr.push_back("   Irradiated with 1e13 1 Mev n_{eq}/cm^{2}");
-//    if (i == 1) DrawOverDifferentGraphs(graph1V,3.3,5.7,yTitle1,graph2V,0.9,4.1,yTitle2,canvas.c_str(),legend,legendStr, 30, 510, log1,log2,"I_{thr} (pA)");
-      DrawOverDifferentGraphs(graph1V,y1low,y1high,line1,yTitle1,graph2V,y2low,y2high,line2,yTitle2,canvas.c_str(),legend,legendStr, xlow, xhigh, log1,log2,xTitle,canvasTitle.c_str());
-//    if (i == 2) DrawOverDifferentGraphs(graph1V,3.3,5.7,yTitle1,graph2V,0.9,4.1,yTitle2,canvas.c_str(),legend,legendStr, 85, 195, log1,log2);
-//    if (i == 1) DrawOverDifferentGraphs(graph1V,1e-11,1e-3,yTitle1,graph2V,92,100.1,yTitle2,canvas.c_str(),legend,legendStr, 100, 2000, log1,log2,"Measured I_{thr} ()");
-//    if (i == 1) DrawOverDifferentGraphs(graph1V,1e-11,1e-3,yTitle1,graph2V,92,100.1,yTitle2,canvas.c_str(),legend,legendStr, 30, 510, log1,log2,"I_{thr} (pA)");
-//    if (i == 1) DrawOverDifferentGraphs(graph1V,1e-11,1e-3,yTitle1,graph2V,92,100.1,yTitle2,canvas.c_str(),legend,legendStr, 3, 55, log1,log2,"I_{thr} (DAC units)");
-//    if (i == 1) DrawOverDifferentGraphs(graph1V,1e-11,1e-3,yTitle1,graph2V,92,100.1,yTitle2,canvas.c_str(),legend,legendStr, 85, 195, log1,log2);
-//    if (i == 1) DrawOverDifferentGraphs(graph1V,75,100.1,yTitle1,graph2V,3.5,7.5,yTitle2,canvas.c_str(),legend,legendStr, 110, 240, log1,log2);
-//    if (i == 1) DrawOverDifferentGraphs(graph1V,75,100.1,yTitle1,graph2V,4,7.5,yTitle2,canvas.c_str(),legend,legendStr, 110, 195, log1,log2);
-//    DrawOverDifferentGraphs(graph1V,1e-11,1e-3,yTitle1,graph2V,92,100.1,yTitle2,canvas.c_str(),legend,legendStr, 85, 195, log1,log2);
-  }
-}
-
 void compareDifferentGraphs2D(string files, string hist, int sector, bool IthrVcasn, double IthrVcasnValue, bool BB, bool irr, bool chip, bool rate)
 {
   vector<string> histV;
@@ -944,10 +877,10 @@ void compareOneHistogram(string files, string hist, string sectorStr, bool IthrV
     }
   }
   
-  if (defaultsFine) compareOneHistogram(files, hist, sectorStr, IthrVcasn, IthrVcasnValue, type, xTitle1.c_str(), xTitle2.c_str(), x1low, x1high, x2low, x2high, legend.c_str(), yTitle.c_str(), ylow, yhigh, log, line, BB, irr, chip, rate, "", comparison);
+  if (defaultsFine) compareOneHistogram(files, hist, sectorStr, IthrVcasn, IthrVcasnValue, xTitle1.c_str(), xTitle2.c_str(), x1low, x1high, x2low, x2high, legend.c_str(), yTitle.c_str(), ylow, yhigh, log, line, BB, irr, chip, rate, "");
 }
 
-void compareOneHistogram(string files, string hist, string sectorStr, bool IthrVcasn, double IthrVcasnValue, int type, const char* xTitle1, const char* xTitle2, double x1low, double x1high, double x2low, double x2high, const char* legend, const char* yTitle, double ylow, double yhigh, bool log, double line, bool BB, bool irr, bool chip, bool rate, const char* title, string comparison)
+void compareOneHistogram(string files, string hist, string sectorStr, bool IthrVcasn, double IthrVcasnValue, const char* xTitle1, const char* xTitle2, double x1low, double x1high, double x2low, double x2high, const char* legend, const char* yTitle, double ylow, double yhigh, bool log, double line, bool BB, bool irr, bool chip, bool rate, const char* title)
 {
   string sectorLegendEntries[4] = {"PMOS reset, 1 #mum spacing (sector 0)", "PMOS reset, 2 #mum spacing (sector 1)", "Diode reset, 2 #mum spacing (sector 2)", "PMOS reset, 4 #mum spacing (sector 3)"};
   vector<string> filesV;
@@ -1302,36 +1235,6 @@ void Draw2D(TGraph2D* graph, const char* canvas, string zTitle, string title, bo
 	
 }
 
-void compareDifferentSectors(string file, string hist, const char* yTitle1, const char* yTitle2,const char* xTitle, const char* legend, double y1low, double y1high, double line1, double y2low, double y2high, double line2, double xlow, double xhigh, bool log1, bool log2)
-{
-  string legendEntries[4] = {"PMOS reset, 1 #mum spacing (sector 0)", "PMOS reset, 2 #mum spacing (sector 1)", "Diode reset, 2 #mum spacing (sector 2)", "PMOS reset, 4 #mum spacing (sector 3)"};
-  string fileName = "graphs_"+file+".root";
-
-  TFile* graphFile = new TFile(fileName.c_str(),"READONLY");
-  if (!graphFile || graphFile->IsZombie())
-    return;
-
-  vector<string> histV;
-  std::istringstream histIs(hist);
-  string histStr;
-  while( histIs >> histStr)
-    histV.push_back(histStr);
-
-  vector<TGraph*> graph1V;
-  vector<TGraph*> graph2V;
-  vector<string> legendStr;
-  string canvas = histV[0] + histV[1] + "C";
-  for (int i=1; i<4; i++)
-  {
-    string histname0 = histV[0] + Form("_%d",i);
-    string histname1 = histV[1] + Form("_%d",i);
-    graph1V.push_back((TGraphErrors*)graphFile->Get(histname0.c_str()));
-    graph2V.push_back((TGraphErrors*)graphFile->Get(histname1.c_str()));
-    legendStr.push_back(legendEntries[i]);
-  }
-  DrawOverSectors(graph1V,y1low,y1high,line1,yTitle1,graph2V,y2low,y2high,line2,yTitle2,canvas.c_str(),legend,legendStr, xlow, xhigh, log1,log2,xTitle);
-}
-
 void compareDifferentSectors2D(string file, string hist, bool IthrVcasn, double IthrVcasnValue)
 {
   TFile* graphFile = new TFile(file.c_str(),"READONLY");
@@ -1433,9 +1336,6 @@ void compareDifferentSectors2D(string file, string hist, bool IthrVcasn, double 
             }
           }
         }
-/*      for (int i=0; i<graph2D1->GetN(); i++)
-      {
-*/     
       } 
     }
     else
@@ -1501,131 +1401,6 @@ void compareDifferentSectors2D(string file, string hist, bool IthrVcasn, double 
     DrawOverSectors(graph1V,y1low,y1high,line1,yTitle1,graph2V,y2low,y2high,line2,yTitle2,canvas2.c_str(),legend,legendStr, xlow, xhigh, log1,log2,xTitle,title.c_str());
   }
   
-}
-
-void compareGraphs(string files, string hist, const char* yTitle, bool log, bool addChipNumber)
-{
-  int marker[6] = {20, 25, 3, 34, 23, 27};
-  int color[6] = {1, 2, 4, 8, 6, 9};
-  vector<string> filesV;
-  std::istringstream filesIs(files);
-  string filesStr;
-  while( filesIs >> filesStr)
-    filesV.push_back("graphs_"+filesStr+".root");
-
-  vector<TFile*> graphFile(filesV.size());
-  for (unsigned int i=0; i<filesV.size(); i++)
-    graphFile[i] =  new TFile(filesV[i].c_str(),"READONLY");
-  vector<TCanvas *> graphC(4);
-  for (int i=0; i<4; i++)
-  {
-    string canvasName = hist+Form("_%dC",i);
-    graphC[i] = new TCanvas(canvasName.c_str(),"",800,600);
-    if (log) graphC[i]->SetLogy();
-  }
-  TLegend * legend = new TLegend(0.65,0.7,0.9,0.9);
-  legend->SetFillColor(0);
-  vector<TGraph*> graphSector1(4);
-  vector<TGraph*> graphSector2(4);
-  for (int i=0; i<4; i++)
-  {
-    vector<TGraphErrors*> graphV(filesV.size());
-    float maxX=-100, maxXPrev=-100, minX=1000, minXPrev=1000;
-    float maxY=-100, maxYPrev=-100, minY=1000, minYPrev=1000;
-    string histName = hist+Form("_%d",i);
-    graphC[i]->cd();
-    for (unsigned int j=0; j<graphFile.size(); j++)
-    {
-      if (!graphFile[j] || graphFile[j]->IsZombie())
-        continue;
-      graphV[j] = (TGraphErrors*)graphFile[j]->Get(histName.c_str());
-//      cerr << graphV[j]->GetN() << endl;
-      if (graphV[j]->GetN() == 0) continue;
-//        cerr << irradiationLevels[atoi(irr.c_str())] << endl;
-      graphV[j]->GetXaxis()->SetTitle("Threshold in electrons");
-      graphV[j]->GetYaxis()->SetTitle(yTitle);
-      graphV[j]->GetYaxis()->SetTitleOffset(1.1);
-      graphV[j]->SetMarkerSize(1.3);
-      graphV[j]->SetFillColor(0);
-      graphV[j]->SetMarkerColor(color[j]);
-      graphV[j]->SetLineColor(color[j]);
-      graphV[j]->SetMarkerStyle(marker[j]);
-      if (i == 0) graphV[j]->SetTitle("PMOS reset, 1#mum spacing (sector 0)");
-      else if (i == 1) graphV[j]->SetTitle("PMOS reset, 2#mum spacing (sector 1)");
-      else if (i == 2) graphV[j]->SetTitle("Diode reset, 2#mum spacing (sector 2)");
-      else if (i == 3) graphV[j]->SetTitle("PMOS reset, 4#mum spacing (sector 3)");
-      if (i==0)
-      {
-        string legendEntry;
-        legendEntry = getLegend(filesV[j], false, false, addChipNumber,true);
-        legend->AddEntry(graphV[j]->Clone(), legendEntry.c_str());
-      }
-      maxY = TMath::MaxElement(graphV[j]->GetN(),graphV[j]->GetY());
-      if (maxY > maxYPrev) maxYPrev = maxY;
-      maxX = TMath::MaxElement(graphV[j]->GetN(),graphV[j]->GetX());
-      if (maxX > maxXPrev) maxXPrev = maxX;
-      minY = TMath::MinElement(graphV[j]->GetN(),graphV[j]->GetY());
-      if (minY < minYPrev) minYPrev = minY;
-      minX = TMath::MinElement(graphV[j]->GetN(),graphV[j]->GetX());
-      if (minX < minXPrev) minXPrev = minX;
-    }
-      if (graphFile.size() <= 2)
-      {
-        graphSector1[i] = (TGraphErrors*)graphV[0]->Clone(Form("graphSector1_%d",i));
-//        string graphTitle = "V_{BB} = " + BBStr;
-//        graphSector1[i]->SetTitle(graphTitle.c_str());
-//        graphSector1[i]->SetTitle(chipStr.c_str());
-      }
-      if (graphFile.size() == 2)
-      {
-        graphSector2[i] = (TGraphErrors*)graphV[1]->Clone(Form("graphSector2_%d",i));
-//        string graphTitle = "V_{BB} = " + BBStr;
-//        graphSector2[i]->SetTitle(graphTitle.c_str());
-//        graphSector2[i]->SetTitle(chipStr.c_str());
-      }
-    for (unsigned int j=0; j<graphFile.size(); j++)
-    {
-      graphV[j]->GetHistogram()->SetMaximum(maxYPrev+(maxYPrev-minYPrev)*0.02);
-      graphV[j]->GetHistogram()->SetMinimum(minYPrev-(maxYPrev-minYPrev)*0.02);
-      graphV[j]->GetXaxis()->SetLimits(minXPrev-20,maxXPrev+20);
-      graphV[j]->Draw(j==0?"ALP":"LPSAME");
-    }
-    //if (i==2) legend->Draw();
-    legend->Draw();
-    string outputFileName = "./results/";
-    outputFileName += hist;
-    outputFileName += Form("_%d.pdf",i);
-    graphC[i]->SaveAs(outputFileName.c_str());
-  }
-  if (graphFile.size() <= 2) 
-  {
-    double yLower = 0, yUpper = 100;
-    if (hist == "resolution" || hist == "resolutionX" || hist == "resolutionY" || hist == "residual" || hist == "residualX" || hist == "residualY")
-    {
-      yLower = 3.4;
-      yUpper = 7;
-      
-    }
-    else if (hist == "efficiency")
-    {
-      yLower = 95;
-      yUpper = 100.02;
-    }
-    else if (hist == "noiseOccupancyBeforeRemovalThr" || hist == "noiseOccupancyAfterRemovalThr")
-    {
-      yLower = 1e-10;
-      yUpper = 1e-4;
-    }
-    else if (hist == "clusterSize")
-    {
-      yLower = 0;
-      yUpper = 4;
-    }
-//    cerr << "before" << endl;
-//    if (graphFile.size() == 1) Draw(graphSector1,hist.c_str(),"Threshold in electrons",yTitle,yLower,yUpper,60,180,false,log);
-//    else if (graphFile.size() == 2) DrawSame(graphSector1,graphSector2,hist.c_str(),"Threshold in electrons",yTitle,70,180,yLower,yUpper,"Non irradiated     1e13 1 MeV n_{eq}/cm^{2}");
-//    cerr << "after" << endl;
-  }
 }
 
 bool getDefaults(string graph, double& xlow, double& xhigh, double& ylow, double& yhigh, double& line, bool& log, string& xTitle, string& yTitle, string& legend, double& x2low, double& x2high, string& xTitle2)
@@ -1731,69 +1506,6 @@ bool getDefaults(string graph, double& xlow, double& xhigh, double& ylow, double
   return true;
 }
 
-void plotOneGraph(string file)
-{
-  compareGraphs(file,"clusterSize","Average cluster size in pixels");
-  compareGraphs(file,"residual","Residual (#mum)");
-  compareGraphs(file,"resolution","Resolution (#mum)");
-  compareGraphs(file,"efficiency","Efficiency (%)");
-  compareGraphs(file,"noiseOccupancyAfterRemovalThr","Noise occupancy per event per pixel",true);
-}
-
-void convertBrokenPixelsMap(string fileName)
-{
-
-  ifstream file;
-  file.open(fileName.c_str());
-  TH2F* brokenPixel = new TH2F("brokenPixel","Broken Pixels",1024,0,1024,512,0,512);
-  while (!file.eof())
-  {
-    int region, doubleCol, address;
-    file >> region >> doubleCol >> address ;
-    int Row = address / 2;                // This is OK for the top-right and the bottom-left pixel within a group of 4
-    if ((address % 4) == 3) Row -= 1;      // adjust the top-left pixel              
-    if ((address % 4) == 0) Row += 1;      // adjust the bottom-right pixel          
-    int Column    = region * 32 + doubleCol * 2;    // Double columns before ADoubleCol
-    int LeftRight = ((address % 4) < 2 ? 1:0);       // Left or right column within the double column
-    Column += LeftRight;                                                              
-
-    if (Column > 1023 || Row > 511) cerr << region << "\t" << doubleCol << "\t" << address << "\t" << Column << "\t" << Row << endl;
-    brokenPixel->Fill(Column,Row,1);
-  }
-  new TCanvas("brokenPixelsC","brokenPixelsC",800,600);
-  brokenPixel->Draw("COLZ");
-}
-
-void convertThresholdMap(string fileName)
-{
-
-  ifstream file;
-  file.open(fileName.c_str());
-  TH2F* thresholdHist = new TH2F("thresholdHist","thresholdHist",1024,0,1024,512,0,512);
-  TH2F* noiseHist = new TH2F("noiseHist","noiseHist",1024,0,1024,512,0,512);
-  while (!file.eof())
-  {
-    int doubleCol, address;
-    float threshold, noise;
-    file >> doubleCol >> address >> threshold >> noise;
-
-    int Column    = doubleCol * 2;    // Double columns before ADoubleCol
-    int LeftRight = ((address % 4) < 2 ? 1:0);       // Left or right column within the double column
-    Column += LeftRight;
-
-    int Row = address / 2;                // This is OK for the top-right and the bottom-left pixel within a group of 4
-    if ((address % 4) == 3) Row -= 1;      // adjust the top-left pixel
-    if ((address % 4) == 0) Row += 1;      // adjust the bottom-right pixel
-    if (Column > 1023 || Row > 511) cerr << doubleCol << "\t" << address << "\t" << Column << "\t" << Row << endl;
-    thresholdHist->Fill(Column,Row,threshold);
-    noiseHist->Fill(Column,Row,noise);
-  }
-  new TCanvas("thresholdC","thresholdC",800,600);
-  thresholdHist->Draw("COLZ");
-  new TCanvas("noiseC","noiseC",800,600);
-  noiseHist->Draw("COLZ");
-}
-
 string getLegend(string file, bool addBB, bool addIrr, bool addChipNumber, bool addRate)
 {
   string irradiationLevels[5] = {"Non irradiated","0.25e13 1 MeV n_{eq}/cm^{2}","1e13 1 MeV n_{eq}/cm^{2}","700 krad","1e13 1 MeV n_{eq}/cm^{2} + 700 krad"};
@@ -1838,23 +1550,6 @@ string getLegend(string file, bool addBB, bool addIrr, bool addChipNumber, bool 
   if (ratePos != string::npos && addRate) legendEntry += " " + rateLevels[rate];
   else if (addRate) legendEntry += " Rate unknown";
   return legendEntry;
-}
-
-void AddPoint(TGraph* graph, double x, double y)
-{
-  graph->SetPoint(graph->GetN(), x, y);
-}
-
-void AddPoint(TGraphAsymmErrors* graph, double x, double y, double yErrorLow, double yErrorHigh)
-{
-  graph->SetPoint(graph->GetN(), x, y);
-  graph->SetPointError(graph->GetN() - 1, 0,0, yErrorLow, yErrorHigh);
-}
-
-void AddPoint(TGraphErrors* graph, double x, double y, double yError)
-{
-  graph->SetPoint(graph->GetN(), x, y);
-  graph->SetPointError(graph->GetN() - 1, 0, yError);
 }
 
 void Draw(vector<TGraph*> graph, string canvas, const char* titleX, const char* titleY, vector<string> legendStr, double rangeLow, double rangeHigh, double line, double xLow, double xHigh, bool log, const char* canvasTitle)
@@ -1974,7 +1669,6 @@ void DrawSame(vector<TGraph*> graph1, vector<TGraph*> graph2, const char* canvas
     legend->Draw();
   }
 }
-
 
 void DrawOverSectors(vector<TGraph*> graph1, double rangeLow1, double rangeHigh1, double line1, const char* titleY1, vector<TGraph*> graph2, double rangeLow2, double rangeHigh2, double line2, const char* titleY2, const char* canvas, const char* legendTitle, vector<string> legendStr, double xlow, double xhigh,bool log1, bool log2, const char* titleX, const char* title)
 {
@@ -2185,7 +1879,6 @@ void DrawOverDifferentGraphs(vector<TGraph*> graph1, double rangeLow1, double ra
     legend->Draw();
   }
 }
-
 
 TGraph* Get1DFrom2D(TGraph2D* graph, bool IthrVcasn, double value, bool isEfficiency, TFile* graphFile, int sector)
 {
