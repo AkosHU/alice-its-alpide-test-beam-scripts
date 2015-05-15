@@ -822,7 +822,7 @@ void compareOneHistogram(string files, string hist, string sectorStr, bool IthrV
     filesV.push_back(filesStr);
 
   string legend;
-  if (sectorV.size() == 2) legend = (string)Form("Sector %d",sectorV[0]) + (string)Form("  #color[2]{Sector %d}",sectorV[1]);
+  if (sectorV.size() == 2 && type != 4) legend = (string)Form("Sector %d",sectorV[0]) + (string)Form("  #color[2]{Sector %d}",sectorV[1]);
   else 
   {
     if (filesV.size() < 2)
@@ -889,13 +889,12 @@ void compareOneHistogram(string files, string hist, string sectorStr, bool IthrV
       }
       legend = firstValue.substr(6) + "  #color[2]{" + secondValue.substr(6) +"}";
     }
-    else legend = comparison;
   }
   
-  if (defaultsFine) compareOneHistogram(files, hist, sectorStr, IthrVcasn, IthrVcasnValue, xTitle1.c_str(), xTitle2.c_str(), x1low, x1high, x2low, x2high, legend.c_str(), yTitle.c_str(), ylow, yhigh, log, line, BB, irr, chip, rate, "");
+  if (defaultsFine) compareOneHistogram(files, hist, sectorStr, IthrVcasn, IthrVcasnValue, xTitle1.c_str(), xTitle2.c_str(), x1low, x1high, x2low, x2high, legend.c_str(), yTitle.c_str(), ylow, yhigh, log, line, BB, irr, chip, rate, "", type);
 }
 
-void compareOneHistogram(string files, string hist, string sectorStr, bool IthrVcasn, double IthrVcasnValue, const char* xTitle1, const char* xTitle2, double x1low, double x1high, double x2low, double x2high, const char* legend, const char* yTitle, double ylow, double yhigh, bool log, double line, bool BB, bool irr, bool chip, bool rate, const char* title)
+void compareOneHistogram(string files, string hist, string sectorStr, bool IthrVcasn, double IthrVcasnValue, const char* xTitle1, const char* xTitle2, double x1low, double x1high, double x2low, double x2high, const char* legend, const char* yTitle, double ylow, double yhigh, bool log, double line, bool BB, bool irr, bool chip, bool rate, const char* title, int type)
 {
   string sectorLegendEntries[4] = {"PMOS reset, 1 #mum spacing (sector 0)", "PMOS reset, 2 #mum spacing (sector 1)", "Diode reset, 2 #mum spacing (sector 2)", "PMOS reset, 4 #mum spacing (sector 3)"};
   vector<string> filesV;
@@ -953,7 +952,7 @@ void compareOneHistogram(string files, string hist, string sectorStr, bool IthrV
       }
     }
   }
-  else if (sectorV.size() > 2)
+  else if (sectorV.size() > 2 || (sectorV.size() == 2 && type == 4))
   {
     if (graphFile.size() != 2)
     {
