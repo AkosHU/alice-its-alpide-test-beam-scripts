@@ -831,19 +831,32 @@ void compareOneHistogram(string files, string hist, string sectorStr, bool IthrV
       return;
     }
     string firstValue, secondValue = "";
+    bool BBTmp=false, irrTmp=false, chipIDTmp=false, rateTmp=false;
     switch(type)
     {
       case 0:
-        firstValue = getLegend(filesV[0],true,false,false,false);
+        BBTmp = true;
+        irrTmp = false;
+        chipIDTmp = false;
+        rateTmp = false;
         break;
       case 1:
-        firstValue = getLegend(filesV[0],false,true,false,false);
+        BBTmp = false;
+        irrTmp = true;
+        chipIDTmp = false;
+        rateTmp = false;
         break;
       case 2:
-        firstValue = getLegend(filesV[0],false,false,true,false);
+        BBTmp = false;
+        irrTmp = false;
+        chipIDTmp = true;
+        rateTmp = false;
         break;
       case 3:
-        firstValue = getLegend(filesV[0],false,false,false,true);
+        BBTmp = false;
+        irrTmp = false;
+        chipIDTmp = false;
+        rateTmp = true;
         break;
       case 4:
         if (filesV.size() > 2)
@@ -854,11 +867,12 @@ void compareOneHistogram(string files, string hist, string sectorStr, bool IthrV
         else legend = comparison;
         break;
     }
+    firstValue = getLegend(filesV[0],BBTmp,irrTmp,chipIDTmp,rateTmp);
     if (type != 4)
     {
       for (unsigned int i=1; i<filesV.size(); i++)
       {
-        string tmp = getLegend(filesV[i],BB,irr,chip,rate);
+        string tmp = getLegend(filesV[i],BBTmp,irrTmp,chipIDTmp,rateTmp);
         if (firstValue.compare(tmp) == 0 ) continue;
         else if (secondValue.empty()) 
           secondValue = tmp;
@@ -875,6 +889,7 @@ void compareOneHistogram(string files, string hist, string sectorStr, bool IthrV
       }
       legend = firstValue.substr(6) + "  #color[2]{" + secondValue.substr(6) +"}";
     }
+    else legend = comparison;
   }
   
   if (defaultsFine) compareOneHistogram(files, hist, sectorStr, IthrVcasn, IthrVcasnValue, xTitle1.c_str(), xTitle2.c_str(), x1low, x1high, x2low, x2high, legend.c_str(), yTitle.c_str(), ylow, yhigh, log, line, BB, irr, chip, rate, "");
@@ -920,7 +935,7 @@ void compareOneHistogram(string files, string hist, string sectorStr, bool IthrV
       {
         if (histname.compare(Form("efficiencyIthrVcasn2D_%d",sectorV[0])) == 0 ) graph1V1D.push_back(Get1DFrom2D(graph1V[i],IthrVcasn,IthrVcasnValue,true,graphFile[i],sectorV[0]));
         else graph1V1D.push_back(Get1DFrom2D(graph1V[i],IthrVcasn,IthrVcasnValue));
-        legendStr2.push_back(getLegend(filesV[i],BB,!irr,!chip,rate));
+        legendStr2.push_back(getLegend(filesV[i],BB,irr,chip,rate));
 //        legendStr2.push_back(getLegend(filesV[i],!BB,!irr,chip,rate));
       }
       else if (secondValue.empty() || secondValue.compare(tmp) == 0)
@@ -928,7 +943,7 @@ void compareOneHistogram(string files, string hist, string sectorStr, bool IthrV
         secondValue = tmp;
         if (histname.compare(Form("efficiencyIthrVcasn2D_%d",sectorV[0])) == 0 ) graph2V1D.push_back(Get1DFrom2D(graph1V[i],IthrVcasn,IthrVcasnValue,true,graphFile[i],sectorV[0]));
         else graph2V1D.push_back(Get1DFrom2D(graph1V[i],IthrVcasn,IthrVcasnValue));
-        legendStr.push_back(getLegend(filesV[i],BB,!irr,!chip,rate));
+        legendStr.push_back(getLegend(filesV[i],BB,irr,chip,rate));
 //        legendStr.push_back(getLegend(filesV[i],!BB,!irr,chip,rate));
       }
       else
