@@ -11,7 +11,7 @@ bool Skip(int runNumber)
   else return false;
 }
 
-void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string toSkip, double pointingRes, string settingsFileFolder)
+void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string toSkip, double pointingRes, string noiseFileName, string thresholdFileName, string settingsFileFolder, double BBOverWrite)
 {
   double globalBB;
   int globalIrr;
@@ -202,6 +202,7 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
   }
 //  cerr << nRun << endl;
   globalBB = runs[0].getBB();
+  if (globalBB == -4) globalBB = BBOverWrite;
   globalIrr = runs[0].getIrradiation();
   globalFileInfo = runs[0].getChipID();
   for (int i=1;i<nRun;i++)
@@ -468,6 +469,70 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
 //      noiseOccupancyAfterRemovalFromNoiseIthr[iSector]->SetPointError(noiseOccupancyAfterRemovalFromNoiseIthr[iSector]->GetN()-1,0,noiseOccupancyAfterRemovalFromNoiseHisto->GetBinError(iSector+1));
     }
   }
+  vector<TGraph2DErrors*> noiseOccupancyAfterRemovalIthrVcasnFromLab(4);
+  for (int iSector=0; iSector<4; iSector++)
+    noiseOccupancyAfterRemovalIthrVcasnFromLab[iSector] = new TGraph2DErrors;
+  if (noiseFileName.compare("") !=0)
+  {
+    TFile* noiseFile = new TFile(noiseFileName.c_str(),"READONLY");
+    if (noiseFile && !noiseFile->IsZombie())
+    {
+      vector<TGraphAsymmErrors*> noiseFromLab(4);
+      for (int iSector=0; iSector<4; iSector++)
+      {
+        string noiseGraphName = "g_noiseVsITHR_" + globalFileInfo + "_TEMP28.0_VBB" + Form("%0.1f_VCASN135_RATE10000_BUSY50_sec%d", globalBB, iSector);
+        cerr << noiseGraphName << endl;
+        noiseFromLab[iSector] = (TGraphAsymmErrors*)noiseFile->Get(noiseGraphName.c_str());
+        double x=0,y=0;
+        for (int i=0; i<noiseFromLab[iSector]->GetN(); i++)
+        {
+          noiseFromLab[iSector]->GetPoint(i,x,y);
+          cerr << x << "\t" << y << endl;
+          noiseOccupancyAfterRemovalIthrVcasnFromLab[iSector]->SetPoint(i,x,135.,y);
+          cerr << noiseOccupancyAfterRemovalIthrVcasnFromLab[iSector]->GetX()[i] << endl;
+          noiseOccupancyAfterRemovalIthrVcasnFromLab[iSector]->SetPointError(i,0,0,0);
+        }
+      }
+    }
+    
+  }
+  vector<TGraph2DErrors*> temperalNoiseIthrVcasnFromLab(4);
+  vector<TGraph2DErrors*> thresholdIthrVcasnFromLab(4);
+  for (int iSector=0; iSector<4; iSector++)
+  {
+    temperalNoiseIthrVcasnFromLab[iSector] = new TGraph2DErrors;
+    thresholdIthrVcasnFromLab[iSector] = new TGraph2DErrors;
+  }
+  if (thresholdFileName.compare("") !=0)
+  {
+    TFile* thresholdFile = new TFile(thresholdFileName.c_str(),"READONLY");
+    if (thresholdFile && !thresholdFile->IsZombie())
+    {
+      vector<TGraphAsymmErrors*> temperalNoise(4);
+      vector<TGraphAsymmErrors*> threshold(4);
+      for (int iSector=0; iSector<4; iSector++)
+      {
+        string temperalNosieGraphName = "g_thresnoiseVsITHR_" + globalFileInfo + "_TEMP28.0_VBB" + Form("%0.1f_VCASN135_sec%d", globalBB, iSector);
+        string thresholdGraphName = "g_thresVsITHR_" + globalFileInfo + "_TEMP28.0_VBB" + Form("%0.1f_VCASN135_sec%d", globalBB, iSector);
+        cerr << temperalNosieGraphName << endl << thresholdGraphName << endl;
+        temperalNoise[iSector] = (TGraphAsymmErrors*)thresholdFile->Get(temperalNosieGraphName.c_str());
+        threshold[iSector] = (TGraphAsymmErrors*)thresholdFile->Get(thresholdGraphName.c_str());
+        double x=0,y=0;
+        for (int i=0; i<temperalNoise[iSector]->GetN(); i++)
+        {
+          temperalNoise[iSector]->GetPoint(i,x,y);
+          temperalNoiseIthrVcasnFromLab[iSector]->SetPoint(i,x,135.,y);
+          temperalNoiseIthrVcasnFromLab[iSector]->SetPointError(i,0,0,0);
+        }
+        for (int i=0; i<threshold[iSector]->GetN(); i++)
+        {
+          threshold[iSector]->GetPoint(i,x,y);
+          thresholdIthrVcasnFromLab[iSector]->SetPoint(i,x,135.,y);
+          thresholdIthrVcasnFromLab[iSector]->SetPointError(i,0,0,0);
+        }
+      }
+    }
+  }
   string outputFileName;
   string BBStr, irrStr, firstRunStr, lastRunStr, pointingResStr;
   BBStr = Form("%0.f", globalBB);
@@ -497,6 +562,9 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
   Write(noiseOccupancyBeforeRemovalIthrVcasnFromNoise, "noiseOccupancyBeforeRemovalFromNoiseIthrVcasn2D");
   Write(noiseOccupancyAfterRemovalThrFromNoise, "noiseOccupancyAfterRemovalFromNoiseThr");
   Write(noiseOccupancyAfterRemovalIthrVcasnFromNoise, "noiseOccupancyAfterRemovalFromNoiseIthrVcasn2D");
+  Write(noiseOccupancyAfterRemovalIthrVcasnFromLab,"noiseOccupancyAfterRemovalFromLabIthrVcasn2D");
+  Write(thresholdIthrVcasnFromLab,"thresholdFromLabIthrVcasn2D");
+  Write(temperalNoiseIthrVcasnFromLab,"temperalNoiseFromLabIthrVcasn2D");
 //  Write(noiseOccupancyAfterRemovalFromNoiseIthr, "noiseOccupancyAfterRemovalFromNoiseIthr");
   Write(efficiencyThr,"efficiencyThr");
 //  Write(efficiencyIthr,"efficiencyIthr");
@@ -795,8 +863,14 @@ void compareDifferentGraphs2D(string files, string hist, int sector, bool IthrVc
   }
 }
 
-void compareOneHistogram(string files, string hist, string sectorStr, bool IthrVcasn, double IthrVcasnValue, bool BB, bool irr, bool chip, bool rate)
+void compareOneHistogram(string files, string hist, string sectorStr, bool IthrVcasn, double IthrVcasnValue,int type, bool BB, bool irr, bool chip, bool rate, string comparison)
 {
+  // Type: 0 - BB, 1 - irradiation, 2 - chip, 3 - rate, 4 - else (has to be specified)
+  if (type == 4 && comparison.empty())
+  {
+    cerr << "Need text for type 4 to include as legend" << endl;
+    return;
+  } 
   bool log;
   double x1low, x1high, x2low, x2high, ylow, yhigh, line;
   string xTitle1, xTitle2, yTitle, legend1;
@@ -823,32 +897,57 @@ void compareOneHistogram(string files, string hist, string sectorStr, bool IthrV
       cerr << "Too few files, exiting!" << endl;
       return;
     }
-    string secondValue = "";
-    string firstValue = getLegend(filesV[0],BB,irr,chip,rate);
-    for (unsigned int i=0; i<filesV.size(); i++)
+    string firstValue, secondValue = "";
+    switch(type)
     {
-      string tmp = getLegend(filesV[i],BB,irr,chip,rate);
-      if (firstValue.compare(tmp) == 0 ) continue;
-      else if (secondValue.empty()) 
-        secondValue = tmp;
-      else if (secondValue.compare(tmp) != 0)
+      case 0:
+        firstValue = getLegend(filesV[0],true,false,false,false);
+        break;
+      case 1:
+        firstValue = getLegend(filesV[0],false,true,false,false);
+        break;
+      case 2:
+        firstValue = getLegend(filesV[0],false,false,true,false);
+        break;
+      case 3:
+        firstValue = getLegend(filesV[0],false,false,false,true);
+        break;
+      case 4:
+        if (filesV.size() > 2)
+        {
+          cerr << "Too many different options to compare, exiting!" << endl;
+          return;
+        }
+        else legend = comparison;
+        break;
+    }
+    if (type != 4)
+    {
+      for (unsigned int i=1; i<filesV.size(); i++)
       {
-        cerr << "Too many different options to compare, exiting!" << endl;
+        string tmp = getLegend(filesV[i],BB,irr,chip,rate);
+        if (firstValue.compare(tmp) == 0 ) continue;
+        else if (secondValue.empty()) 
+          secondValue = tmp;
+        else if (secondValue.compare(tmp) != 0)
+        {
+          cerr << "Too many different options to compare, exiting!" << endl;
+          return;
+        }
+      }
+      if (secondValue.empty())
+      {
+        cerr << "Too few different files, exiting!" << endl;
         return;
       }
+      legend = firstValue.substr(6) + "  #color[2]{" + secondValue.substr(6) +"}";
     }
-    if (secondValue.empty())
-    {
-      cerr << "Too few different files, exiting!" << endl;
-      return;
-    }
-    legend = firstValue.substr(6) + "  #color[2]{" + secondValue.substr(6) +"}";
   }
   
-  if (defaultsFine) compareOneHistogram(files, hist, sectorStr, IthrVcasn, IthrVcasnValue, xTitle1.c_str(), xTitle2.c_str(), x1low, x1high, x2low, x2high, legend.c_str(), yTitle.c_str(), ylow, yhigh, log, line, BB, irr, chip, rate);
+  if (defaultsFine) compareOneHistogram(files, hist, sectorStr, IthrVcasn, IthrVcasnValue, type, xTitle1.c_str(), xTitle2.c_str(), x1low, x1high, x2low, x2high, legend.c_str(), yTitle.c_str(), ylow, yhigh, log, line, BB, irr, chip, rate, "", comparison);
 }
 
-void compareOneHistogram(string files, string hist, string sectorStr, bool IthrVcasn, double IthrVcasnValue, const char* xTitle1, const char* xTitle2, double x1low, double x1high, double x2low, double x2high, const char* legend, const char* yTitle, double ylow, double yhigh, bool log, double line, bool BB, bool irr, bool chip, bool rate)
+void compareOneHistogram(string files, string hist, string sectorStr, bool IthrVcasn, double IthrVcasnValue, int type, const char* xTitle1, const char* xTitle2, double x1low, double x1high, double x2low, double x2high, const char* legend, const char* yTitle, double ylow, double yhigh, bool log, double line, bool BB, bool irr, bool chip, bool rate, const char* title, string comparison)
 {
   string sectorLegendEntries[4] = {"PMOS reset, 1 #mum spacing (sector 0)", "PMOS reset, 2 #mum spacing (sector 1)", "Diode reset, 2 #mum spacing (sector 2)", "PMOS reset, 4 #mum spacing (sector 3)"};
   vector<string> filesV;
@@ -869,7 +968,7 @@ void compareOneHistogram(string files, string hist, string sectorStr, bool IthrV
 
   vector<TGraph2DErrors*> graph1V, graph2V;
   vector<TGraph*> graph1V1D, graph2V1D;
-  vector<string> legendStr;
+  vector<string> legendStr, legendStr2;
   string histname;
   if (sectorV.size() == 1)
     histname = hist + Form("_%d",sectorV[0]);
@@ -888,13 +987,16 @@ void compareOneHistogram(string files, string hist, string sectorStr, bool IthrV
       {
         if (histname.compare(Form("efficiencyIthrVcasn2D_%d",sectorV[0])) == 0 ) graph1V1D.push_back(Get1DFrom2D(graph1V[i],IthrVcasn,IthrVcasnValue,true,graphFile[i],sectorV[0]));
         else graph1V1D.push_back(Get1DFrom2D(graph1V[i],IthrVcasn,IthrVcasnValue));
-        legendStr.push_back(getLegend(filesV[i],!BB,!irr,!chip,rate));
+        legendStr2.push_back(getLegend(filesV[i],BB,!irr,!chip,rate));
+//        legendStr2.push_back(getLegend(filesV[i],!BB,!irr,chip,rate));
       }
       else if (secondValue.empty() || secondValue.compare(tmp) == 0)
       {
         secondValue = tmp;
         if (histname.compare(Form("efficiencyIthrVcasn2D_%d",sectorV[0])) == 0 ) graph2V1D.push_back(Get1DFrom2D(graph1V[i],IthrVcasn,IthrVcasnValue,true,graphFile[i],sectorV[0]));
         else graph2V1D.push_back(Get1DFrom2D(graph1V[i],IthrVcasn,IthrVcasnValue));
+        legendStr.push_back(getLegend(filesV[i],BB,!irr,!chip,rate));
+//        legendStr.push_back(getLegend(filesV[i],!BB,!irr,chip,rate));
       }
       else
       {
@@ -921,6 +1023,7 @@ void compareOneHistogram(string files, string hist, string sectorStr, bool IthrV
     for (unsigned int j=0; j<sectorV.size(); j++)
     {
       legendStr.push_back(sectorLegendEntries[sectorV[j]]);
+      legendStr2.push_back("      ");
       histname = hist + Form("_%d",sectorV[j]);
       graph1V.push_back((TGraph2DErrors*)graphFile[0]->Get(histname.c_str()));
       graph2V.push_back((TGraph2DErrors*)graphFile[1]->Get(histname.c_str()));
@@ -935,6 +1038,7 @@ void compareOneHistogram(string files, string hist, string sectorStr, bool IthrV
     for (unsigned int i=0; i<graphFile.size(); i++)
     {
       legendStr.push_back(getLegend(filesV[i],BB,irr,chip,rate));
+      legendStr2.push_back("      ");
       if (!graphFile[i] || graphFile[i]->IsZombie())
         continue;
       histname = hist + Form("_%d",sectorV[0]);
@@ -954,8 +1058,8 @@ void compareOneHistogram(string files, string hist, string sectorStr, bool IthrV
   string canvas = histname;
 //if (IthrVcasn) DrawOverDifferentGraphs(graph1V1D,y1low,y1high,line1,yTitle1,graph2V1D,y2low,y2high,line2,yTitle2,canvas.c_str(),legend,legendStr,x2low,x2high,log1,log2,xTitle2,canvasTitle.c_str());
 //else DrawOverDifferentGraphs(graph1V1D,y1low,y1high,line1,yTitle1,graph2V1D,y2low,y2high,line2,yTitle2,canvas.c_str(),legend,legendStr,x1low,x1high,log1,log2,xTitle1,canvasTitle.c_str());
-  if (IthrVcasn) DrawSame(graph1V1D, graph2V1D, canvas.c_str(), xTitle2, yTitle, x2low, x2high, ylow, yhigh, legend, legendStr, log, line);
-  else DrawSame(graph1V1D, graph2V1D, canvas.c_str(), xTitle1, yTitle, x1low, x1high, ylow, yhigh, legend, legendStr, log, line);
+  if (IthrVcasn) DrawSame(graph1V1D, graph2V1D, canvas.c_str(), xTitle2, yTitle, x2low, x2high, ylow, yhigh, legend, legendStr, log, line, legendStr2, title);
+  else DrawSame(graph1V1D, graph2V1D, canvas.c_str(), xTitle1, yTitle, x1low, x1high, ylow, yhigh, legend, legendStr, log, line, legendStr2, title);
 }
 
 void compareDifferentIthrVcasn2D(string file, string hist, int sector)
@@ -1559,9 +1663,9 @@ bool getDefaults(string graph, double& xlow, double& xhigh, double& ylow, double
   {
     ylow = 4;
     yhigh = 8;
-    line = 0;
+    line = 5;
     yTitle = "Residual (#mum)";
-    legend += "Resisual   ";
+    legend += "Residual   ";
   }
   else if (graph.find("clusterSize") != string::npos) 
   {
@@ -1570,6 +1674,20 @@ bool getDefaults(string graph, double& xlow, double& xhigh, double& ylow, double
     line = -1;
     yTitle = "Average cluster size (pixels)";
     legend += "Cluster size   ";
+  }
+  else if (graph.find("temperalNoise")!= string::npos)
+  {
+    ylow = 0;
+    yhigh = 20;
+    yTitle = "Temperal noise (electrons)";
+    legend += "Noise   ";
+  }
+  else if (graph.find("threshold")!= string::npos)
+  {
+    ylow = 50;
+    yhigh = 250;
+    yTitle = "Threshold (electrons)";
+    legend += "Threshold   ";
   }
   else
   {
@@ -1784,7 +1902,7 @@ void Draw(vector<TGraph*> graph, string canvas, const char* titleX, const char* 
 //  C->SaveAs(fileName.c_str());
 }
 
-void DrawSame(vector<TGraph*> graph1, vector<TGraph*> graph2, const char* canvas, const char* titleX, const char* titleY, double xlow, double xhigh, double rangeLow, double rangeHigh, const char* legendTitle, vector<string> legendStr, bool log, double line)
+void DrawSame(vector<TGraph*> graph1, vector<TGraph*> graph2, const char* canvas, const char* titleX, const char* titleY, double xlow, double xhigh, double rangeLow, double rangeHigh, const char* legendTitle, vector<string> legendStr, bool log, double line, vector<string> legendStr2, const char* title)
 {
   int marker1[7] = {20, 21, 22, 34, 29, 33, 23};
   int marker2[7] = {24, 25, 26, 28, 30, 27, 32};
@@ -1808,6 +1926,7 @@ void DrawSame(vector<TGraph*> graph1, vector<TGraph*> graph2, const char* canvas
   hr->GetYaxis()->SetTitleOffset(1.15);
   hr->GetXaxis()->SetTitleSize(0.045);
   hr->GetYaxis()->SetTitleSize(0.045);
+  hr->SetTitle(title);
   pad->GetFrame()->SetFillColor(0);
   pad->GetFrame()->SetBorderSize(12);
   pad->Update();
@@ -1848,7 +1967,7 @@ void DrawSame(vector<TGraph*> graph1, vector<TGraph*> graph2, const char* canvas
     legend->SetNColumns(2);
     for (unsigned int i=0; i<legendStr.size(); i++)
     {
-      legend->AddEntry(graph1[i]->Clone(), "      ");
+      legend->AddEntry(graph1[i]->Clone(), legendStr2[i].c_str());
       legend->AddEntry(graph2[i]->Clone(), legendStr[i].c_str());
     }
     legend->SetHeader(legendTitle);
