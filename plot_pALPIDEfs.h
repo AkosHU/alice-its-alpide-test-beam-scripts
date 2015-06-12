@@ -25,6 +25,7 @@
 #include "TGaxis.h"
 #include "TROOT.h"
 #include "TMath.h"
+#include "TTree.h"
 
 using namespace std;
 
@@ -127,36 +128,25 @@ class Run {
 };
 
 bool Skip(int runNumber);
-TH1F* CalculateNoise(int dut, int run);
 TH1F* CalculateNoiseFromNoise(TH2* fakeHitHisto, int runNumberIndex, vector<Run> runs);
 
-void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string toSkip="", double pointingRes=0, string settingsFileFolder="");
-void WriteGraph_old(string outputFolder, int dut, int firstRun, int lastRun, string toSkip="", double pointingRes=0, string settingsFileFolder="", string efficiencyFileFolder="");
+void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string toSkip="", double pointingRes=0, string noiseFileName="", string thresholdFileName="", string settingsFileFolder="", double BBOverWrite = 0);
 
-void compareDifferentGraphs(string files, string hist, const char* yTitle1, const char* yTitle2,const char* xTitle, const char* legend, double y1low=1e-11, double y1high=1e-3, double line1=1e-5, double y2low=92, double y2high=100.1, double line2=99, double xlow=85, double xhigh=195, bool log1=false, bool log2=false);
 void compareDifferentGraphs2D(string files, string hist, int sector, bool IthrVcasn, double IthrVcasnValue, bool BB=true, bool irr=true, bool chip=true, bool rate=false);
 void compareDifferentGraphs2D(string file, string hist, int sector, bool IthrVcasn, double IthrVcasnValue, const char* xTitle1, const char* xTitle2, double x1low, double x1high, double x2low, double x2high, const char* legend, const char* yTitle1, double y1low, double y1high, bool log1, double line1, const char* yTitle2, double y2low, double y2high, double line2, bool log2, bool BB, bool irr, bool chip, bool rate);
+void compareOneHistogram(string files, string hist, string sectorStr, bool IthrVcasn, double IthrVcasnValue, int type, bool BB=false, bool irr=true, bool chip=false, bool rate=false, string comparison = "");
+void compareOneHistogram(string file, string hist, string sectorStr, bool IthrVcasn, double IthrVcasnValue, const char* xTitle1, const char* xTitle2, double x1low, double x1high, double x2low, double x2high, const char* legend, const char* yTitle, double ylow, double yhigh, bool log, double line, bool BB, bool irr, bool chip, bool rate, const char* title, int type);
 void compareDifferentIthrVcasn2D(string file, string hist, int sector=-1);
 void compareDifferentIthrVcasn2D(string file, string hist, int sector, const char* xTitle1, const char* xTitle2, double x1low, double x1high, double x2low, double x2high, const char* legend, const char* yTitle1, double y1low, double y1high, bool log1, double line1, const char* yTitle2, double y2low, double y2high, double line2, bool log2);
-void compareDifferentSectors(string file, string hist, const char* yTitle1, const char* yTitle2,const char* xTitle, const char* legend, double y1low=1e-11, double y1high=1e-3, double line1=1e-5, double y2low=92, double y2high=100.1, double line2=99, double xlow=85, double xhigh=195, bool log1=false, bool log2=false);
 void compareDifferentSectors2D(string file, string hist,  bool IthrVcasn=true, double IthrVcasnValue=-1);
 void compareDifferentSectors2D(string file, string hist,  bool IthrVcasn, double IthrVcasnValue, const char* yTitle1, const char* yTitle2,const char* xTitle, const char* legend, double y1low, double y1high, double line1, double y2low, double y2high, double line2, double xlow, double xhigh, bool log1, bool log2);
-void compareGraphs(string files, string hist, const char* yTitle, bool log=false, bool addChipNumber=false);
-void plotOneGraph(string file);
-
-void convertBrokenPixelsMap(string fileName);
-void convertThresholdMap(string fileName);
 
 string getLegend(string file, bool addBB=true, bool addIrr=true, bool addChipNumber=false, bool addRate=false);
 bool getDefaults(string graph, double& xlow, double& xhigh, double& ylow, double& yhigh, double& line, bool& log, string& xTitle, string& yTitle, string& legend, double& x2low, double& x2high, string& xTitle2);
 
-void AddPoint(TGraph* graph, double x, double y);
-void AddPoint(TGraphAsymmErrors* graph, double x, double y, double yErrorLow, double yErrorHigh);
-void AddPoint(TGraphErrors* graph, double x, double y, double yError);
-
 void Draw2D(TGraph2D* graph, const char* canvas, string zTitle, string title, bool logZ, double zlow, double zhigh);
 void Draw(vector<TGraph*> graph, string canvas, const char* titleX, const char* titleY, vector<string> legendStr, double rangeLow, double rangeHigh, double line, double xLow=90, double xHigh=210, bool log=false, const char* canvasTitle="");
-void DrawSame(vector<TGraph*> graph1, vector<TGraph*> graph2, const char* canvas, const char* titleX, const char* titleY, double xlow, double xhigh, double rangeLow, double rangeHigh, const char* legendTitle, bool log=false);
+void DrawSame(vector<TGraph*> graph1, vector<TGraph*> graph2, const char* canvas, const char* titleX, const char* titleY, double xlow, double xhigh, double rangeLow, double rangeHigh, const char* legendTitle, vector<string> legendStr, bool log, double line, vector<string> legendStr2, const char* title);
 void DrawOverSectors(vector<TGraph*> graph1, double rangeLow1, double rangeHigh1, double line1, const char* titleY1, vector<TGraph*> graph2, double rangeLow2, double rangeHigh2, double line2, const char* titleY2, const char* canvas, const char* legendTitle, vector<string> legendStr, double xlow=80, double xhigh=420,bool log1=false, bool log2=false, const char* titleX="Threshold in electrons", const char* title="");
 void DrawOverDifferentGraphs(vector<TGraph*> graph1, double rangeLow1, double rangeHigh1, double line1, const char* titleY1, vector<TGraph*> graph2, double rangeLow2, double rangeHigh2, double line2, const char* titleY2, const char* canvas, const char* legendTitle, vector<string> legendStr, double xlow=80, double xhigh=420,bool log1=false, bool log2=false, const char* titleX="Threshold in electrons",const char* canvasTitle="");
 
