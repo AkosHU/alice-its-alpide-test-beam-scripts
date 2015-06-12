@@ -155,11 +155,11 @@ elif (( ( ${dataType}==0 && $place <= 100) || ${dataType}==1)); then
     prealignExists=0
     for prealignFile in $prealignFiles
     do
-      tmp=${prealignFile#*_}
-      first=${tmp%-*}
+      filename=`basename $prealignFile .slcio`
+      runRange=${filename#prealign_*}
+      first=${runRange%-*}
       if (($first<=${runNumber})); then
-        tmp=${prealignFile#*-}
-        last=${tmp%.*}
+        last=${runRange#*-}
         if (($last>=${runNumber})); then
           if (($prealignExists==1)); then
             echo "More than one possible prealign files were found, please keep only one prealignment and one alignment file for each run" >> ${outputFolder}/analysis.log
@@ -232,8 +232,8 @@ elif (( ( ${dataType}==0 && $place <= 100) || ${dataType}==1)); then
   if ((${#excludedPlanes[@]}==0)); then
     excludedPlanes[0]=-1
   elif ((${#excludedPlanes[@]}>2)); then
-    echo "More than 2 noise planes (planes" ${excludedPlanes[@]} "), exiting" >> ${outputFolder}/analysis.log
-    echo "More than 2 noise planes (planes" ${excludedPlanes[@]} ") in run" ${runNumber}", exiting" >> ${outputFolder}/../analysis.log
+    echo "More than 2 noise planes (planes" ${excludedPlanes[@]}"), exiting" >> ${outputFolder}/analysis.log
+    echo "More than 2 noise planes (planes" ${excludedPlanes[@]}") in run" ${runNumber}", exiting" >> ${outputFolder}/../analysis.log
     if [ "${processingMode}" != "DEBUG" ]; then
       rm -r ${outputFolder}/lcio
       if [ -f `printf *"%06d"* ${input[0]}` ]; then
