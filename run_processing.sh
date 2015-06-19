@@ -89,8 +89,10 @@ converterName=`printf converter-"%06d".zip ${runNumber}`
 unzip $converterName > /dev/null 2>&1
 converterLogName=`printf converter-"%06d".log ${runNumber}`
 place=`cat $converterLogName | sed -n -e "s/^.*Place of telescope://p" | bc -l`
-if (($place == -100)); then
-  place=`cat $converterLogName | sed -n -e "s/^.*Place of telescope from config file://p" | bc -l`
+if (($place == -100 && ${dataType}==0)); then
+  echo "Whether it's data or noise is not specified in the rawdata. Please force it to be treated as noise or data." >> ${outputFolder}/analysis.log
+  echo "In run" ${runNumber} "it's not specified in the rawdata whether it's data or noise. Please force it to be treated as noise or data." >> ${outputFolder}/../analysis.log
+  exit 0
 fi
 rm *.log *.xml
 cd - > /dev/null 2>&1
