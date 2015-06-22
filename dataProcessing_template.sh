@@ -1,5 +1,20 @@
 #! /bin/bash
-
+#
+# Optional parameters of the script:
+# 1 : ALIGN, DEBUG or REPROCESS
+# 2 : run_number, first_run-last_run
+# 3 : step (e.g. converter)
+# 4 : additional_option
+#
+# Examples how to run the script:
+#    ./dataProcessing.sh 
+#    ./dataProcessing.sh REPROCESS
+#    ./dataProcessing.sh REPROCESS run_number
+#    ./dataProcessing.sh REPROCESS first_run-last_run
+#    ./dataProcessing.sh DEBUG run_number
+#    ./dataProcessing.sh DEBUG run_number step additional_option 
+#    ./dataProcessing.sh ALIGN "1 2 3 4" 1 10
+#
 rawDataFolder=<rawDataFolder>
 outputFolder=<outputFolder>
 settingsFile=<settingsFile>
