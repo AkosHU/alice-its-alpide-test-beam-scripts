@@ -1,10 +1,20 @@
 #! /bin/bash
-echo -n -e "\n""Processing runs" $1 for align "\n" >> $3/../../analysis.log
-$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$3/database --option HistogramPath=$3/histogram --option LcioPath=$3/lcio --option LogPath=$3/logs --option NativePath=$4 --config=$5 -csv $2 converter $1 > /dev/null 2>&1
-IFS=' ' read -ra runs <<< "$1"
+runList=${1}
+settingsFile=${2} 
+outputFolder=${3}
+rawDataFolder=${4}
+configFile=${5}
+firstRun=${6}
+lastRun=${7}
+
+commonOptions="--option DatabasePath=${outputFolder}/database --option HistogramPath=${outputFolder}/histogram --option LcioPath=${outputFolder}/lcio --option LogPath=${outputFolder}/logs  --config=${configFile} -csv ${settingsFile}"
+
+echo -n -e "\n""Processing runs" ${runList} for align "\n" >> ${outputFolder}/../../analysis.log
+$EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option NativePath=${rawDataFolder} converter ${runList} > /dev/null 2>&1
+IFS=' ' read -ra runs <<< "${runList}"
 for ((iRun=0; iRun<${#runs[@]}; iRun++)) do
-  mv `printf run"%06d"-maskedPixels_*.txt ${runs[$iRun]}` $3/database/
-  cd $3/logs/
+  mv `printf run"%06d"-maskedPixels_*.txt ${runs[$iRun]}` ${outputFolder}/database/
+  cd ${outputFolder}/logs/
   converterName=`printf converter-"%06d".zip ${runs[$iRun]}`
   unzip $converterName > /dev/null 2>&1
   converterLogName=`printf converter-"%06d".log ${runs[$iRun]}`
@@ -13,37 +23,37 @@ for ((iRun=0; iRun<${#runs[@]}; iRun++)) do
     place=`cat $converterLogName | sed -n -e "s/^.*Place of telescope from config file://p" | bc -l`
   fi
   rm *.log *.xml
-  cd - > /dev/null 2>cd -1
-  name=`printf $3/lcio/run"%06d"-converter.slcio ${runs[$iRun]}`
+  cd - > /dev/null 2>&1
+  name=`printf ${outputFolder}/lcio/run"%06d"-converter.slcio ${runs[$iRun]}`
   nEvent=`lcio_event_counter $name`
   if (($place > 100)); then
-    echo "Noise run" ${runs[$iRun]} "in list, skipping it" >> $3/analysis.log
+    echo "Noise run" ${runs[$iRun]} "in list, skipping it" >> ${outputFolder}/analysis.log
     continue
   elif (($nEvent < 10000)); then
-    echo "Too few eventsin run" ${runs[$iRun]} ", skipping it" >> $3/analysis.log 
+    echo "Too few eventsin run" ${runs[$iRun]} ", skipping it" >> ${outputFolder}/analysis.log 
   else
     runsGood[${#runsGood[@]}]=${runs[$iRun]}
   fi
 done
 maff=0.0001
-$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$3/database --option HistogramPath=$3/histogram --option LcioPath=$3/lcio --option LogPath=$3/logs --option MaxAllowedFiringFreq=$maff --config=$5 -csv $2 hotpixel ${runsGood[@]} > /dev/null 2>&1
+$EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option MaxAllowedFiringFreq=$maff hotpixel ${runsGood[@]} > /dev/null 2>&1
 if ((${#runsGood[@]} == 1)); then
-  $EUTELESCOPE/jobsub/jobsub.py --option ExcludedPlanes="${exludedPlanes[0]} ${exludedPlanes[1]}" --option DatabasePath=$3/database --option HistogramPath=$3/histogram --option LcioPath=$3/lcio --option LogPath=$3/logs --option LCIOInputFiles=$3/lcio/run@RunNumber@-converter.slcio --config=$5 -csv $2 clustering ${runsGood[0]} > /dev/null 2>&1
+  $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option ExcludedPlanes="${exludedPlanes[0]} ${exludedPlanes[1]}" --option LCIOInputFiles=${outputFolder}/lcio/run@RunNumber@-converter.slcio clustering ${runsGood[0]} > /dev/null 2>&1
 else 
-  $EUTELESCOPE/jobsub/jobsub.py --concatenate --option ExcludedPlanes="${exludedPlanes[0]} ${exludedPlanes[1]}" --option DatabasePath=$3/database --option HistogramPath=$3/histogram --option LcioPath=$3/lcio --option LogPath=$3/logs --option LCIOInputFiles=$3/lcio/run@RunRange@-converter.slcio --config=$5 -csv $2 clustering ${runsGood[@]} > /dev/null 2>&1 
+  $EUTELESCOPE/jobsub/jobsub.py --concatenate ${commonOptions} --option ExcludedPlanes="${exludedPlanes[0]} ${exludedPlanes[1]}" LCIOInputFiles=${outputFolder}/lcio/run@RunRange@-converter.slcio clustering ${runsGood[@]} > /dev/null 2>&1 
 fi
-$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$3/database --option HistogramPath=$3/histogram --option LcioPath=$3/lcio --option LogPath=$3/logs --config=$5 -csv $2 hitmaker ${runsGood[0]} > /dev/null 2>&1
-$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$3/database --option HistogramPath=$3/histogram --option LcioPath=$3/lcio --option LogPath=$3/logs --config=$5 -csv $2 prealign ${runsGood[0]} > /dev/null 2>&1
-./run_align_7 ${runsGood[0]} $2 $3 $5 > /dev/null 2>&1
+$EUTELESCOPE/jobsub/jobsub.py ${commonOptions} hitmaker ${runsGood[0]} > /dev/null 2>&1
+$EUTELESCOPE/jobsub/jobsub.py ${commonOptions} prealign ${runsGood[0]} > /dev/null 2>&1
+./run_align_7 ${runsGood[0]} ${settingsFile} ${outputFolder} ${configFile} > /dev/null 2>&1
 error=`echo $?`
 if (($error > 0))
 then 
   exit 0
 fi
-mv `printf $3/database/run"%06d"-prealignment.slcio ${runsGood[0]}` $3/../../prealign_$6-$7.slcio
-mv `printf $3/database/run"%06d"-alignment.slcio ${runsGood[0]}` $3/../../align_$6-$7.slcio
-echo Prelign file moved to $3/../../prealign_$6-$7.slcio >> $3/analysis.log
-echo Align file moved to $3/../../align_$6-$7.slcio >> $3/analysis.log
-echo "Finished aligning successfully" >> $3/analysis.log
-echo "Finished aligning runs" $1 "successfully"  >> $3/../../analysis.log
-rm -r $3/lcio/ $3/database/
+mv `printf ${outputFolder}/database/run"%06d"-prealignment.slcio ${runsGood[0]}` ${outputFolder}/../../prealign_${firstRun}-${lastRun}.slcio
+mv `printf ${outputFolder}/database/run"%06d"-alignment.slcio ${runsGood[0]}` ${outputFolder}/../../align_${firstRun}-${lastRun}.slcio
+echo Prelign file moved to ${outputFolder}/../../prealign_"${firstRun}"-"${lastRun}".slcio >> ${outputFolder}/analysis.log
+echo Align file moved to ${outputFolder}/../../align_"${firstRun}"-"${lastRun}".slcio >> ${outputFolder}/analysis.log
+echo "Finished aligning successfully" >> ${outputFolder}/analysis.log
+echo "Finished aligning runs" ${runList} "successfully"  >> ${outputFolder}/../../analysis.log
+rm -r ${outputFolder}/lcio/ ${outputFolder}/database/

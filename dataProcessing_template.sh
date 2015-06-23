@@ -261,7 +261,7 @@ if [ "$1" == "ALIGN" ]; then
   git status >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
   git diff   >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
   git log -1 >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
-  ./run_createAlign $2 $settingsFile `printf $outputFolder/run"%06d"-"%06d" $3 $4` $rawDataFolder $configFile $3 $4  > `printf $outputFolder/run"%06d"-"%06d"/crash.log $3 $4` 2>&1 &
+  $CMD_PREFIX ./run_createAlign $2 $settingsFile `printf $outputFolder/run"%06d"-"%06d" $3 $4` $rawDataFolder $configFile $3 $4  > `printf $outputFolder/run"%06d"-"%06d"/crash.log $3 $4` 2>&1 &
 
   fileFound=1
 fi

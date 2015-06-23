@@ -1,43 +1,64 @@
 #! /bin/bash
+
+runNumber=${1}
+settingsFile=${2}
+outputFolder=${3}
+configFile=${4}
+excludedPlane=${5}
+
 currentFolder=`pwd`
-echo "Aligning planes" >> $3/analysis.log
+echo "Aligning planes" >> ${outputFolder}/analysis.log
 res=64.38
-$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$3/database --option HistogramPath=$3/histogram --option LcioPath=$3/lcio --option LogPath=$3/logs --option ResolutionX="$res $res $res $res $res $res $res" --option ResolutionY="$res $res $res $res $res $res $res" --option ExcludePlanes="$5"  --config=$4 -csv $2 align $1
-cd $3/logs/
+$EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=${outputFolder}/database \
+			      --option HistogramPath=${outputFolder}/histogram \
+			      --option LcioPath=${outputFolder}/lcio \
+			      --option LogPath=${outputFolder}/logs \
+			      --option ResolutionX="$res $res $res $res $res $res $res" \
+			      --option ResolutionY="$res $res $res $res $res $res $res" \
+			      --option ExcludePlanes="${excludedPlane}"  \
+			      --config=${configFile} -csv ${settingsFile} align ${runNumber}
+cd ${outputFolder}/logs/
 rm *.log *.xml 
-zipname=`printf align-"%06d".zip $1`
+zipname=`printf align-"%06d".zip ${runNumber}`
 unzip $zipname
-name=`printf align-"%06d".log $1`
-echo "  Original resolution: " $res >> $3/analysis.log
+name=`printf align-"%06d".log ${runNumber}`
+echo "  Original resolution: " $res >> ${outputFolder}/analysis.log
 if grep "multiply all input standard deviations by factor" $name
 then
   factor=`cat $name |  sed -n -e "s/^.*multiply all input standard deviations by factor//p" | bc -l`
-  echo "  Recalculating resolution with factor: " $factor >> $3/analysis.log
+  echo "  Recalculating resolution with factor: " $factor >> ${outputFolder}/analysis.log
   res=`echo "$res*$factor" | bc -l`
-  echo "  New resolution: " $res >> $3/analysis.log
+  echo "  New resolution: " $res >> ${outputFolder}/analysis.log
   rm *.log *.xml 
   cd $currentFolder
-  $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=$3/database --option HistogramPath=$3/histogram --option LcioPath=$3/lcio --option LogPath=$3/logs --option ResolutionX="$res $res $res $res $res $res $res" --option ResolutionY="$res $res $res $res $res $res $res" --option ExcludePlanes="$5" --config=$4 -csv $2 align $1
+  $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=${outputFolder}/database \
+				--option HistogramPath=${outputFolder}/histogram \
+				--option LcioPath=${outputFolder}/lcio \
+				--option LogPath=${outputFolder}/logs \
+				--option ResolutionX="$res $res $res $res $res $res $res" \
+				--option ResolutionY="$res $res $res $res $res $res $res" \
+				--option ExcludePlanes="${excludedPlane}" \
+				--config=${configFile} -csv ${settingsFile} align ${runNumber}
 else
   rm *.log *.xml 
-  echo "  Resolution was fine" >> $3/analysis.log
+  echo "  Resolution was fine" >> ${outputFolder}/analysis.log
 fi
-cd $3/logs
+cd ${outputFolder}/logs
 unzip $zipname
 if grep "Number of tracks used:" $name
 then
   nTracks=`cat $name |  sed -n -e "s/^.*Number of tracks used://p" | bc -l`
   if (($nTracks<100))
   then
-    echo "  Alignment step failed," $nTracks "tracks found for alignment in run" $1 >> $3/../analysis.log
-    echo "  Alignment step failed," $nTracks "tracks found for alignment" >> $3/analysis.log
+    echo "  Alignment step failed," $nTracks "tracks found for alignment in run" ${runNumber} >> ${outputFolder}/../analysis.log
+    echo "  Alignment step failed," $nTracks "tracks found for alignment" >> ${outputFolder}/analysis.log
     exit 1
   else
-    echo "  Alignment worked fine," $nTracks "tracks found for alignment" >> $3/analysis.log
+    echo "  Alignment worked fine," $nTracks "tracks found for alignment" >> ${outputFolder}/analysis.log
   fi
 else
-  echo "  Alignment step failed, output is strange in run" $1 >> $3/../analysis.log
-  echo "  Alignment step failed, output is strange" >> $3/analysis.log
+  echo "  Alignment step failed, output is strange in run" ${runNumber} >> ${outputFolder}/../analysis.log
+  echo "  Alignment step failed, output is strange" >> ${outputFolder}/analysis.log
   exit 1
 fi
 rm *.log *.xml
