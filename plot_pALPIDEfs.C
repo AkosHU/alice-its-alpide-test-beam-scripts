@@ -56,6 +56,11 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
   if (settingsFileFolder.compare("") == 0) settingsFileName = outputFolder + Form("/settings_DUT%d.txt",dut);
   else settingsFileName = settingsFileFolder + Form("/settings_DUT%d.txt",dut);
   settingsFile.open(settingsFileName.c_str());
+  if (!settingsFile.is_open())
+  {
+    cerr << "File at " << settingsFileName << " with settings not found" << endl;
+    return;
+  }
   string line;
   getline(settingsFile,line);
   int runNumber=0, irr=0, nEvent=0, isData=0;
@@ -183,6 +188,13 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
 //    tree->Fill();
   }
   int nRun = tmp;
+  if (nRun == 0)
+  {
+    cerr << "No runs from the list of runs you provided was in the setting file" << endl;
+    return;
+  }
+  if (nRun < lastRun-firstRun+1-toSkipV.size())
+    cerr << "Some runs from the list of runs you provided were not in the setting file. Continuing, but you should check what happened to those runs." << endl;
   for (int i=0;i<nRun;i++)
   {
     if (!runs[i].isNoise()) 
@@ -201,7 +213,6 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
         }
       }
   }
-//  cerr << nRun << endl;
   globalBB = runs[0].getBB();
   if (globalBB == -4) globalBB = BBOverWrite;
   globalIrr = runs[0].getIrradiation();
@@ -442,7 +453,6 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
 //      else cerr << runs[i].getRunNumber() << "\t" << iSector << endl;
     }
   }
-
 
   for (int i=0;i<nRun;i++)
   {
