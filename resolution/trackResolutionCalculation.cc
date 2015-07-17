@@ -46,6 +46,13 @@ int main()
     cin >> resolution[(!vacuum) ? 2*i : i];
     cout << resolution[(!vacuum) ? 2*i : i]  << "\t";
   }
+  double distance[N-1];
+  cout << endl << "Distance of the planes in order of z in mm:" << endl;
+  for (int i=0; i<N-1; i++)
+  {
+    cin >> distance[i];
+    cout << distance[i] << "\t";
+  }
   int dutID;
   cout << endl << "Which layer is the DUT? ";
   cin >> dutID;
@@ -56,12 +63,9 @@ int main()
   cout << energy << endl;;
   int nEvent;
   cout << "Number of events: ";
-  cin >> nEvent; 
-  cout << nEvent << endl << endl << endl; 
-  double dist[N-1];
-  for (int i=0; i<N-1; i++)
-    dist[i] = 18;
-  cerr << endl << "The resolution is " << Resolution(N,vacuum,airAtFitting,dist,thickness,resolution,dutID,energy,nEvent)*1000 << " micron." << endl;
+  cin >> nEvent;
+  cout << nEvent << endl << endl << endl;
+  cerr << endl << "The resolution is " << Resolution(N,vacuum,airAtFitting,distance,thickness,resolution,dutID,energy,nEvent)*1000 << " micron." << endl;
 
   return 0;
 }
