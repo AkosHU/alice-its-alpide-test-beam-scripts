@@ -34,7 +34,8 @@ class Run {
     double ithr, idb, vcasn, vaux, vcasp, vreset, BB, readoutDelay, triggerDelay, strobeLength, strobeBLength;
     vector<double> eff, nTr, nTrpA, thr, thrE, noise, noiseE;
     vector<TH1*> clusterSize, residualX, residualY;
-    bool noiseRun;
+    TH2* fakeHitHistoFromNoise;
+    bool noiseRun, plotFlag;
     string chipID;
   public:
     Run(){
@@ -98,7 +99,9 @@ class Run {
     double getStrobeLength() {return strobeLength;}
     double getStrobeBLength() {return strobeBLength;}
     double getnEvent() {return nEvent;}
+    bool PlotFlag(){return plotFlag;}
     int getIrradiation() {return irradiation;}
+    void setnEvent(double nEv) {nEvent = nEv; return;}
     void setEff(vector<double> e) {eff = e; return;}
     void setnTr(vector<double> tr) {nTr=tr; return;}
     void setnTrpA(vector<double> trp) {nTrpA = trp; return;}
@@ -109,6 +112,8 @@ class Run {
     void setClusterSize(vector<TH1*> cS) {clusterSize = cS; return;}
     void setResidualX(vector<TH1*> rX) {residualX = rX; return;}
     void setResidualY(vector<TH1*> rY) {residualY = rY; return;}
+    void setFakeHitHistoFromNoise(TH2* fakeHitHisto){fakeHitHistoFromNoise = fakeHitHisto; return;}
+    void setPlotFlag(bool b){plotFlag = b; return;}
     vector<double> getEff() {return eff;}
     vector<double> getnTr() {return nTr;}
     vector<double> getnTrpA() {return nTrpA;}
@@ -119,16 +124,33 @@ class Run {
     vector<TH1*> getClusterSize() {return clusterSize;}
     vector<TH1*> getResidualX() {return residualX;}
     vector<TH1*> getResidualY() {return residualY;}
+    TH2* getFakeHitHistoFromNoise(){return fakeHitHistoFromNoise;}
     bool isNoise() {return noiseRun;}
     bool equalSettings(Run run2)
     {
       if (vcasn == run2.getVcasn() && vaux == run2.getVaux() && vcasp == run2.getVcasp() && vreset == run2.getVreset() && ithr == run2.getIthr() && idb == run2.getIdb() && readoutDelay == run2.getReadoutDelay() && triggerDelay == run2.getTriggerDelay() && strobeLength == run2.getStrobeLength() && strobeBLength == run2.getStrobeBLength() && BB == run2.getBB() && irradiation == run2.getIrradiation() && chipID == run2.getChipID()) return true;
      else return false;
     }
+    void print()
+    {
+      cout << "Vcasn: " << vcasn << endl;
+      cout << "Vaux: " << vaux << endl;
+      cout << "Vcasp: " << vcasp << endl;
+      cout << "Vreset: " << vreset << endl;
+      cout << "Ithr: " << ithr << endl;
+      cout << "Idb: " << idb << endl;
+      cout << "Readout delay: " << readoutDelay << endl;
+      cout << "Trigger delay: " << triggerDelay << endl;
+      cout << "Strobe length: " << strobeLength << endl;
+      cout << "StrobeB length: " << strobeBLength << endl;
+      cout << "Vbb: " << BB << endl;
+      cout << "Irradiation level: " << irradiation << endl;
+      cout << "Chip ID: " << chipID << endl;
+    }
 };
 
 bool Skip(int runNumber);
-TH1F* CalculateNoiseFromNoise(TH2* fakeHitHisto, int runNumberIndex, vector<Run> runs);
+vector<TH1F*> CalculateNoiseFromNoise(TH2* fakeHitHisto, int runNumberIndex, vector<Run> runs);
 
 void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string toSkip="", double pointingRes=0, string noiseFileName="", string thresholdFileName="", string settingsFileFolder="", double BBOverWrite = 0);
 

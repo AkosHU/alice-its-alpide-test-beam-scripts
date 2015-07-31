@@ -201,7 +201,7 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
       for (int j=0;j<nRun;j++)
       {
         if (i == j) continue;
-        if (!runs[i].isNoise()) continue;
+	if (!runs[i].isNoise()) continue;
         if (runs[i].equalSettings(runs[j]))
         {
 //          cerr << runs[i].getRunNumber() << "\t" << runs[j].getRunNumber() << endl;
@@ -457,17 +457,55 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
   for (int i=0;i<nRun;i++)
   {
     if (!runs[i].isNoise()) continue;
-    if (Skip(runs[i].getRunNumber())) continue;
     string fileName = outputFolder +  Form("/run%06d/histogram/run%06d-noise.root",runs[i].getRunNumber(),runs[i].getRunNumber());
     TFile* histFile = new TFile(fileName.c_str(),"READONLY");
     if (!histFile || histFile->IsZombie())
       continue;
-    noiseOccupancyBeforeRemovalFromNoiseHisto = (TH1F*)histFile->Get(Form("noiseOccupancy_%d",dut));
     fakeHitHistoFromNoise = (TH2I*)histFile->Get(Form("noiseMap_%d",dut));
-    noiseOccupancyAfterRemovalFromNoiseHisto = CalculateNoiseFromNoise(fakeHitHistoFromNoise,i,runs);
+
+    runs[i].setFakeHitHistoFromNoise(fakeHitHistoFromNoise);
+    runs[i].setPlotFlag(true);
+  }    
+  TH2* fakeHitHistoFromNoise2;
+  vector<TH1F*>noiseOccupancy;
+  for (int i=0;i<nRun;i++)
+  {
+    if (!runs[i].isNoise()) continue;
+    fakeHitHistoFromNoise = runs[i].getFakeHitHistoFromNoise();
+      
+    for (int j=i+1;j<nRun;j++)
+    {
+      if (!runs[i].isNoise()) continue;
+      cerr << "Run i:" << endl;
+      runs[i].print();
+      cerr << "Run j:" << endl;
+      runs[j].print();
+      
+      if (runs[i].equalSettings(runs[j]))
+      {
+        fakeHitHistoFromNoise2 = runs[j].getFakeHitHistoFromNoise();
+        fakeHitHistoFromNoise->Add(fakeHitHistoFromNoise2);
+        fakeHitHistoFromNoise2->Reset();
+        runs[j].setFakeHitHistoFromNoise(fakeHitHistoFromNoise2);
+	      
+        runs[i].setnEvent(runs[i].getnEvent()+runs[j].getnEvent());
+        runs[j].setPlotFlag(false);
+      }
+    }
+    runs[i].setFakeHitHistoFromNoise(fakeHitHistoFromNoise);
+    
+    noiseOccupancy = CalculateNoiseFromNoise(fakeHitHistoFromNoise,i,runs);
+
+    noiseOccupancyBeforeRemovalFromNoiseHisto = noiseOccupancy[0];
+    noiseOccupancyAfterRemovalFromNoiseHisto = noiseOccupancy[1];
+    noiseOccupancy.clear();
+
     for (int iSector=0; iSector<4; iSector++)
     {
-      if (noiseOccupancyBeforeRemovalFromNoiseHisto->GetBinContent(iSector+1) == 0) continue;
+//      if (noiseOccupancyBeforeRemovalFromNoiseHisto->GetBinContent(iSector+1) == 0) continue;
+	  
+      if (runs[i].getnEvent() == 0) continue;
+      if(!runs[i].PlotFlag()) continue;
       noiseOccupancyBeforeRemovalThrFromNoise[iSector]->SetPoint(noiseOccupancyBeforeRemovalThrFromNoise[iSector]->GetN(),runs[i].getThr()[iSector],noiseOccupancyBeforeRemovalFromNoiseHisto->GetBinContent(iSector+1));
       noiseOccupancyBeforeRemovalThrFromNoise[iSector]->SetPointError(noiseOccupancyBeforeRemovalThrFromNoise[iSector]->GetN()-1,runs[i].getThrE()[iSector],noiseOccupancyBeforeRemovalFromNoiseHisto->GetBinError(iSector+1));
       noiseOccupancyBeforeRemovalIthrVcasnFromNoise[iSector]->SetPoint(noiseOccupancyBeforeRemovalIthrVcasnFromNoise[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),noiseOccupancyBeforeRemovalFromNoiseHisto->GetBinContent(iSector+1));
@@ -476,9 +514,9 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
       noiseOccupancyAfterRemovalThrFromNoise[iSector]->SetPointError(noiseOccupancyAfterRemovalThrFromNoise[iSector]->GetN()-1,runs[i].getThrE()[iSector],noiseOccupancyAfterRemovalFromNoiseHisto->GetBinError(iSector+1));
       noiseOccupancyAfterRemovalIthrVcasnFromNoise[iSector]->SetPoint(noiseOccupancyAfterRemovalIthrVcasnFromNoise[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),noiseOccupancyAfterRemovalFromNoiseHisto->GetBinContent(iSector+1));
       noiseOccupancyAfterRemovalIthrVcasnFromNoise[iSector]->SetPointError(noiseOccupancyAfterRemovalIthrVcasnFromNoise[iSector]->GetN()-1,0,0,noiseOccupancyAfterRemovalFromNoiseHisto->GetBinError(iSector+1));
-//      noiseOccupancyAfterRemovalFromNoiseIthr[iSector]->SetPoint(noiseOccupancyAfterRemovalFromNoiseIthr[iSector]->GetN(),runs[i].getIthr(),noiseOccupancyAfterRemovalFromNoiseHisto->GetBinContent(iSector+1));
-//      noiseOccupancyAfterRemovalFromNoiseIthr[iSector]->SetPointError(noiseOccupancyAfterRemovalFromNoiseIthr[iSector]->GetN()-1,0,noiseOccupancyAfterRemovalFromNoiseHisto->GetBinError(iSector+1));
     }
+      noiseOccupancyBeforeRemovalFromNoiseHisto->Delete();
+      noiseOccupancyAfterRemovalFromNoiseHisto->Delete();
   }
   vector<TGraph2DErrors*> noiseOccupancyAfterRemovalIthrVcasnFromLab(4);
   for (int iSector=0; iSector<4; iSector++)
@@ -601,12 +639,14 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
 
 }
 
-TH1F* CalculateNoiseFromNoise(TH2* fakeHitHisto, int runNumberIndex, vector<Run> runs) 
+vector<TH1F*> CalculateNoiseFromNoise(TH2* fakeHitHisto, int runNumberIndex, vector<Run> runs) 
 {
   int nEvent = runs[runNumberIndex].getnEvent();
   int maxNPixels = 20;
   int noiseWithRemove[4] = {0};
   int removedPixels[4] = {0};
+
+  vector<TH1F*> noiseOccupancy(2);
   for (int x=1; x<=fakeHitHisto->GetNbinsX(); x++)
   {
     int index = -1;
@@ -620,7 +660,13 @@ TH1F* CalculateNoiseFromNoise(TH2* fakeHitHisto, int runNumberIndex, vector<Run>
     for (int y=1; y<=fakeHitHisto->GetNbinsY(); y++)
       noiseWithRemove[index] += fakeHitHisto->GetBinContent(x,y);
   }
+  noiseOccupancy[0] = new TH1F("noiseOccupancyBeforeRemovalHisto","noiseOccupancyBeforeRemovalHisto",4,0,4);
 
+  for (int iSector=0; iSector<4; iSector++)
+  {
+    noiseOccupancy[0]->SetBinContent(iSector+1,(double)noiseWithRemove[iSector]/nEvent/131072);  
+    noiseOccupancy[0]->SetBinError(iSector+1,sqrt((double)noiseWithRemove[iSector])/nEvent/131072);
+  }
   int index = -1;
   bool lowEnough[4] = {false};
   for (int iSector=0; iSector<4; iSector++)
@@ -650,13 +696,15 @@ TH1F* CalculateNoiseFromNoise(TH2* fakeHitHisto, int runNumberIndex, vector<Run>
     if (noiseWithRemove[index] == 0) lowEnough[index] = true;
   }
 
-  TH1F* noiseOccupancyAfterRemovalHisto = new TH1F("noiseOccupancyAfterRemovalHisto","noiseOccupancyAfterRemovalHisto",4,0,4);
+  noiseOccupancy[1] = new TH1F("noiseOccupancyAfterRemovalHisto","noiseOccupancyAfterRemovalHisto",4,0,4);     
+  
   for (int iSector=0; iSector<4; iSector++)
   {
-    noiseOccupancyAfterRemovalHisto->SetBinContent(iSector+1,(double)noiseWithRemove[iSector]/nEvent/131072);
-    noiseOccupancyAfterRemovalHisto->SetBinError(iSector+1,sqrt((double)noiseWithRemove[iSector])/nEvent/131072);
+    noiseOccupancy[1]->SetBinContent(iSector+1,(double)noiseWithRemove[iSector]/nEvent/131072);
+    noiseOccupancy[1]->SetBinError(iSector+1,sqrt((double)noiseWithRemove[iSector])/nEvent/131072); 
   }
-  return noiseOccupancyAfterRemovalHisto;
+
+  return noiseOccupancy;
 }
 
 void compareDifferentGraphs2D(string files, string hist, int sector, bool IthrVcasn, double IthrVcasnValue, bool BB, bool irr, bool chip, bool rate)
