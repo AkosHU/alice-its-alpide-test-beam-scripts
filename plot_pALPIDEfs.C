@@ -476,10 +476,6 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
     for (int j=i+1;j<nRun;j++)
     {
       if (!runs[i].isNoise()) continue;
-      cerr << "Run i:" << endl;
-      runs[i].print();
-      cerr << "Run j:" << endl;
-      runs[j].print();
       
       if (runs[i].equalSettings(runs[j]))
       {
