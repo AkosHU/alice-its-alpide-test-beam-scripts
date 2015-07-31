@@ -48,14 +48,14 @@ if (( ${dutType} == 1)); then
   fi
   $EUDAQ/bin/Converter.exe -s -t native `printf ${inputFolder}/run"%06d".raw ${runNumber}` -o `printf ${outputFolder}/run"%06d".raw ${runNumber}`
   nativeFolder=${outputFolder}
-  echo "DUT(s) are set to be a pALPIDEss" >> ${outputFolder}/analysis.log
+  echo "DUT(s) are set to be a pALPIDEss" > ${outputFolder}/analysis.log
 elif (( ${dutType} == 0)); then
-  echo "DUT(s) are set to be a pALPIDEfs" >> ${outputFolder}/analysis.log
+  echo "DUT(s) are set to be a pALPIDEfs" > ${outputFolder}/analysis.log
 fi
 $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option NativePath=$nativeFolder converter ${runNumber} > $redirect 2>&1
 name=`printf ${outputFolder}/lcio/run"%06d"-converter.slcio ${runNumber}`
 nEvent=`lcio_event_counter $name`
-echo "Run contains" $nEvent "good events" > ${outputFolder}/analysis.log
+echo "Run contains" $nEvent "good events" >> ${outputFolder}/analysis.log
 re='^[-+]?[0-9]*\.?[0-9]+$'
 if ! [[ $nEvent =~ $re ]] ; then
   echo "Converter failed in run" ${runNumber} >> ${outputFolder}/../analysis.log
