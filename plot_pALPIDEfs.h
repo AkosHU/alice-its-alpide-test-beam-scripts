@@ -31,8 +31,8 @@ using namespace std;
 
 class Run {
     int runNumber, irradiation, nEvent;
-    double ithr, idb, vcasn, vaux, vcasp, vreset, BB, readoutDelay, triggerDelay, strobeLength, strobeBLength;
-    vector<double> eff, nTr, nTrpA, thr, thrE, noise, noiseE;
+    double ithr, ithrpA, idb, vcasn, vaux, vcasp, vreset, BB, readoutDelay, triggerDelay, strobeLength, strobeBLength, energy;
+    vector<double> eff, nTr, nTrpA, thr, thrE, noise, noiseE, clusterSizeV, clusterSizeVRMS, residualV, residualVE, resolutionV, resolutionVE, noiseOccupancyBeforeRemovalV, noiseOccupancyBeforeRemovalVE, noiseOccupancyAfterRemovalV, noiseOccupancyAfterRemovalVE;
     vector<TH1*> clusterSize, residualX, residualY;
     TH2* fakeHitHistoFromNoise;
     bool noiseRun, plotFlag;
@@ -41,7 +41,7 @@ class Run {
     Run(){
       runNumber = -1;
     }
-    Run(int r, double casn, double aux, double casp, double reset, double i, double db, vector<double> t, vector<double> tE, vector<double> n, vector<double> nE, double bb, int irr, string id, double rD, double tD, double sL, double sBL, bool nR, int nEv){
+    Run(int r, double casn, double aux, double casp, double reset, double i, double ipA, double db, vector<double> t, vector<double> tE, vector<double> n, vector<double> nE, double bb, int irr, string id, double rD, double tD, double sL, double sBL, bool nR, int nEv, double ene){
       runNumber = r;
       vcasn = casn;
       vaux = aux;
@@ -52,6 +52,7 @@ class Run {
       strobeLength = sL;
       strobeBLength = sBL;
       ithr = i;
+      ithrpA = ipA;
       idb = db;
       thr = t;
       thrE = tE;
@@ -62,8 +63,9 @@ class Run {
       irradiation = irr;
       chipID = id;
       nEvent = nEv;
+      energy = ene;
     }
-    void Set(int r, double casn, double aux, double casp, double reset, double i, double db, vector<double> t, vector<double> tE, vector<double> n, vector<double> nE, double bb, int irr, string id, double rD, double tD, double sL, double sBL, bool nR, int nEv){
+    void Set(int r, double casn, double aux, double casp, double reset, double i,double ipA, double db, vector<double> t, vector<double> tE, vector<double> n, vector<double> nE, double bb, int irr, string id, double rD, double tD, double sL, double sBL, bool nR, int nEv, double ene){
       runNumber = r;
       vcasn = casn;
       vaux = aux;
@@ -74,6 +76,7 @@ class Run {
       strobeLength = sL;
       strobeBLength = sBL;
       ithr = i;
+      ithrpA = ipA;
       idb = db;
       thr = t;
       thrE = tE;
@@ -84,6 +87,44 @@ class Run {
       irradiation = irr;
       chipID = id;
       nEvent = nEv;
+      energy = ene;
+    }
+    void getAllParameters(int &r, double &casn, double &aux, double &casp, double &reset, double &i, double &ipA, double &db, vector<double> &t, vector<double> &tE, vector<double> &n, vector<double> &nE, double &bb, int &irr, string &id, double &rD, double &tD, double &sL, double &sBL, bool &nR, int &nEv, double &ene, vector<double> &efficiency, vector<double> &nTrack, vector<double> &nTrackpA, vector<double> &cs, vector<double> &csRMS, vector<double> &residual, vector<double> &residualE, vector<double> &res, vector<double> &resE, vector<double> &noiB, vector<double> &noiBE, vector<double> &noiA, vector<double> &noiAE){
+      r = runNumber;
+      casn = vcasn;
+      aux = vaux;
+      casp = vcasp;
+      reset = vreset;
+      rD = readoutDelay;
+      tD = triggerDelay;
+      sL = strobeLength;
+      sBL = strobeBLength;
+      i = ithr;
+      ipA = ithrpA;
+      db = idb;
+      t = thr;
+      tE = thrE;
+      n = noise;
+      nE = noiseE; 
+      nR = noiseRun;
+      bb = BB;
+      irr = irradiation;
+      id = chipID;
+      nEv = nEvent;
+      ene = energy;
+      efficiency = eff;
+      nTrack = nTr;
+      nTrackpA = nTrpA;
+      cs = clusterSizeV;
+      csRMS = clusterSizeVRMS;
+      residual = residualV;
+      residualE = residualVE;
+      res = resolutionV;
+      resE = resolutionVE;
+      noiB = noiseOccupancyBeforeRemovalV;
+      noiBE = noiseOccupancyBeforeRemovalVE;
+      noiA = noiseOccupancyAfterRemovalV;
+      noiAE = noiseOccupancyAfterRemovalVE;
     }
     int getRunNumber() {return runNumber;}
     double getVcasn() {return vcasn;}
@@ -109,6 +150,16 @@ class Run {
     void setThrE(vector<double> tE) {thrE = tE; return;}
     void setNoise(vector<double> n) {noise = n; return;}
     void setNoiseE(vector<double> nE) {noiseE = nE; return;}
+    void setClusterSizeVector(vector<double> cs) {clusterSizeV = cs; return;}
+    void setClusterSizeVectorRMS(vector<double> csRMS) {clusterSizeVRMS = csRMS; return;}
+    void setResidualVector(vector<double> res) {residualV = res; return;}
+    void setResidualVectorE(vector<double> resE) {residualVE= resE; return;}
+    void setResolutionVector(vector<double> res) {resolutionV = res; return;}
+    void setResolutionVectorE(vector<double> resE) {resolutionVE = resE; return;}
+    void setNoiseOccupancyBeforeRemovalV(vector<double> noi) {noiseOccupancyBeforeRemovalV = noi; return;}
+    void setNoiseOccupancyBeforeRemovalVE(vector<double> noi) {noiseOccupancyBeforeRemovalVE = noi; return;}
+    void setNoiseOccupancyAfterRemovalV(vector<double> noi) {noiseOccupancyAfterRemovalV = noi; return;}
+    void setNoiseOccupancyAfterRemovalVE(vector<double> noi) {noiseOccupancyAfterRemovalVE = noi; return;}
     void setClusterSize(vector<TH1*> cS) {clusterSize = cS; return;}
     void setResidualX(vector<TH1*> rX) {residualX = rX; return;}
     void setResidualY(vector<TH1*> rY) {residualY = rY; return;}
@@ -154,6 +205,8 @@ vector<TH1F*> CalculateNoiseFromNoise(TH2* fakeHitHisto, int runNumberIndex, vec
 
 void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string toSkip="", double pointingRes=0, string noiseFileName="", string thresholdFileName="", string settingsFileFolder="", double BBOverWrite = 0);
 
+void compareDifferentGraphsFromTree(string files, string xName, string hist, int iSector, bool addBB=true, bool addIrr=true, bool addChipNumber=true, bool addRate=false);
+void compareDifferentGraphsFromTree(string files, string xName, string hist, int iSector, double xlow, double xhigh, string xTitle, double ylow1, double yhigh1, double line1, bool log1, string yTitle1, double ylow2, double yhigh2, double line2, bool log2, string yTitle2, string legendTitle, bool addBB, bool addIrr, bool addChipNumber, bool addRate);
 void compareDifferentGraphs2D(string files, string hist, int sector, bool IthrVcasn, double IthrVcasnValue, bool BB=true, bool irr=true, bool chip=true, bool rate=false);
 void compareDifferentGraphs2D(string file, string hist, int sector, bool IthrVcasn, double IthrVcasnValue, const char* xTitle1, const char* xTitle2, double x1low, double x1high, double x2low, double x2high, const char* legend, const char* yTitle1, double y1low, double y1high, bool log1, double line1, const char* yTitle2, double y2low, double y2high, double line2, bool log2, bool BB, bool irr, bool chip, bool rate);
 void compareOneHistogram(string files, string hist, string sectorStr, bool IthrVcasn, double IthrVcasnValue, int type, bool BB=false, bool irr=true, bool chip=false, bool rate=false, string comparison = "");
@@ -164,6 +217,7 @@ void compareDifferentSectors2D(string file, string hist,  bool IthrVcasn=true, d
 void compareDifferentSectors2D(string file, string hist,  bool IthrVcasn, double IthrVcasnValue, const char* yTitle1, const char* yTitle2,const char* xTitle, const char* legend, double y1low, double y1high, double line1, double y2low, double y2high, double line2, double xlow, double xhigh, bool log1, bool log2);
 
 string getLegend(string file, bool addBB=true, bool addIrr=true, bool addChipNumber=false, bool addRate=false);
+bool getDefaultsOneAxis(string graph, double& low, double& high, double& line, bool& log, string& title, string& legend);
 bool getDefaults(string graph, double& xlow, double& xhigh, double& ylow, double& yhigh, double& line, bool& log, string& xTitle, string& yTitle, string& legend, double& x2low, double& x2high, string& xTitle2);
 
 void Draw2D(TGraph2D* graph, const char* canvas, string zTitle, string title, bool logZ, double zlow, double zhigh);
@@ -173,6 +227,10 @@ void DrawOverSectors(vector<TGraph*> graph1, double rangeLow1, double rangeHigh1
 void DrawOverDifferentGraphs(vector<TGraph*> graph1, double rangeLow1, double rangeHigh1, double line1, const char* titleY1, vector<TGraph*> graph2, double rangeLow2, double rangeHigh2, double line2, const char* titleY2, const char* canvas, const char* legendTitle, vector<string> legendStr, double xlow=80, double xhigh=420,bool log1=false, bool log2=false, const char* titleX="Threshold in electrons",const char* canvasTitle="");
 
 TGraph* Get1DFrom2D(TGraph2D* graph, bool IthrVcasn, double value, bool isEfficiency=false, TFile* graphFile=0, int sector=0);
+int histFromData(string histName);
+TGraph* reorder(TGraph* graphOrig);
+TGraphErrors* reorder(TGraphErrors* graphOrig);
+TGraphAsymmErrors* reorder(TGraphAsymmErrors* graphOrig);
 
 void Write(vector<TGraphErrors*> graph1, string title);
 void Write(vector<TGraphAsymmErrors*> graph1, string title);
@@ -182,3 +240,4 @@ void Write(vector<TGraph2DErrors*> graph1, string title);
 void WriteTextFile(vector<TGraphErrors*> graph1, string fileName);
 void WriteTextFile(vector<TGraphAsymmErrors*> graph1, string fileName);
 
+void treeFill(TTree* tree, vector<Run> runs);
