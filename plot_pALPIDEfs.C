@@ -327,27 +327,24 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
       residualYHisto = runs[i].getResidualY();
       TFitResultPtr resultY = residualYHisto[iSector]->Fit("gaus","QNOS");
       Int_t fitStatusY = resultY;
-      double resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000);
-      double resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000);
+      double resX = 0, resY = 0;
+      if (fitStatusX == 0 && fitStatusY == 0)
+      {
+        resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000);
+        resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000);
+      }
       residualV.push_back((resX+resY)/2.);
       residualVE.push_back(sqrt(resultX->ParError(2)*resultX->ParError(2)+resultY->ParError(2)*resultY->ParError(2))*1000);
-      resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000-pointingRes*pointingRes);
-      resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000-pointingRes*pointingRes);
+      if (fitStatusX == 0 && fitStatusY == 0) 
+      {
+        resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000-pointingRes*pointingRes);
+        resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000-pointingRes*pointingRes);
+      }
       resolutionV.push_back((resX+resY)/2.);
       resolutionVE.push_back(sqrt(resultX->ParError(2)*resultX->ParError(2)+resultY->ParError(2)*resultY->ParError(2))*1000);
       if (clusterSizeHisto[iSector]->Integral() < 100) continue;
       clusterSizeIthrVcasn[iSector]->SetPoint(clusterSizeIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),clusterSizeHisto[iSector]->GetMean());
       clusterSizeIthrVcasn[iSector]->SetPointError(clusterSizeIthrVcasn[iSector]->GetN()-1,0,0,clusterSizeHisto[iSector]->GetMeanError());
-      if (fitStatusX == 0)
-      {
-        resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000);
-        resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000-pointingRes*pointingRes);
-      }
-      if (fitStatusY == 0)
-      {
-        resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000);
-        resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000-pointingRes*pointingRes);
-      }
       if (fitStatusX == 0 && fitStatusY == 0)
       {
         resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000);
@@ -726,7 +723,7 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
         {
           x = *xP;
           xD = x[iSector];
-          if (xName.find("efficiency") == string::npos)
+          if (xName.find("efficiency") == string::npos && xName.find("threshold") == string::npos)
           {
             xE = *xEP;
             xED = xE[iSector];
@@ -2243,8 +2240,8 @@ int histFromData(string histName)
   for (int iNoise=0; iNoise<1; iNoise++)
     if (histName.find(noise[iNoise]) != string::npos) return 0; 
   
-  string both[2] = {"threshold", "temporalNoise"};
-  for (int iBoth=0; iBoth<2; iBoth++)
+  string both[4] = {"threshold", "temporalNoise", "ithr", "vcasn"};
+  for (int iBoth=0; iBoth<4; iBoth++)
     if (histName.find(both[iBoth]) != string::npos) return 2; 
   
   cerr << "Hist type unknown, cannot decide to take the data points from noise runs or from data runs" << endl;
