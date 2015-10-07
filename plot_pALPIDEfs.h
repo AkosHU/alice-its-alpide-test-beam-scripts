@@ -9,6 +9,7 @@
 #include <sstream>
 #include <vector>
 #include <math.h>
+#include <numeric>
 #include "TGraph.h"
 #include "TGraphAsymmErrors.h"
 #include "TGraph2D.h"
@@ -142,6 +143,7 @@ class Run {
     double getnEvent() {return nEvent;}
     bool PlotFlag(){return plotFlag;}
     int getIrradiation() {return irradiation;}
+    void setRunNumber(int r) {runNumber = r; return;}
     void setnEvent(double nEv) {nEvent = nEv; return;}
     void setEff(vector<double> e) {eff = e; return;}
     void setnTr(vector<double> tr) {nTr=tr; return;}
@@ -164,7 +166,8 @@ class Run {
     void setResidualX(vector<TH1*> rX) {residualX = rX; return;}
     void setResidualY(vector<TH1*> rY) {residualY = rY; return;}
     void setFakeHitHistoFromNoise(TH2* fakeHitHisto){fakeHitHistoFromNoise = fakeHitHisto; return;}
-    void setPlotFlag(bool b){plotFlag = b; return;}
+    void setPlotFlag(bool b) {plotFlag = b; return;}
+    void setIsNoise(bool n) {noiseRun = n; return;}
     vector<double> getEff() {return eff;}
     vector<double> getnTr() {return nTr;}
     vector<double> getnTrpA() {return nTrpA;}
@@ -172,6 +175,13 @@ class Run {
     vector<double> getThrE() {return thrE;}
     vector<double> getNoise() {return noise;}
     vector<double> getNoiseE() {return noiseE;}
+    vector<double> getClusterSizeV() {return clusterSizeV;}
+    vector<double> getResidualV() {return residualV;}
+    vector<double> getResolutionV() {return resolutionV;}
+    vector<double> getNoiseOccupancyBeforeRemoval() {return noiseOccupancyBeforeRemovalV;}
+    vector<double> getNoiseOccupancyBeforeRemovalE() {return noiseOccupancyBeforeRemovalVE;}
+    vector<double> getNoiseOccupancyAfterRemoval() {return noiseOccupancyAfterRemovalV;}
+    vector<double> getNoiseOccupancyAfterRemovalE() {return noiseOccupancyAfterRemovalVE;}
     vector<TH1*> getClusterSize() {return clusterSize;}
     vector<TH1*> getResidualX() {return residualX;}
     vector<TH1*> getResidualY() {return residualY;}
@@ -180,7 +190,12 @@ class Run {
     bool equalSettings(Run run2)
     {
       if (vcasn == run2.getVcasn() && vaux == run2.getVaux() && vcasp == run2.getVcasp() && vreset == run2.getVreset() && ithr == run2.getIthr() && idb == run2.getIdb() && readoutDelay == run2.getReadoutDelay() && triggerDelay == run2.getTriggerDelay() && strobeLength == run2.getStrobeLength() && strobeBLength == run2.getStrobeBLength() && BB == run2.getBB() && irradiation == run2.getIrradiation() && chipID == run2.getChipID()) return true;
-     else return false;
+      else return false;
+    }
+    bool canBeAveraged(Run run2)
+    {
+      if (vcasn == run2.getVcasn() && vaux == run2.getVaux() && vcasp == run2.getVcasp() && vreset == run2.getVreset() && ithr == run2.getIthr() && idb == run2.getIdb() && readoutDelay == run2.getReadoutDelay() && triggerDelay == run2.getTriggerDelay() && strobeLength == run2.getStrobeLength() && strobeBLength == run2.getStrobeBLength() && BB == run2.getBB() && irradiation == run2.getIrradiation() && noiseRun == run2.isNoise()) return true;
+      else return false;
     }
     void print()
     {
@@ -205,8 +220,10 @@ vector<TH1F*> CalculateNoiseFromNoise(TH2* fakeHitHisto, int runNumberIndex, vec
 
 void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string toSkip="", double pointingRes=0, string noiseFileName="", string thresholdFileName="", string settingsFileFolder="", double BBOverWrite = 0);
 
-void compareDifferentGraphsFromTree(string files, string xName, string hist, int iSector, bool addBB=true, bool addIrr=true, bool addChipNumber=true, bool addRate=false);
-void compareDifferentGraphsFromTree(string files, string xName, string hist, int iSector, double xlow, double xhigh, string xTitle, double ylow1, double yhigh1, double line1, bool log1, string yTitle1, double ylow2, double yhigh2, double line2, bool log2, string yTitle2, string legendTitle, bool addBB, bool addIrr, bool addChipNumber, bool addRate);
+void mergeGraphs(string files, string outputFolder="./");
+
+void compareDifferentGraphsFromTree(string files, string xName, string hist, int iSector, string canVary="", bool addBB=true, bool addIrr=true, bool addChipNumber=true, bool addRate=false);
+void compareDifferentGraphsFromTree(string files, string xName, string hist, int iSector, double xlow, double xhigh, string xTitle, double ylow1, double yhigh1, double line1, bool log1, string yTitle1, double ylow2, double yhigh2, double line2, bool log2, string yTitle2, string legendTitle, string canVary, bool addBB, bool addIrr, bool addChipNumber, bool addRate);
 void compareDifferentGraphs2D(string files, string hist, int sector, bool IthrVcasn, double IthrVcasnValue, bool BB=true, bool irr=true, bool chip=true, bool rate=false);
 void compareDifferentGraphs2D(string file, string hist, int sector, bool IthrVcasn, double IthrVcasnValue, const char* xTitle1, const char* xTitle2, double x1low, double x1high, double x2low, double x2high, const char* legend, const char* yTitle1, double y1low, double y1high, bool log1, double line1, const char* yTitle2, double y2low, double y2high, double line2, bool log2, bool BB, bool irr, bool chip, bool rate);
 void compareOneHistogram(string files, string hist, string sectorStr, bool IthrVcasn, double IthrVcasnValue, int type, bool BB=false, bool irr=true, bool chip=false, bool rate=false, string comparison = "");
@@ -227,7 +244,6 @@ void DrawOverSectors(vector<TGraph*> graph1, double rangeLow1, double rangeHigh1
 void DrawOverDifferentGraphs(vector<TGraph*> graph1, double rangeLow1, double rangeHigh1, double line1, const char* titleY1, vector<TGraph*> graph2, double rangeLow2, double rangeHigh2, double line2, const char* titleY2, const char* canvas, const char* legendTitle, vector<string> legendStr, double xlow=80, double xhigh=420,bool log1=false, bool log2=false, const char* titleX="Threshold in electrons",const char* canvasTitle="");
 
 TGraph* Get1DFrom2D(TGraph2D* graph, bool IthrVcasn, double value, bool isEfficiency=false, TFile* graphFile=0, int sector=0);
-int histFromData(string histName);
 TGraph* reorder(TGraph* graphOrig);
 TGraphErrors* reorder(TGraphErrors* graphOrig);
 TGraphAsymmErrors* reorder(TGraphAsymmErrors* graphOrig);
@@ -241,3 +257,4 @@ void WriteTextFile(vector<TGraphErrors*> graph1, string fileName);
 void WriteTextFile(vector<TGraphAsymmErrors*> graph1, string fileName);
 
 void treeFill(TTree* tree, vector<Run> runs);
+void treeRead(TTree* tree, vector<Run> &runs);

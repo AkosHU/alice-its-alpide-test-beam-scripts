@@ -172,6 +172,7 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
     if (isData == 1) {isNoise = false;}
     double ithrpA = ithr/51*500; //Converting to pA
     run.Set(runNumber,vcasn,vaux,vcasp,vreset,ithr,ithrpA,idb,thr,thrE,noise,noiseE,BB,irr,chipID,readoutDelay,triggerDelay,strobeLength,strobeBLength,isNoise,nEvent,energy);
+    for (int iSector=0; iSector<4; iSector++) eff[iSector] = eff[iSector]*100;
     run.setEff(eff);
     run.setnTr(nTrack);
     run.setnTrpA(nTrackFound);
@@ -532,6 +533,24 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
       }
     }
   }
+  for (int i=0;i<nRun;i++)
+  {
+    if (!runs[i].isNoise()) 
+      for (int j=0;j<nRun;j++)
+      {
+        if (i == j) continue;
+	if (!runs[j].isNoise()) continue;
+        if (runs[i].equalSettings(runs[j]))
+        {
+          runs[i].setNoiseOccupancyBeforeRemovalV(runs[j].getNoiseOccupancyBeforeRemoval());
+          runs[i].setNoiseOccupancyBeforeRemovalVE(runs[j].getNoiseOccupancyBeforeRemovalE());
+          runs[i].setNoiseOccupancyAfterRemovalV(runs[j].getNoiseOccupancyAfterRemoval());
+          runs[i].setNoiseOccupancyAfterRemovalVE(runs[j].getNoiseOccupancyAfterRemovalE());
+          runs[j].setPlotFlag(false);
+          break;
+        }
+      }
+  }
   string outputFileName;
   string BBStr, irrStr, firstRunStr, lastRunStr, pointingResStr;
   BBStr = Form("%0.f", globalBB);
@@ -563,7 +582,212 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
   outputFile->Close();
 }
 
-void compareDifferentGraphsFromTree(string files, string xName, string hist, int iSector, bool addBB, bool addIrr, bool addChipNumber, bool addRate)
+void mergeGraphs(string files, string outputFolder)
+{
+  vector<string> filesV;
+  std::istringstream filesIs(files);
+  string filesStr;
+  while( filesIs >> filesStr)
+    filesV.push_back(filesStr);
+
+  vector<TFile*> graphFile(filesV.size());
+  for (unsigned int i=0; i<filesV.size(); i++)
+    graphFile[i] =  new TFile(filesV[i].c_str(),"READONLY");
+
+  vector<Run> runs;
+  vector< vector<Run> > runsToAdd;
+  size_t PRFirstPos = filesV[0].find("PR");
+  string PRFirst = filesV[0].substr(PRFirstPos+2,4);
+  bool averageRes = true;
+  for (unsigned int iFile=0; iFile<filesV.size(); iFile++)
+  {
+    if (!graphFile[iFile] || graphFile[iFile]->IsZombie())
+      return;
+    size_t PRPos = filesV[iFile].find("PR");
+    string PR = filesV[iFile].substr(PRPos+2,4);
+    if (PR.compare(PRFirst) != 0)
+    {
+      cerr << "Pointing resolution is not the same for all the files, cannot average the resolution values like this!" << endl;
+      averageRes = false;
+    }
+    TTree *tree = (TTree*)graphFile[iFile]->Get("tree");
+    if (!tree || tree->IsZombie())
+      return;
+    treeRead(tree, runs);
+    runsToAdd.push_back(runs);
+    runs.clear();
+  }
+  vector<Run> mergedRuns;
+  double BB = -1;
+  int irradiation = -1;
+  for (unsigned int iRun=0; iRun<runsToAdd[0].size(); iRun++)
+  {
+    vector<vector<double> > eff, thr, thrE, noise, noiseE, clusterSize, residual, resolution, noiseOccupancyBeforeRemoval, noiseOccupancyAfterRemoval;
+    eff.push_back(runsToAdd[0][iRun].getEff());
+    thr.push_back(runsToAdd[0][iRun].getThr());
+    thrE.push_back(runsToAdd[0][iRun].getThrE());
+    noise.push_back(runsToAdd[0][iRun].getNoise());
+    noiseE.push_back(runsToAdd[0][iRun].getNoiseE());
+    clusterSize.push_back(runsToAdd[0][iRun].getClusterSizeV());
+    residual.push_back(runsToAdd[0][iRun].getResidualV());
+    resolution.push_back(runsToAdd[0][iRun].getResolutionV());
+    noiseOccupancyBeforeRemoval.push_back(runsToAdd[0][iRun].getNoiseOccupancyBeforeRemoval());
+    noiseOccupancyAfterRemoval.push_back(runsToAdd[0][iRun].getNoiseOccupancyAfterRemoval());
+    for (unsigned int i=1; i<runsToAdd.size(); i++)
+    {
+      for (unsigned int jRun=0; jRun<runsToAdd[i].size(); jRun++)
+      {
+        if (runsToAdd[0][iRun].canBeAveraged(runsToAdd[i][jRun]))
+        {
+          eff.push_back(runsToAdd[i][jRun].getEff());
+          thr.push_back(runsToAdd[i][jRun].getThr());
+          thrE.push_back(runsToAdd[i][jRun].getThrE());
+          noise.push_back(runsToAdd[i][jRun].getNoise()); 
+          noiseE.push_back(runsToAdd[i][jRun].getNoiseE()); 
+          clusterSize.push_back(runsToAdd[i][jRun].getClusterSizeV()); 
+          residual.push_back(runsToAdd[i][jRun].getResidualV()); 
+          resolution.push_back(runsToAdd[i][jRun].getResolutionV()); 
+          noiseOccupancyBeforeRemoval.push_back(runsToAdd[i][jRun].getNoiseOccupancyBeforeRemoval()); 
+          noiseOccupancyAfterRemoval.push_back(runsToAdd[i][jRun].getNoiseOccupancyAfterRemoval()); 
+          break;
+        }
+      }
+    }
+    vector<double> effFinal(12,0), thrFinal(12,0), thrEFinal(12,0), noiseFinal(12,0), noiseEFinal(12,0), clusterSizeFinal(12,0), residualFinal(12,0), resolutionFinal(12,0), noiseOccupancyBeforeRemovalFinal(12,0), noiseOccupancyAfterRemovalFinal(12,0);
+    vector<double> tmp;
+    for (int iSector=0; iSector<4; iSector++)
+    {
+      for (unsigned int i=0; i<eff.size(); i++) 
+      {
+        if (eff[i].size() == 0) continue;
+        tmp.push_back(eff[i][iSector]);
+      }
+      effFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
+      effFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
+      effFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
+      tmp.clear();
+
+      for (unsigned int i=0; i<thr.size(); i++)
+      {
+        if (thr[i].size() == 0) continue;
+        tmp.push_back(thr[i][iSector]);
+      }
+      thrFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
+      thrFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
+      thrFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
+      tmp.clear();
+
+      for (unsigned int i=0; i<thrE.size(); i++)
+      {
+        if (thrE[i].size() == 0) continue;
+        tmp.push_back(thrE[i][iSector]);
+      }
+      thrEFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
+      thrEFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
+      thrEFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
+      tmp.clear();
+
+      for (unsigned int i=0; i<noise.size(); i++)
+      {
+        if (noise[i].size() == 0) continue;
+        tmp.push_back(noise[i][iSector]);
+      }
+      noiseFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
+      noiseFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
+      noiseFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
+      tmp.clear();
+
+      for (unsigned int i=0; i<noiseE.size(); i++)
+      {
+        if (noiseE[i].size() == 0) continue;
+        tmp.push_back(noiseE[i][iSector]);
+      }
+      noiseEFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
+      noiseEFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
+      noiseEFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
+      tmp.clear();
+
+      for (unsigned int i=0; i<clusterSize.size(); i++)
+      {
+        if (clusterSize[i].size() == 0) continue;
+        tmp.push_back(clusterSize[i][iSector]);
+      }
+      clusterSizeFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
+      clusterSizeFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
+      clusterSizeFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
+      tmp.clear();
+
+      for (unsigned int i=0; i<residual.size(); i++)
+      {
+        if (residual[i].size() == 0) continue;
+        tmp.push_back(residual[i][iSector]);
+      }
+      residualFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
+      residualFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
+      residualFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
+      tmp.clear();
+
+      for (unsigned int i=0; i<resolution.size(); i++)
+      {
+        if (resolution[i].size() == 0) continue;
+        tmp.push_back(resolution[i][iSector]);
+      }
+      resolutionFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
+      resolutionFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
+      resolutionFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
+      tmp.clear();
+
+      for (unsigned int i=0; i<noiseOccupancyBeforeRemoval.size(); i++)
+      {
+        if (noiseOccupancyBeforeRemoval[i].size() == 0) continue;
+        tmp.push_back(noiseOccupancyBeforeRemoval[i][iSector]);
+      }
+      noiseOccupancyBeforeRemovalFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
+      noiseOccupancyBeforeRemovalFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
+      noiseOccupancyBeforeRemovalFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
+      tmp.clear();
+
+      for (unsigned int i=0; i<noiseOccupancyAfterRemoval.size(); i++)
+      {
+        if (noiseOccupancyAfterRemoval[i].size() == 0) continue;
+        tmp.push_back(noiseOccupancyAfterRemoval[i][iSector]);
+      }
+      noiseOccupancyAfterRemovalFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
+      noiseOccupancyAfterRemovalFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
+      noiseOccupancyAfterRemovalFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
+      tmp.clear();
+    }
+    Run run;
+    int nEvent, runNumber;
+    double ithr, ithrpA, idb, vcasn, vaux, vcasp, vreset, readoutDelay, triggerDelay, strobeLength, strobeBLength, energy;
+  vector<double> threshold, thresholdRMS, efficiency, nTrack, nTrackpALPIDE, temperalNoise, temperalNoiseRMS, clusterSizeV, clusterSizeRMS, residualV, residualE, resolutionV, resolutionE, noiseOccupancyBeforeRemovalV, noiseOccupancyBeforeRemovalE, noiseOccupancyAfterRemovalV, noiseOccupancyAfterRemovalE;
+    bool isNoise;
+    string chipID;
+    runsToAdd[0][iRun].getAllParameters(runNumber, vcasn, vaux, vcasp, vreset, ithr, ithrpA, idb, threshold, thresholdRMS, temperalNoise, temperalNoiseRMS, BB, irradiation, chipID, readoutDelay, triggerDelay, strobeLength, strobeBLength, isNoise, nEvent, energy, efficiency, nTrack, nTrackpALPIDE, clusterSizeV, clusterSizeRMS, residualV, residualE, resolutionV, resolutionE,  noiseOccupancyBeforeRemovalV, noiseOccupancyBeforeRemovalE, noiseOccupancyAfterRemovalV, noiseOccupancyAfterRemovalE);
+    run.Set(0,vcasn, vaux, vcasp, vreset, ithr, ithrpA, idb, thrFinal, thrEFinal, noiseFinal, noiseEFinal, BB, irradiation, "",readoutDelay, triggerDelay, strobeLength, strobeBLength, isNoise, nEvent, energy);
+    run.setEff(effFinal);
+    run.setClusterSizeVector(clusterSizeFinal);
+    run.setResidualVector(residualFinal);
+    run.setResolutionVector(resolutionFinal);
+    run.setNoiseOccupancyBeforeRemovalV(noiseOccupancyBeforeRemovalFinal);
+    run.setNoiseOccupancyAfterRemovalV(noiseOccupancyAfterRemovalFinal);
+    run.setPlotFlag(true);
+    mergedRuns.push_back(run);
+  }
+  string outputFileName = "";
+  outputFileName = outputFolder + "/graphs_merged";
+  outputFileName += Form("_BB%0.0fV_Irr%d_PR",BB,irradiation);
+  if (!averageRes) outputFileName += ".root";
+  else outputFileName += PRFirst + ".root";
+  cerr << outputFileName << endl;
+  TFile* outputFile = new TFile(outputFileName.c_str(),"RECREATE");
+  TTree *tree = new TTree("tree","Output");
+  treeFill(tree, mergedRuns);
+  tree->Write();
+  outputFile->Close();
+}
+
+void compareDifferentGraphsFromTree(string files, string xName, string hist, int iSector, string canVary, bool addBB, bool addIrr, bool addChipNumber, bool addRate)
 {
   vector<string> filesV;
   std::istringstream filesIs(files);
@@ -585,6 +809,7 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
     cerr << "Too many histograms, only 1 or 2 is possible!" << endl;
     return;
   }
+
   double xlow, xhigh, ylow1, yhigh1, line1, ylow2, yhigh2, line2;
   bool log1, log2;
   string xTitle, yTitle1, yTitle2, legendTitle, legendTitle1, legendTitle2="";
@@ -598,11 +823,20 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
     return;
   }
   legendTitle = legendTitle1 + "#color[2]{" + legendTitle2 + "}";
-  compareDifferentGraphsFromTree(files, xName, hist, iSector, xlow, xhigh, xTitle, ylow1, yhigh1, line1, log1, yTitle1, ylow2, yhigh2, line2, log2, yTitle2, legendTitle, addBB, addIrr, addChipNumber, addRate);
+  compareDifferentGraphsFromTree(files, xName, hist, iSector, xlow, xhigh, xTitle, ylow1, yhigh1, line1, log1, yTitle1, ylow2, yhigh2, line2, log2, yTitle2, legendTitle, canVary, addBB, addIrr, addChipNumber, addRate);
 }
 
-void compareDifferentGraphsFromTree(string files, string xName, string hist, int iSector, double xlow, double xhigh, string xTitle, double ylow1, double yhigh1, double line1, bool log1, string yTitle1, double ylow2, double yhigh2, double line2, bool log2, string yTitle2, string legendTitle, bool addBB, bool addIrr, bool addChipNumber, bool addRate)
+void compareDifferentGraphsFromTree(string files, string xName, string hist, int iSector, double xlow, double xhigh, string xTitle, double ylow1, double yhigh1, double line1, bool log1, string yTitle1, double ylow2, double yhigh2, double line2, bool log2, string yTitle2, string legendTitle, string canVary, bool addBB, bool addIrr, bool addChipNumber, bool addRate)
 {
+  static const string namesA[] = {"ithr", "vcasn", "vaux", "idb", "vcasp", "vreset", "BB", "readoutDelay", "triggerDelay", "strobeLength", "strobeBLength", "energy"};
+  vector<string> names (namesA, namesA + sizeof(namesA) / sizeof(namesA[0]) );
+
+  bool merged = false;
+  if (files.find("merged") != string::npos)
+  {
+    cout << "Assuming merged runs, errors will indicate the chip to chip fluctuations" << endl; 
+    merged = true;
+  }
   vector<string> filesV;
   std::istringstream filesIs(files);
   string filesStr;
@@ -623,6 +857,18 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
     cerr << "Too many histograms, only 1 or 2 is possible!" << endl;
     return;
   }
+
+  bool allCanVary = false;
+  vector<string> canVaryV;
+  if (canVary.empty()) allCanVary = true;
+  else
+  {
+    std::istringstream canVaryIs(canVary);
+    string canVaryStr;
+    while( canVaryIs >> canVaryStr)
+      canVaryV.push_back(canVaryStr);
+  }
+
   vector<TGraph*> graph1V;
   vector<TGraph*> graph2V;
   vector<string> legendV;
@@ -640,9 +886,94 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
       cerr << "Problem different number of entries in the two specified branches" << endl;
       return;
     }
-    TGraphAsymmErrors* graph1 = new TGraphAsymmErrors();
-    TGraphAsymmErrors* graph2 = new TGraphAsymmErrors();
-    // if vector
+    vector<vector<double> > settings;
+    vector<string> legends;
+    vector<string> varyingNames;
+    if (!allCanVary)
+    {
+      vector<bool> settingsChangeV(names.size(),false);
+      vector<double> setting(names.size());
+      for (unsigned int iNames=0; iNames<names.size(); iNames++)
+        tree->SetBranchAddress(names[iNames].c_str(),&setting[iNames]);
+      vector<double> settingPrev(names.size(),-100);
+      for (int iEntries=0; iEntries<nEntries; iEntries++)
+      {
+        tree->GetEntry(iEntries);
+        for (unsigned int iNames=0; iNames<names.size(); iNames++)
+        {
+          bool canVaryB = false;
+          for (unsigned int iVary=0; iVary<canVaryV.size(); iVary++)
+            if (names[iNames].compare(canVaryV[iVary]) == 0)
+            {
+              canVaryB = true;
+              break;
+            }
+          if (canVaryB) continue;
+          if (iEntries!=0 && setting[iNames] != settingPrev[iNames])
+          {
+            settingsChangeV[iNames] = true;
+            break;
+          }
+          settingPrev[iNames] = setting[iNames];
+        }
+      }
+      tree->Clear();
+      tree = (TTree*)graphFile[iFile]->Get("tree");
+      int nChangedSettings = 0;
+      for (unsigned int iNames=0; iNames<names.size(); iNames++)
+        if (settingsChangeV[iNames]) nChangedSettings++;
+      vector<double> settingsTmp(nChangedSettings);
+      int tmp = 0;
+      for (unsigned int iNames=0; iNames<names.size(); iNames++)
+      {
+        if (settingsChangeV[iNames])
+        {
+          tree->SetBranchAddress(names[iNames].c_str(),&settingsTmp[tmp]);
+          tmp++;
+          varyingNames.push_back(names[iNames]);
+        }
+      }
+      if (settingsTmp.size() == 0) allCanVary = true;
+      if (!allCanVary)
+      {
+        for (int iEntries=0; iEntries<nEntries; iEntries++)
+        {
+          tree->GetEntry(iEntries);
+          bool hasAppeared = false;
+          for (unsigned int iChangedSettings=0; iChangedSettings<settings.size(); iChangedSettings++)
+          {
+            for (unsigned int iSetting=0; iSetting<settingsTmp.size(); iSetting++)
+            {
+              if (settingsTmp[iSetting] != settings[iChangedSettings][iSetting])
+                break;
+              else if (iSetting != settingsTmp.size()-1) continue;
+                hasAppeared = true;
+            }
+          }
+          if (!hasAppeared) settings.push_back(settingsTmp);
+        }
+        for (unsigned int iSetting=0; iSetting<settings.size(); iSetting++)
+        {
+          string legend = "";
+          for (unsigned int iChangedSetting=0; iChangedSetting<settings[iSetting].size(); iChangedSetting++)
+          {
+            if (iChangedSetting != 0) legend += ", ";
+            legend += varyingNames[iChangedSetting];
+            legend += Form(": %0.f",settings[iSetting][iChangedSetting]);
+          }
+          legends.push_back(legend);
+        }
+      }
+    }
+    int size = 1;
+    if (!allCanVary) size = settings.size();
+    vector<TGraphAsymmErrors*> graph1(size);
+    vector<TGraphAsymmErrors*> graph2(size);
+    for (int iSetting=0; iSetting<size; iSetting++)
+    {
+      graph1[iSetting] = new TGraphAsymmErrors();
+      graph2[iSetting] = new TGraphAsymmErrors();
+    }
     vector<double>* xP = 0;
     vector<double>* xEP = 0;
     vector<double>* yP1 = 0;
@@ -654,6 +985,8 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
     vector<double> x, xE, y1, y1E, y2, y2E;
     double xD=0, xED=0, y1D=0, y1ED=0, y2D=0, y2ED=0;
     bool isNoise;
+    tree->Clear();
+    tree = (TTree*)graphFile[iFile]->Get("tree");
     tree->SetBranchAddress("isNoise",&isNoise);
     string classNameX = tree->GetBranch(xName.c_str())->GetClassName();
     if (classNameX.find("vector<double>") != string::npos)
@@ -710,102 +1043,137 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
     }
     if (histV[0].find("efficiency") != string::npos || (histV.size() == 2 && histV[1].find("efficiency")) != string::npos || xName.find("efficiency") != string::npos)
     {
-      tree->SetBranchAddress("nTrack",&nTrack);
-      tree->SetBranchAddress("nTrackpALPIDE",&nTrackpALPIDE);
+      if (!merged) tree->SetBranchAddress("nTrack",&nTrack);
+      if (!merged) tree->SetBranchAddress("nTrackpALPIDE",&nTrackpALPIDE);
     }
-    int nPoint1 = 0, nPoint2 = 0;
+    vector<int> nPoint1(size,0), nPoint2(size,0);
+    vector<double> settingsTmp(varyingNames.size());
+    for (unsigned int iNames=0; iNames<varyingNames.size(); iNames++)
+      tree->SetBranchAddress(varyingNames[iNames].c_str(),&settingsTmp[iNames]);
+    int index = -1;
     for (int i=0; i<nEntries; i++)
     {
       tree->GetEntry(i);
-      if (histFromData(xName) == 2 || (histFromData(xName) == 1 && !isNoise) || (histFromData(xName) == 0 && isNoise))
-      {
-        if (classNameX.find("vector<double>") != string::npos)
+      if (allCanVary) index = 0;
+      else
+        for (unsigned int iChangingSetting=0; iChangingSetting<settings.size(); iChangingSetting++)
         {
-          x = *xP;
-          xD = x[iSector];
-          if (xName.find("efficiency") == string::npos && xName.find("threshold") == string::npos)
+          bool indexFound = true;
+          for (unsigned int iSetting=0; iSetting<settingsTmp.size(); iSetting++)
           {
-            xE = *xEP;
-            xED = xE[iSector];
+            if (settingsTmp[iSetting] != settings[iChangingSetting][iSetting])
+            {
+              indexFound = false;
+              break;
+            }
           }
-          if (xName.find("threshold") != string::npos && x[iSector] == 0) continue;
+          if (!indexFound) continue;
+          index = iChangingSetting;
+          break;
         }
-      }
-      else continue;
-      if (histFromData(histV[0]) == 2 || (histFromData(histV[0]) == 1 && !isNoise) || (histFromData(histV[0]) == 0 && isNoise))
+      if (index == -1) continue;
+      if (classNameX.find("vector<double>") != string::npos)
       {
-        if (classNameY1.find("vector<double>") != string::npos)
+        x = *xP;
+        xD = x[iSector];
+        if (!merged && xName.find("efficiency") == string::npos && xName.find("threshold") == string::npos && xName.find("RMS") == string::npos)
         {
-          y1 = *yP1;
-          y1D = y1[iSector];
-          if (histV[0].find("efficiency") == string::npos)
-          {
-            y1E = *y1EP;
-            y1ED = y1E[iSector];
-          }
-          if (histV[0].find("threshold") != string::npos && y1[iSector] == 0) continue;
+          xE = *xEP;
+          xED = xE[iSector];
         }
-//    cerr << x[iSector] << "\t" << y1[iSector] << endl;
-        graph1->SetPoint(nPoint1,xD,y1D);
-        if (histV[0].find("efficiency") != string::npos)
-        {
-          vector<double> nTr = *nTrack;
-          vector<double> nTrpA = *nTrackpALPIDE;
-          double mean = (nTrpA[iSector]+1)/(nTr[iSector]+2);
-          double sigma = sqrt(((nTrpA[iSector]+1)*(nTrpA[iSector]+2))/((nTr[iSector]+2)*(nTr[iSector]+3))-((nTrpA[iSector]+1)*(nTrpA[iSector]+1))/((nTr[iSector]+2)*(nTr[iSector]+2)));
-          graph1->SetPointError(nPoint1,xED,xED,y1D-(mean-sigma)*100.,(mean+sigma)*100.-y1D);
-        }
-        else if (xName.find("efficiency") != string::npos)
-        {
-          vector<double> nTr = *nTrack;
-          vector<double> nTrpA = *nTrackpALPIDE;
-          double mean = (nTrpA[iSector]+1)/(nTr[iSector]+2);
-          double sigma = sqrt(((nTrpA[iSector]+1)*(nTrpA[iSector]+2))/((nTr[iSector]+2)*(nTr[iSector]+3))-((nTrpA[iSector]+1)*(nTrpA[iSector]+1))/((nTr[iSector]+2)*(nTr[iSector]+2)));
-          graph1->SetPointError(nPoint1,xD-(mean-sigma)*100.,(mean+sigma)*100.-xD,y1ED,y1ED);
-        }
-        else graph1->SetPointError(nPoint1,xED,xED,y1ED,y1ED);
-        nPoint1++;
+        if ((xName.find("threshold") != string::npos || xName.find("temperalNoise") != string::npos) && x[iSector] == 0) continue;
       }
-      if (histV.size() == 2 && (histFromData(histV[1]) == 2 || (histFromData(histV[1]) && !isNoise) || (!histFromData(histV[1]) && isNoise)))
+      if (classNameY1.find("vector<double>") != string::npos)
+      {
+        y1 = *yP1;
+        y1D = y1[iSector];
+        if (!merged && histV[0].find("efficiency") == string::npos && histV[0].find("RMS") == string::npos)
+        {
+          y1E = *y1EP;
+          y1ED = y1E[iSector];
+        }
+        if ((histV[0].find("threshold") != string::npos || histV[0].find("temperalNoise") != string::npos) && y1[iSector] == 0) continue;
+      }
+      graph1[index]->SetPoint(nPoint1[index],xD,y1D);
+      if (!merged && histV[0].find("efficiency") != string::npos)
+      {
+        vector<double> nTr = *nTrack;
+        vector<double> nTrpA = *nTrackpALPIDE;
+        double mean = (nTrpA[iSector]+1)/(nTr[iSector]+2);
+        double sigma = sqrt(((nTrpA[iSector]+1)*(nTrpA[iSector]+2))/((nTr[iSector]+2)*(nTr[iSector]+3))-((nTrpA[iSector]+1)*(nTrpA[iSector]+1))/((nTr[iSector]+2)*(nTr[iSector]+2)));
+        graph1[index]->SetPointError(nPoint1[index],xED,xED,y1D-(mean-sigma)*100.,(mean+sigma)*100.-y1D);
+      }
+      else if (!merged && xName.find("efficiency") != string::npos)
+      {
+        vector<double> nTr = *nTrack;
+        vector<double> nTrpA = *nTrackpALPIDE;
+        double mean = (nTrpA[iSector]+1)/(nTr[iSector]+2);
+        double sigma = sqrt(((nTrpA[iSector]+1)*(nTrpA[iSector]+2))/((nTr[iSector]+2)*(nTr[iSector]+3))-((nTrpA[iSector]+1)*(nTrpA[iSector]+1))/((nTr[iSector]+2)*(nTr[iSector]+2)));
+        graph1[index]->SetPointError(nPoint1[index],xD-(mean-sigma)*100.,(mean+sigma)*100.-xD,y1ED,y1ED);
+      }
+      else if (merged) 
+      {
+        if (classNameX.find("vector<double>") != string::npos && classNameY1.find("vector<double>") != string::npos)
+        graph1[index]->SetPointError(nPoint1[index],x[iSector]-x[iSector+4],x[iSector+8]-x[iSector],y1[iSector]-y1[iSector+4],y1[iSector+8]-y1[iSector]);
+        else if (classNameX.find("vector<double>") != string::npos)
+          graph1[index]->SetPointError(nPoint1[index],x[iSector]-x[iSector+4],x[iSector+8]-x[iSector],y1ED,y1ED);
+        else if (classNameY1.find("vector<double>")!= string::npos) 
+          graph1[index]->SetPointError(nPoint1[index],xED,xED,y1[iSector]-y1[iSector+4],y1[iSector+8]-y1[iSector]);
+      }
+      else graph1[index]->SetPointError(nPoint1[index],xED,xED,y1ED,y1ED);
+      nPoint1[index]++;
+      if (histV.size() == 2)
       {
         if (classNameY2.find("vector<double>") != string::npos)
         {
           y2 = *yP2;
           y2D = y2[iSector];
-          if (histV[1].find("efficiency") == string::npos)
+          if (!merged && histV[1].find("efficiency") == string::npos)
           {
             y2E = *y2EP;
             y2ED = y2E[iSector];
           }
         }
-        graph2->SetPoint(nPoint2,xD,y2D);
-        if (histV[1].find("efficiency") != string::npos)
+        graph2[index]->SetPoint(nPoint2[index],xD,y2D);
+        if (!merged && histV[1].find("efficiency") != string::npos)
         {
           vector<double> nTr = *nTrack;
           vector<double> nTrpA = *nTrackpALPIDE;
           double mean = (nTrpA[iSector]+1)/(nTr[iSector]+2);
           double sigma = sqrt(((nTrpA[iSector]+1)*(nTrpA[iSector]+2))/((nTr[iSector]+2)*(nTr[iSector]+3))-((nTrpA[iSector]+1)*(nTrpA[iSector]+1))/((nTr[iSector]+2)*(nTr[iSector]+2)));
-          graph2->SetPointError(nPoint2,xED,xED,y2D-(mean-sigma)*100.,(mean+sigma)*100.-y2D);
+          graph2[index]->SetPointError(nPoint2[index],xED,xED,y2D-(mean-sigma)*100.,(mean+sigma)*100.-y2D);
         }
-        else if (xName.find("efficiency") != string::npos)
+        else if (!merged && xName.find("efficiency") != string::npos)
         {
           vector<double> nTr = *nTrack;
           vector<double> nTrpA = *nTrackpALPIDE;
           double mean = (nTrpA[iSector]+1)/(nTr[iSector]+2);
           double sigma = sqrt(((nTrpA[iSector]+1)*(nTrpA[iSector]+2))/((nTr[iSector]+2)*(nTr[iSector]+3))-((nTrpA[iSector]+1)*(nTrpA[iSector]+1))/((nTr[iSector]+2)*(nTr[iSector]+2)));
-          graph2->SetPointError(nPoint2,xD-(mean-sigma)*100.,(mean+sigma)*100.-xD,y2ED,y2ED);
+          graph2[index]->SetPointError(nPoint2[index],xD-(mean-sigma)*100.,(mean+sigma)*100.-xD,y2ED,y2ED);
         }
-        else graph2->SetPointError(nPoint2,xED,xED,y2ED,y2ED);
-        nPoint2++;
+        else if (merged){ //graph2[index]->SetPointError(nPoint2[index],x[iSector]-x[iSector+4],x[iSector+8]-x[iSector],y2[iSector]-y2[iSector+4],y2[iSector+8]-y2[iSector]);
+          if (classNameX.find("vector<double>") != string::npos && classNameY2.find("vector<double>") != string::npos)
+            graph2[index]->SetPointError(nPoint2[index],x[iSector]-x[iSector+4],x[iSector+8]-x[iSector],y2[iSector]-y2[iSector+4],y2[iSector+8]-y2[iSector]);
+          else if (classNameX.find("vector<double>") != string::npos)
+            graph2[index]->SetPointError(nPoint2[index],x[iSector]-x[iSector+4],x[iSector+8]-x[iSector],y2ED,y2ED);
+          else if (classNameY2.find("vector<double>")!= string::npos) 
+            graph2[index]->SetPointError(nPoint2[index],xED,xED,y2[iSector]-y2[iSector+4],y2[iSector+8]-y2[iSector]);
+        }
+        else graph2[index]->SetPointError(nPoint2[index],xED,xED,y2ED,y2ED);
+        nPoint2[index]++;
       }
     }
-    graph1 = reorder(graph1);
-    graph2 = reorder(graph2);
-    //if vector end
-    graph1V.push_back(graph1);
-    graph2V.push_back(graph2);
-    string legend = getLegend(filesV[iFile], addBB, addIrr, addChipNumber, addRate);
-    legendV.push_back(legend);
+    for (int iSetting=0; iSetting<size; iSetting++)
+    {
+      string legend = getLegend(filesV[iFile], addBB, addIrr, addChipNumber, addRate);
+      if (legend.compare("      ") != 0) legend += ", ";
+      if (legends.size() > 0) legend += legends[iSetting];
+      legendV.push_back(legend);
+      graph1[iSetting] = reorder(graph1[iSetting]);
+      graph1V.push_back(graph1[iSetting]);
+      graph2[iSetting] = reorder(graph2[iSetting]);
+      graph2V.push_back(graph2[iSetting]);
+    }
   }
   string canvasName = xName + histV[0];
   if (histV.size() == 1) Draw(graph1V, canvasName.c_str(), xTitle.c_str(), yTitle1.c_str(), legendV, ylow1, yhigh1, line1, xlow, xhigh, log1, Form("Sector %d", iSector));
@@ -1661,6 +2029,16 @@ bool getDefaultsOneAxis(string graph, double& low, double& high, double& line, b
     high  = 160;
     title = "V_{casn} (DAC units)";
   }
+  else if (graph.find("noise") != string::npos)         
+  {                                                
+    low = 1e-8;                                   
+    high  = 1e-4;                                 
+    line = 1e-5;                                   
+    log = true;                                    
+    title = "Noise occupancy per event per pixel";
+    legend += "Noise   ";                          
+  }                                                
+ 
   else
   {
     cerr << "Unkown type!" << endl; 
@@ -1825,16 +2203,21 @@ void Draw(vector<TGraph*> graph, string canvas, const char* titleX, const char* 
   bool drawLegend = true;
   if (graph.size() != legendStr.size()) 
   {
-    cerr << "Number of legends doesn't correspond to the number of graphs!" << endl;
+    cerr << "Number of legends doesn't correspond to the number of graphs! Number of legends: " << legendStr.size() << " Number of graphs: " << graph.size() << endl;
     drawLegend = false;
   }
   TCanvas * C = new TCanvas(canvas.c_str(),"",800,600);
   C->cd();
   if (log) C->SetLogy();
   int markerColorShift = 0;
+  int tmp = 0;
+  TLegend * legend = new TLegend(0.1,0.1,0.77,0.3);
+  if (drawLegend)
+    legend->SetFillColor(0);
   for (unsigned int i=0; i<graph.size(); i++)
   {
-    if (i==4 || i==5) markerColorShift++;
+    if (graph[i]->GetN() == 0) continue;
+    if (tmp==4 || tmp==5) markerColorShift++;
     graph[i]->GetXaxis()->SetTitle(titleX);
     graph[i]->GetYaxis()->SetTitle(titleY);
     graph[i]->GetXaxis()->SetTitleOffset(0.9);
@@ -1844,27 +2227,24 @@ void Draw(vector<TGraph*> graph, string canvas, const char* titleX, const char* 
     graph[i]->SetTitle(canvasTitle);
     graph[i]->SetFillColor(0);
     graph[i]->GetYaxis()->SetRangeUser(rangeLow,rangeHigh);
-    graph[i]->SetLineColor(i+1+markerColorShift);
-    graph[i]->SetMarkerStyle(i+20);
+    graph[i]->SetLineColor(tmp+1+markerColorShift);
+    graph[i]->SetMarkerStyle(tmp+20);
     graph[i]->SetMarkerSize(1.3);
-    graph[i]->SetMarkerColor(i+1+markerColorShift);
+    graph[i]->SetMarkerColor(tmp+1+markerColorShift);
     graph[i]->GetXaxis()->SetLimits(xLow,xHigh);
 
-    graph[i]->Draw(i==0?"APL":"SAMEPL");
+    graph[i]->Draw(tmp==0?"APL":"SAMEPL");
+    if (drawLegend)
+      legend->AddEntry(graph[i]->Clone(), legendStr[i].c_str());
+    tmp++;
   }
   C->Update();
   TLine *l1=new TLine(C->GetUxmin(),line,C->GetUxmax(),line);
   l1->SetLineColor(1);
   l1->SetLineStyle(2);
   l1->Draw();
-  TLegend * legend = new TLegend(0.1,0.1,0.77,0.3);
   if (drawLegend)
-  {
-    legend->SetFillColor(0);
-    for (unsigned int i=0; i<legendStr.size(); i++)
-      legend->AddEntry(graph[i]->Clone(), legendStr[i].c_str());
     legend->Draw();
-  }
 //  string fileName = "./results/" + canvas + ".pdf";
 //  C->SaveAs(fileName.c_str());
 }
@@ -2230,24 +2610,6 @@ TGraph* Get1DFrom2D(TGraph2D* graph, bool IthrVcasn, double value, bool isEffici
   else return graphFinalEff;
 }
 
-int histFromData(string histName)
-{
-  string data[4] = {"efficiency", "resolution", "clusterSize", "residual"};
-  for (int iData=0; iData<4; iData++)
-    if (histName.find(data[iData]) != string::npos) return 1;
-
-  string noise[1] = {"noiseOccupancy"};
-  for (int iNoise=0; iNoise<1; iNoise++)
-    if (histName.find(noise[iNoise]) != string::npos) return 0; 
-  
-  string both[4] = {"threshold", "temporalNoise", "ithr", "vcasn"};
-  for (int iBoth=0; iBoth<4; iBoth++)
-    if (histName.find(both[iBoth]) != string::npos) return 2; 
-  
-  cerr << "Hist type unknown, cannot decide to take the data points from noise runs or from data runs" << endl;
-  return -1;
-}
-
 TGraph* reorder(TGraph* graphOrig)
 {
   TGraph* graph = new TGraph(graphOrig->GetN());
@@ -2258,7 +2620,6 @@ TGraph* reorder(TGraph* graphOrig)
     double x, y;
     graphOrig->GetPoint(minIndex,x,y);
     graph->SetPoint(iPoint,x,y);
-//    graph->SetPointError(iPoint,graphOrig->GetErrorX(minIndex),graphOrig->GetErrorY(minIndex));
     graphOrig->RemovePoint(minIndex);
   }
   return graph;
@@ -2291,7 +2652,6 @@ TGraphAsymmErrors* reorder(TGraphAsymmErrors* graphOrig)
     graphOrig->GetPoint(minIndex,x,y);
     graph->SetPoint(iPoint,x,y);
     graph->SetPointError(iPoint,graphOrig->GetErrorXlow(minIndex),graphOrig->GetErrorXhigh(minIndex),graphOrig->GetErrorYlow(minIndex),graphOrig->GetErrorYhigh(minIndex));
-//    graph->SetPointError(iPoint,graphOrig->GetErrorX(minIndex),graphOrig->GetErrorY(minIndex));
     graphOrig->RemovePoint(minIndex);
   }
   return graph;
@@ -2419,12 +2779,13 @@ void WriteTextFile(vector<TGraphAsymmErrors*> graph1, string fileName)
   }
   file.close();
 }
+
 void treeFill(TTree* tree, vector<Run> runs)
 {
   int nRun = runs.size();
   int irradiation, nEvent, runNumber;
   double ithr, ithrpA, idb, vcasn, vaux, vcasp, vreset, BB, readoutDelay, triggerDelay, strobeLength, strobeBLength, energy;
-  vector<double> threshold, thresholdRMS, efficiency, nTrack, nTrackpALPIDE, temporalNoise, temporalNoiseRMS, clusterSize, clusterSizeRMS, residual, residualE, resolution, resolutionE, noiseOccupancyBeforeRemoval, noiseOccupancyBeforeRemovalE, noiseOccupancyAfterRemoval, noiseOccupancyAfterRemovalE;
+  vector<double> threshold, thresholdRMS, efficiency, nTrack, nTrackpALPIDE, temperalNoise, temperalNoiseRMS, clusterSize, clusterSizeRMS, residual, residualE, resolution, resolutionE, noiseOccupancyBeforeRemoval, noiseOccupancyBeforeRemovalE, noiseOccupancyAfterRemoval, noiseOccupancyAfterRemovalE;
   bool isNoise;
   string chipID;
   tree->Branch("threshold",&threshold);
@@ -2432,8 +2793,8 @@ void treeFill(TTree* tree, vector<Run> runs)
   tree->Branch("efficiency",&efficiency);
   tree->Branch("nTrack",&nTrack);
   tree->Branch("nTrackpALPIDE",&nTrackpALPIDE);
-  tree->Branch("temporalNoise",&temporalNoise); 
-  tree->Branch("temporalNoiseRMS",&temporalNoiseRMS);
+  tree->Branch("temperalNoise",&temperalNoise); 
+  tree->Branch("temperalNoiseRMS",&temperalNoiseRMS);
   tree->Branch("clusterSize",&clusterSize);
   tree->Branch("clusterSizeRMS",&clusterSizeRMS);
   tree->Branch("residual",&residual);
@@ -2454,27 +2815,83 @@ void treeFill(TTree* tree, vector<Run> runs)
   tree->Branch("vreset",&vreset);
   tree->Branch("BB",&BB);
   tree->Branch("readoutDelay",&readoutDelay);
+  tree->Branch("triggerDelay",&triggerDelay);
   tree->Branch("strobeLength",&strobeLength);
   tree->Branch("strobeBLength",&strobeBLength);
   tree->Branch("irradiation",&irradiation);
   tree->Branch("nEvent",&nEvent);
   tree->Branch("energy",&energy);
   tree->Branch("chipID",&chipID);
-  for (int i=0;i<nRun;i++)
+  for (int i=0; i<nRun; i++)
   {
     if (Skip(runs[i].getRunNumber()) || !runs[i].PlotFlag()) continue;
-//    threshold = runs[i].getThr();
-//    thresholdRMS = runs[i].getThrE();
-//    efficiency = runs[i].getEff();
-    runs[i].getAllParameters(runNumber, vcasn, vaux, vcasp, vreset, ithr, ithrpA, idb, threshold, thresholdRMS, temporalNoise, temporalNoiseRMS, BB, irradiation, chipID, readoutDelay, triggerDelay, strobeLength, strobeBLength, isNoise, nEvent, energy, efficiency, nTrack, nTrackpALPIDE, clusterSize, clusterSizeRMS, residual, residualE, resolution, resolutionE,  noiseOccupancyBeforeRemoval, noiseOccupancyBeforeRemovalE, noiseOccupancyAfterRemoval, noiseOccupancyAfterRemovalE);
-    for (unsigned int iSector=0; iSector<efficiency.size(); iSector++) efficiency[iSector] = efficiency[iSector]*100;
-//    nTrack = runs[i].getnTr();
-//    nTrackpALPIDE  = runs[i].getnTrpA();
-//    noise = runs[i].getNoise();
-//    noiseRMS = runs[i].getNoiseE();
-
-//    ithr = runs[i].getIthr();
-//    isNoise = runs[i].isNoise();
+    runs[i].getAllParameters(runNumber, vcasn, vaux, vcasp, vreset, ithr, ithrpA, idb, threshold, thresholdRMS, temperalNoise, temperalNoiseRMS, BB, irradiation, chipID, readoutDelay, triggerDelay, strobeLength, strobeBLength, isNoise, nEvent, energy, efficiency, nTrack, nTrackpALPIDE, clusterSize, clusterSizeRMS, residual, residualE, resolution, resolutionE,  noiseOccupancyBeforeRemoval, noiseOccupancyBeforeRemovalE, noiseOccupancyAfterRemoval, noiseOccupancyAfterRemovalE);
     tree->Fill();
   }
 }
+
+void treeRead(TTree* tree, vector<Run> &runs)
+{
+  int irradiation, nEvent, runNumber=0;
+  double ithr, ithrpA, idb, vcasn, vaux, vcasp, vreset, BB, readoutDelay, triggerDelay, strobeLength, strobeBLength, energy;
+  vector<double> *threshold=0, *thresholdRMS=0, *efficiency=0, *nTrack=0, *nTrackpALPIDE=0, *temperalNoise=0, *temperalNoiseRMS=0, *clusterSize=0, *clusterSizeRMS=0, *residual=0, *residualE=0, *resolution=0, *resolutionE=0, *noiseOccupancyBeforeRemoval=0, *noiseOccupancyBeforeRemovalE=0, *noiseOccupancyAfterRemoval=0, *noiseOccupancyAfterRemovalE=0;
+  bool isNoise;
+  string *chipID = 0;
+  tree->SetBranchAddress("threshold",&threshold);
+  tree->SetBranchAddress("thresholdRMS",&thresholdRMS);
+  tree->SetBranchAddress("efficiency",&efficiency);
+  tree->SetBranchAddress("nTrack",&nTrack);
+  tree->SetBranchAddress("nTrackpALPIDE",&nTrackpALPIDE);
+  tree->SetBranchAddress("temperalNoise",&temperalNoise); 
+  tree->SetBranchAddress("temperalNoiseRMS",&temperalNoiseRMS);
+  tree->SetBranchAddress("clusterSize",&clusterSize);
+  tree->SetBranchAddress("clusterSizeRMS",&clusterSizeRMS);
+  tree->SetBranchAddress("residual",&residual);
+  tree->SetBranchAddress("residualE",&residualE);
+  tree->SetBranchAddress("resolution",&resolution);
+  tree->SetBranchAddress("resolutionE",&resolutionE);
+  tree->SetBranchAddress("noiseOccupancyBeforeRemoval",&noiseOccupancyBeforeRemoval);
+  tree->SetBranchAddress("noiseOccupancyBeforeRemovalE",&noiseOccupancyBeforeRemovalE);
+  tree->SetBranchAddress("noiseOccupancyAfterRemoval",&noiseOccupancyAfterRemoval);
+  tree->SetBranchAddress("noiseOccupancyAfterRemovalE",&noiseOccupancyAfterRemovalE);
+  tree->SetBranchAddress("isNoise",&isNoise);
+  tree->SetBranchAddress("ithr",&ithr);
+  tree->SetBranchAddress("ithrpA",&ithrpA);
+  tree->SetBranchAddress("idb",&idb);
+  tree->SetBranchAddress("vcasn",&vcasn);
+  tree->SetBranchAddress("vaux",&vaux);
+  tree->SetBranchAddress("vcasp",&vcasp);
+  tree->SetBranchAddress("vreset",&vreset);
+  tree->SetBranchAddress("BB",&BB);
+  tree->SetBranchAddress("readoutDelay",&readoutDelay);
+  tree->SetBranchAddress("triggerDelay",&triggerDelay);
+  tree->SetBranchAddress("strobeLength",&strobeLength);
+  tree->SetBranchAddress("strobeBLength",&strobeBLength);
+  tree->SetBranchAddress("irradiation",&irradiation);
+  tree->SetBranchAddress("nEvent",&nEvent);
+  tree->SetBranchAddress("energy",&energy);
+  tree->SetBranchAddress("chipID",&chipID);
+
+  Run run;
+  int nEntries = tree->GetEntries();
+  for (int i=0; i<nEntries; i++)
+  {
+    tree->GetEntry(i);
+    run.Set(runNumber,vcasn,vaux,vcasp,vreset,ithr,ithrpA,idb,*threshold,*thresholdRMS,*temperalNoise,*temperalNoiseRMS,BB,irradiation,*chipID,readoutDelay,triggerDelay,strobeLength,strobeBLength,isNoise,nEvent,energy);
+    run.setEff(*efficiency);
+    run.setnTr(*nTrack);
+    run.setnTrpA(*nTrackpALPIDE);
+    run.setClusterSizeVector(*clusterSize);
+    run.setClusterSizeVectorRMS(*clusterSizeRMS);
+    run.setResidualVector(*residual);
+    run.setResidualVectorE(*residualE);
+    run.setResolutionVector(*resolution);
+    run.setResolutionVectorE(*resolutionE);
+    run.setNoiseOccupancyBeforeRemovalV(*noiseOccupancyBeforeRemoval);
+    run.setNoiseOccupancyBeforeRemovalVE(*noiseOccupancyBeforeRemovalE);
+    run.setNoiseOccupancyAfterRemovalV(*noiseOccupancyAfterRemoval);
+    run.setNoiseOccupancyAfterRemovalVE(*noiseOccupancyAfterRemovalE);
+    runs.push_back(run);
+  }
+}
+
