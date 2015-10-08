@@ -481,15 +481,12 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
       for (int iSector=0; iSector<4; iSector++)
       {
         string noiseGraphName = "g_noiseVsITHR_" + globalFileInfo + "_TEMP28.0_VBB" + Form("%0.1f_VCASN135_RATE10000_BUSY50_sec%d", globalBB, iSector);
-        cerr << noiseGraphName << endl;
         noiseFromLab[iSector] = (TGraphAsymmErrors*)noiseFile->Get(noiseGraphName.c_str());
         double x=0,y=0;
         for (int i=0; i<noiseFromLab[iSector]->GetN(); i++)
         {
           noiseFromLab[iSector]->GetPoint(i,x,y);
-          cerr << x << "\t" << y << endl;
           noiseOccupancyAfterRemovalIthrVcasnFromLab[iSector]->SetPoint(i,x,135.,y);
-          cerr << noiseOccupancyAfterRemovalIthrVcasnFromLab[iSector]->GetX()[i] << endl;
           noiseOccupancyAfterRemovalIthrVcasnFromLab[iSector]->SetPointError(i,0,0,0);
         }
       }
@@ -514,7 +511,6 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
       {
         string temperalNosieGraphName = "g_thresnoiseVsITHR_" + globalFileInfo + "_TEMP28.0_VBB" + Form("%0.1f_VCASN135_sec%d", globalBB, iSector);
         string thresholdGraphName = "g_thresVsITHR_" + globalFileInfo + "_TEMP28.0_VBB" + Form("%0.1f_VCASN135_sec%d", globalBB, iSector);
-        cerr << temperalNosieGraphName << endl << thresholdGraphName << endl;
         temperalNoise[iSector] = (TGraphAsymmErrors*)thresholdFile->Get(temperalNosieGraphName.c_str());
         threshold[iSector] = (TGraphAsymmErrors*)thresholdFile->Get(thresholdGraphName.c_str());
         double x=0,y=0;
@@ -1166,7 +1162,7 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
     for (int iSetting=0; iSetting<size; iSetting++)
     {
       string legend = getLegend(filesV[iFile], addBB, addIrr, addChipNumber, addRate);
-      if (legend.compare("      ") != 0) legend += ", ";
+      if (legend.compare("      ") != 0 && !allCanVary) legend += ", ";
       if (legends.size() > 0) legend += legends[iSetting];
       legendV.push_back(legend);
       graph1[iSetting] = reorder(graph1[iSetting]);
@@ -1197,7 +1193,7 @@ vector<TH1F*> CalculateNoiseFromNoise(TH2* fakeHitHisto, int runNumberIndex, vec
         index = iSector;
         break;
       }
-    if (index == -1) {cerr << x << endl; continue;}
+    if (index == -1) {cerr << "Index is not specifiedfor x " << x << endl; continue;}
     for (int y=1; y<=fakeHitHisto->GetNbinsY(); y++)
       noiseWithRemove[index] += fakeHitHisto->GetBinContent(x,y);
   }
@@ -1224,7 +1220,7 @@ vector<TH1F*> CalculateNoiseFromNoise(TH2* fakeHitHisto, int runNumberIndex, vec
         index = iSector;
         break;
       }
-    if (index == -1) {cerr << x << endl; continue;}
+    if (index == -1) {cerr << "Index is not specifiedfor x " << x << endl; continue;}
     if (!lowEnough[index] && removedPixels[index] < maxNPixels && noiseWithRemove[index] != 0)
     {
       noiseWithRemove[index] -= fakeHitHisto->GetBinContent(x,y);
@@ -1309,7 +1305,6 @@ void compareDifferentGraphs2D(string files, string hist, int sector, bool IthrVc
       else graph2V1D.push_back(Get1DFrom2D(graph2V[i],IthrVcasn,IthrVcasnValue));
     }
     legendStr.push_back(getLegend(filesV[i],BB,irr,chip,rate));
-//      cerr << graphV[j]->GetN() << endl;
   }
   string canvasTitle;
   if (IthrVcasn) canvasTitle= Form("Sector %d, I_{thr} = %.0f", sector,IthrVcasnValue);
@@ -1554,10 +1549,6 @@ void compareDifferentIthrVcasn2D(string file, string hist, int sector)
   bool defaultsFine = false;
   defaultsFine = getDefaults(histV[0], x1low, x1high, y1low, y1high, line1, log1, xTitle1, yTitle1, legend1, x2low, x2high, xTitle2);
   if (histV.size() == 2) defaultsFine = getDefaults(histV[1], x1low, x1high, y2low, y2high, line2, log2, xTitle1, yTitle2, legend2, x2low, x2high, xTitle2);
-//  cerr << "defaultsFine " << defaultsFine << endl;
-//  cerr << x1low << "\t" << x1high << "\t" << xTitle1 << "\t" << y1low << "\t" << y1high << "\t" << yTitle1 << "\t" << log1 << endl;
-//  cerr << x2low << "\t" << x2high << "\t" << xTitle2 << "\t" << y2low << "\t" << y2high << "\t" << yTitle2 << "\t" << log2 << endl;
-//  cerr << legend << endl;
   string legend = legend1 + "#color[2]{" + legend2 +"}";
   if (defaultsFine) compareDifferentIthrVcasn2D(file, hist, sector, xTitle1.c_str(), xTitle2.c_str(), x1low, x1high, x2low, x2high, legend.c_str(), yTitle1.c_str(), y1low, y1high, log1, line1, yTitle2.c_str(), y2low, y2high, line2, log2);
 }
@@ -1611,10 +1602,8 @@ void compareDifferentIthrVcasn2D(string file, string hist, int sector, const cha
     vector<double> usedX;
     vector<double> usedY;
     string canvas2D1 = Form("canvas2D1_%d",iSector) + histV[0];
-//    cerr << "graph2D1->GetN(): " << graph2D1->GetN() << endl;
     for (int i=0; i<graph2D1->GetN(); i++)
     {
- //     cerr << Z[i]  << "\t" << X1[i] << "\t" << Y1[i]<< endl;
       bool isUsedX = false;
       for (unsigned int j=0; j<usedX.size(); j++)
         if (usedX[j] == X1[i]) 
@@ -1761,22 +1750,16 @@ void Draw2D(TGraph2D* graph, const char* canvas, string zTitle, string title, bo
   graph->SetLineColor(1);
   graph->SetMarkerSize(1.3);
   graph->SetMarkerStyle(20);
-//  graph->GetXaxis()->SetTitle("I_{thr} (DAC units)");
-//  graph->GetYaxis()->SetTitle("V_{casn} (DAC units)");
-//  graph->GetZaxis()->SetTitle(zTitle);
   graph->GetHistogram();
   string titleFinal = title + ";I_{thr} (DAC units);V_{casn} (DAC units);" + zTitle; 
   graph->SetTitle(titleFinal.c_str());
   graph->GetXaxis()->SetTitleOffset(1.3);
   graph->GetYaxis()->SetTitleOffset(1.3);
-//  graph->GetZaxis()->SetTitleOffset(1.3);
   graph->GetXaxis()->SetTitleSize(0.05);
   graph->GetYaxis()->SetTitleSize(0.05);
   graph->GetZaxis()->SetTitleSize(0.05);
-//  graph->GetXaxis()->SetLimits(9,60);
-//  graph->GetYaxis()->SetLimits(70,100);
-//  graph->GetZaxis()->SetLimits(0,110);
-  graph->GetZaxis()->SetRangeUser(zlow,zhigh);
+  graph->SetMinimum(zlow);
+  graph->SetMaximum(zhigh); // Afterwards by zooming on the plot color is not adjusted, so if histogram is out of Z range it will stay purple... It can be changed by SetMinimum and SetMaximum again only.
   graph->Draw("TRI2P");
 	
 }
@@ -1797,10 +1780,6 @@ void compareDifferentSectors2D(string file, string hist, bool IthrVcasn, double 
   bool defaultsFine = false;
   defaultsFine = getDefaults(histV[0], x1low, x1high, y1low, y1high, line1, log1, xTitle1, yTitle1, legend1, x2low, x2high, xTitle2);
   if (histV.size() == 2) defaultsFine = getDefaults(histV[1], x1low, x1high, y2low, y2high, line2, log2, xTitle1, yTitle2, legend2, x2low, x2high, xTitle2);
-//  cerr << "defaultsFine " << defaultsFine << endl;
-//  cerr << x1low << "\t" << x1high << "\t" << xTitle1 << "\t" << y1low << "\t" << y1high << "\t" << yTitle1 << "\t" << log1 << endl;
-//  cerr << x2low << "\t" << x2high << "\t" << xTitle2 << "\t" << y2low << "\t" << y2high << "\t" << yTitle2 << "\t" << log2 << endl;
-//  cerr << legend << endl;
   string legend = legend1 + "#color[2]{" + legend2 +"}";
   if (defaultsFine) 
   {
@@ -1944,11 +1923,10 @@ void compareDifferentSectors2D(string file, string hist, bool IthrVcasn, double 
   if (histV.size() == 2)
   {
     string canvas2 = histV[0] + histV[1] + Form("%0.f", IthrVcasnValue) + "C";
-    DrawOverSectors(graph1V,y1low,y1high,line1,yTitle1,graph2V,y2low,y2high,line2,yTitle2,canvas2.c_str(),legend,legendStr, xlow, xhigh, log1,log2,xTitle,title.c_str());
+    DrawOverDifferentGraphs(graph1V,y1low,y1high,line1,yTitle1,graph2V,y2low,y2high,line2,yTitle2,canvas2.c_str(),legend,legendStr, xlow, xhigh, log1,log2,xTitle,title.c_str());
   }
   
 }
-
 
 bool getDefaultsOneAxis(string graph, double& low, double& high, double& line, bool& log, string& title, string& legend)
 {
@@ -2044,7 +2022,6 @@ bool getDefaultsOneAxis(string graph, double& low, double& high, double& line, b
     cerr << "Unkown type!" << endl; 
     return false;
   }  
-//  cerr << xlow << "\t" << xhigh << "\t" << xTitle << "\t" << ylow << "\t" << yhigh << "\t" << yTitle << "\t" << log<< endl;
   return true;
 }
 
@@ -2148,7 +2125,6 @@ bool getDefaults(string graph, double& xlow, double& xhigh, double& ylow, double
     cerr << "Unkown x type!" << endl; 
     return false;
   }  
-//  cerr << xlow << "\t" << xhigh << "\t" << xTitle << "\t" << ylow << "\t" << yhigh << "\t" << yTitle << "\t" << log<< endl;
   return true;
 }
 
@@ -2166,12 +2142,16 @@ string getLegend(string file, bool addBB, bool addIrr, bool addChipNumber, bool 
   size_t BBPos = file.find("BB");
   string BBStr = file.substr(BBPos+2,1);
   if (BBStr == "-") BBStr = file.substr(BBPos+2,3);
-  else BBStr = file.substr(BBPos+2,2);
+  else BBStr = "-" + file.substr(BBPos+2,2); // BB is stored normally as a positive value in the config file, because it is supplied by inverting the cable.
   if (BBPos == string::npos || !addBB) BB = -100;
   else BB = atoi(BBStr.c_str());
-  size_t chipPos = file.find("W");
+  size_t chipPos = file.find("graphs_W");
   string chipStr = "";
-  if (chipPos!=string::npos) chipStr = file.substr(chipPos,5);
+  if (chipPos!=string::npos)
+  {
+    if (file.substr(chipPos+11,1) < 48 || file.substr(chipPos+11,1) > 57)  chipStr = file.substr(chipPos+7,4);
+    else chipStr = file.substr(chipPos+7,5);
+  }
   size_t ratePos = file.find("Rate");
   string rateStr = "";
   if (ratePos!=string::npos && addRate) 
@@ -2322,106 +2302,6 @@ void DrawSame(vector<TGraph*> graph1, vector<TGraph*> graph2, const char* canvas
   }
 }
 
-void DrawOverSectors(vector<TGraph*> graph1, double rangeLow1, double rangeHigh1, double line1, const char* titleY1, vector<TGraph*> graph2, double rangeLow2, double rangeHigh2, double line2, const char* titleY2, const char* canvas, const char* legendTitle, vector<string> legendStr, double xlow, double xhigh,bool log1, bool log2, const char* titleX, const char* title)
-{
-  TCanvas * C = new TCanvas(canvas,"",800,600);
-  gROOT->Reset();
-  C->cd();
-  TPad *pad = new TPad("pad","",0,0,1,1);
-  pad->SetFillColor(0);
-  if (log1) pad->SetLogy();
-  pad->Draw();
-  pad->cd();
-  TH1F *hr = pad->DrawFrame(xlow,rangeLow1,xhigh,rangeHigh1);
-  hr->GetYaxis()->SetTitleOffset(1.15);
-  hr->SetXTitle(titleX);
-  hr->SetYTitle(titleY1);
-  hr->GetXaxis()->SetTitleSize(0.045);
-  hr->GetYaxis()->SetTitleSize(0.045);
-  hr->SetTitle(title);
-//  hr->SetTitle("Irradiated with 1e13 1 Mev n_{eq}/cm^{2}");
-  pad->GetFrame()->SetFillColor(0);
-  pad->GetFrame()->SetBorderSize(12);
-  for (int i=graph1.size()-1; i>=0; i--)
-  {
-    graph1[i]->GetYaxis()->CenterLabels();
-    graph1[i]->SetFillColor(0);
-    graph1[i]->SetTitle("");
-    graph1[i]->SetMarkerStyle(i==0?23:19+i);
-//    graph1[i]->SetLineColor(i+1);
-    graph1[i]->SetLineColor(1);
-//  graph1[i]->SetLineColor(1);
-    graph1[i]->SetMarkerSize(1.3);
-    graph1[i]->SetMarkerColor(1);
-//    graph1[i]->SetMarkerColor(i+1);
-    graph1[i]->DrawClone((unsigned int) i==(graph1.size()-1)?"PL":"SAMEPL");
-
-  }
-  pad->Update();
-  TLine *l1=new TLine(pad->GetUxmin(),line1,pad->GetUxmax(),line1);
-  l1->SetLineColor(1);
-  l1->SetLineStyle(2);
-  l1->Draw();
-  C->cd();
-  TPad *overlay = new TPad("overlay","",0,0,1,1);
-  overlay->SetFillStyle(4000);
-  overlay->SetFillColor(0);
-  overlay->SetFrameFillStyle(4000);
-  if (log2) overlay->SetLogy();
-  overlay->Draw();
-  overlay->cd();
-  Double_t xmin = pad->GetUxmin();
-  Double_t ymin = rangeLow2;
-  Double_t xmax = pad->GetUxmax();
-  Double_t ymax = rangeHigh2;
-  TH1F *hframe = overlay->DrawFrame(xmin,ymin,xmax,ymax);
-  hframe->GetXaxis()->SetLabelOffset(99);
-  hframe->GetYaxis()->SetLabelOffset(99);
-  hframe->GetYaxis()->SetTickLength(0);
-  for (int i=graph2.size()-1; i>=0; i--)
-  {
-    graph2[i]->SetFillColor(0);
-    graph2[i]->SetMarkerStyle(i+20);
-    graph2[i]->SetLineColor(2);
-//    graph2[i]->SetLineColor(i+1);
-    graph2[i]->SetMarkerStyle(i==0?32:23+i);
-//    graph2[i]->SetMarkerStyle(i==3?32:24+i);
-    graph2[i]->SetMarkerSize(1.3);
-    graph2[i]->SetMarkerColor(2);
-//    graph2[i]->SetMarkerColor(i+1);
-    graph2[i]->SetTitle("");
-    graph2[i]->DrawClone((unsigned int)i==(graph2.size()-1)?"PL":"SAMEPL");
-  }
-  pad->Update();
-  TLine *l2=new TLine(pad->GetUxmin(),line2,pad->GetUxmax(),line2);
-  l2->SetLineColor(2);
-  l2->SetLineStyle(2);
-  l2->Draw();
-  TGaxis *axis;
-  if (!log2) axis = new TGaxis(xmax,ymin,xmax, ymax,ymin,ymax,510,"+L");
-  else axis = new TGaxis(xmax,ymin,xmax, ymax,ymin,ymax,510,"+LG");
-  axis->SetTitle(titleY2);
-  axis->Draw();
-  axis->SetLabelFont(42);
-  axis->SetLabelSize(0.035);
-  axis->SetTitleFont(42);
-  axis->SetTitleOffset(1.1);
-  axis->SetTitleColor(2);
-  axis->SetLineColor(2);
-  axis->SetLabelColor(2);
-  axis->SetTitleSize(0.045);
-  TLegend * legend = new TLegend(0.1,0.1,0.77,0.3);
-  legend->SetFillColor(0);
-  legend->SetNColumns(2);
-  for (unsigned int i=0; i<legendStr.size(); i++)
-  {
-    legend->AddEntry(graph1[i]->Clone(), "      ");
-    legend->AddEntry(graph2[i]->Clone(), legendStr[i].c_str());
-  }
-  legend->SetHeader(legendTitle);
-  legend->Draw();
-}
-
 void DrawOverDifferentGraphs(vector<TGraph*> graph1, double rangeLow1, double rangeHigh1, double line1, const char* titleY1, vector<TGraph*> graph2, double rangeLow2, double rangeHigh2, double line2, const char* titleY2, const char* canvas, const char* legendTitle, vector<string> legendStr, double xlow, double xhigh, bool log1, bool log2, const char* titleX, const char* canvasTitle)
 {
   int marker1[7] = {20, 21, 22, 34, 29, 33, 23};
@@ -2433,7 +2313,6 @@ void DrawOverDifferentGraphs(vector<TGraph*> graph1, double rangeLow1, double ra
     drawLegend = false;
   }
   TCanvas * C = new TCanvas(canvas,"",800,600);
-//  gROOT->Reset();
   C->cd();
   TPad *pad = new TPad("pad","",0,0,1,1);
   pad->SetFillColor(0);
@@ -2447,22 +2326,36 @@ void DrawOverDifferentGraphs(vector<TGraph*> graph1, double rangeLow1, double ra
   hr->GetXaxis()->SetTitleSize(0.045);
   hr->GetYaxis()->SetTitleSize(0.045);
   hr->SetTitle(canvasTitle);
-//  hr->SetTitle("Irradiated with 1e13 1 Mev n_{eq}/cm^{2}");
   pad->GetFrame()->SetFillColor(0);
   pad->GetFrame()->SetBorderSize(12);
+  int tmp = 0;
+
+  vector<unsigned int> skipped;  
+  for (unsigned int i=0; i<graph1.size(); i++)
+    if (graph1[i]->GetN() == 0)
+      skipped.push_back(i);
+  for (unsigned int i=0; i<graph2.size(); i++)
+    if (graph2[i]->GetN() == 0)
+      skipped.push_back(i);
+
   for (unsigned int i=0; i<graph1.size(); i++)
   {
+    bool toSkip = false;
+    for (unsigned int iSkipped=0; iSkipped<skipped.size(); iSkipped++)
+      if (skipped[iSkipped] == i)
+      {
+        toSkip = true;
+        break;
+      }
+    if (toSkip) continue;
     graph1[i]->GetYaxis()->CenterLabels();
     graph1[i]->SetFillColor(0);
-//    graph1[i]->SetTitle("");
-    graph1[i]->SetMarkerStyle(marker1[i]);
-//    graph1[i]->SetLineColor(i+1);
+    graph1[i]->SetMarkerStyle(marker1[tmp]);
     graph1[i]->SetLineColor(1);
     graph1[i]->SetMarkerSize(1.3);
     graph1[i]->SetMarkerColor(1);
-//    graph1[i]->SetMarkerColor(i+1);
-    graph1[i]->DrawClone(i==0?"PL":"SAMEPL");
-
+    graph1[i]->DrawClone(tmp==0?"PL":"SAMEPL");
+    tmp++;
   }
   pad->Update();
   TLine *l1=new TLine(pad->GetUxmin(),line1,pad->GetUxmax(),line1);
@@ -2485,19 +2378,25 @@ void DrawOverDifferentGraphs(vector<TGraph*> graph1, double rangeLow1, double ra
   hframe->GetXaxis()->SetLabelOffset(99);
   hframe->GetYaxis()->SetLabelOffset(99);
   hframe->GetYaxis()->SetTickLength(0);
+  tmp = 0;
   for (unsigned int i=0; i<graph2.size(); i++)
   {
+    bool toSkip = false;
+    for (unsigned int iSkipped=0; iSkipped<skipped.size(); iSkipped++)
+      if (skipped[iSkipped] == i)
+      {
+        toSkip = true;
+        break;
+      }
+    if (toSkip) continue;
     graph2[i]->SetFillColor(0);
     graph2[i]->SetMarkerStyle(i+20);
     graph2[i]->SetLineColor(2);
-//    graph2[i]->SetLineColor(i+1);
-    graph2[i]->SetMarkerStyle(marker2[i]);
-//    graph2[i]->SetMarkerStyle(i==3?32:24+i);
+    graph2[i]->SetMarkerStyle(marker2[tmp]);
     graph2[i]->SetMarkerSize(1.3);
     graph2[i]->SetMarkerColor(2);
-//    graph2[i]->SetMarkerColor(i+1);
-//    graph2[i]->SetTitle("");
-    graph2[i]->DrawClone(i==0?"PL":"SAMEPL");
+    graph2[i]->DrawClone(tmp==0?"PL":"SAMEPL");
+    tmp++;
   }
   pad->Update();
   TLine *l2=new TLine(pad->GetUxmin(),line2,pad->GetUxmax(),line2);
@@ -2524,6 +2423,14 @@ void DrawOverDifferentGraphs(vector<TGraph*> graph1, double rangeLow1, double ra
     legend->SetNColumns(2);
     for (unsigned int i=0; i<legendStr.size(); i++)
     {
+      bool toSkip = false;
+      for (unsigned int iSkipped=0; iSkipped<skipped.size(); iSkipped++)
+        if (skipped[iSkipped] == i)
+        {
+          toSkip = true;
+          break;
+        }
+      if (toSkip) continue;
       legend->AddEntry(graph1[i]->Clone(), "      ");
       legend->AddEntry(graph2[i]->Clone(), legendStr[i].c_str());
     }
@@ -2568,7 +2475,6 @@ TGraph* Get1DFrom2D(TGraph2D* graph, bool IthrVcasn, double value, bool isEffici
   {
     if (fixed[i] == value)
     {
-//      cerr << fixed[i] << "\t" << varying[i] << "\t" << Z[i] << endl;
       if (!isEfficiency) 
       {
         graph1D->SetPoint(tmp,varying[i],Z[i]);
@@ -2696,7 +2602,6 @@ void Write(vector<TGraphAsymmErrors*> graph1, string title)
       double x, y;  //TMath::MinElement(graph1[i]->GetN(),graph1[i]->GetX());
       graph1[i]->GetPoint(minIndex,x,y);
       graph->SetPoint(iPoint,x,y);
-//      cerr << graph1[i]->GetErrorX(minIndex) << "\t" << graph1[i]->GetErrorYlow(minIndex)<< graph1[i]->GetErrorYhigh(minIndex) << endl;
       graph->SetPointError(iPoint,graph1[i]->GetErrorX(minIndex),graph1[i]->GetErrorX(minIndex),graph1[i]->GetErrorYlow(minIndex),graph1[i]->GetErrorYhigh(minIndex));
       graph1[i]->RemovePoint(minIndex);
     }
