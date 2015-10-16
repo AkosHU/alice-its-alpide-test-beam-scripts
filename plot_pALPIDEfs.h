@@ -176,6 +176,7 @@ class Run {
     vector<double> getNoise() {return noise;}
     vector<double> getNoiseE() {return noiseE;}
     vector<double> getClusterSizeV() {return clusterSizeV;}
+    vector<double> getClusterSizeRMSV() {return clusterSizeVRMS;}
     vector<double> getResidualV() {return residualV;}
     vector<double> getResolutionV() {return resolutionV;}
     vector<double> getNoiseOccupancyBeforeRemoval() {return noiseOccupancyBeforeRemovalV;}
@@ -254,6 +255,8 @@ void Write(vector<TGraph2DErrors*> graph1, string title);
 
 void WriteTextFile(vector<TGraphErrors*> graph1, string fileName);
 void WriteTextFile(vector<TGraphAsymmErrors*> graph1, string fileName);
+
+int histFromData(string histName);
 
 void treeFill(TTree* tree, vector<Run> runs);
 void treeRead(TTree* tree, vector<Run> &runs);
