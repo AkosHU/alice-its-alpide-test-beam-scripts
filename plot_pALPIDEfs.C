@@ -914,6 +914,7 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
         tree->GetEntry(iEntries);
         for (unsigned int iNames=0; iNames<names.size(); iNames++)
         {
+          if (settingsChangeV[iNames]) continue;
           bool canVaryB = false;
           for (unsigned int iVary=0; iVary<canVaryV.size(); iVary++)
             if (names[iNames].compare(canVaryV[iVary]) == 0)
@@ -925,7 +926,7 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
           if (iEntries!=0 && setting[iNames] != settingPrev[iNames])
           {
             settingsChangeV[iNames] = true;
-            break;
+//            continue;
           }
           settingPrev[iNames] = setting[iNames];
         }
@@ -2262,7 +2263,7 @@ void Draw(vector<TGraph*> graph, string canvas, const char* titleX, const char* 
   for (unsigned int i=0; i<graph.size(); i++)
   {
     if (graph[i]->GetN() == 0) continue;
-    if (tmp==4 || tmp==5) markerColorShift++;
+    if (tmp+1+markerColorShift == 5 || tmp+1+markerColorShift == 7 || tmp+1+markerColorShift == 10) markerColorShift++;
     graph[i]->GetXaxis()->SetTitle(titleX);
     graph[i]->GetYaxis()->SetTitle(titleY);
     graph[i]->GetXaxis()->SetTitleOffset(0.9);
