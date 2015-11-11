@@ -233,11 +233,13 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
   vector<TGraph2D*> efficiencyIthrVcasn(4);
   vector<TGraph2D*> nTrIthrVcasn(4);
   vector<TGraph2D*> nTrpAIthrVcasn(4);
+  vector<TGraph2D*> thresholdIthrVcasn(4);
   for (int i=0; i<4; i++)
   {
     efficiencyIthrVcasn[i] = new TGraph2D;
     nTrIthrVcasn[i] = new TGraph2D;
     nTrpAIthrVcasn[i] = new TGraph2D;
+    thresholdIthrVcasn[i] = new TGraph2D;
   }
   vector<double> nTr0(4,0), nTrpA0(4,0);
   vector<TH1*> clusterSizeHisto(4);
@@ -404,6 +406,7 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
         efficiencyIthrVcasn[iSector]->SetPoint(efficiencyIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),effd*100);
         nTrIthrVcasn[iSector]->SetPoint(nTrIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),nTrd);
         nTrpAIthrVcasn[iSector]->SetPoint(nTrpAIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),nTrpAd);
+        if (runs[i].getThr()[iSector] != 0) thresholdIthrVcasn[iSector]->SetPoint(thresholdIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),runs[i].getThr()[iSector]);
       }
     }
   }
@@ -554,6 +557,7 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
   Write(efficiencyIthrVcasn,"efficiencyIthrVcasn2D");
   Write(nTrIthrVcasn,"nTrIthrVcasn2D");
   Write(nTrpAIthrVcasn,"nTrpAIthrVcasn2D");
+  Write(thresholdIthrVcasn,"thresholdIthrVcasn2D");
   Write(clusterSizeIthrVcasn,"clusterSizeIthrVcasn2D");
   Write(residualIthrVcasn,"residualIthrVcasn2D");
   Write(resolutionIthrVcasn,"resolutionIthrVcasn2D");
@@ -715,8 +719,9 @@ void mergeGraphs(string files, string outputFolder)
       for (unsigned int i=0; i<thr.size(); i++)
       {
         if (thr[i].size() == 0) continue;
-        tmp.push_back(thr[i][iSector]);
+        if (thr[i][iSector] != 0) tmp.push_back(thr[i][iSector]);
       }
+      if (tmp.size() == 0) tmp.push_back(0);
       thrFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
       thrFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
       thrFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
@@ -725,8 +730,9 @@ void mergeGraphs(string files, string outputFolder)
       for (unsigned int i=0; i<thrE.size(); i++)
       {
         if (thrE[i].size() == 0) continue;
-        tmp.push_back(thrE[i][iSector]);
+        if (thrE[i][iSector] != 0) tmp.push_back(thrE[i][iSector]);
       }
+      if (tmp.size() == 0) tmp.push_back(0);
       thrEFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
       thrEFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
       thrEFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
@@ -735,8 +741,9 @@ void mergeGraphs(string files, string outputFolder)
       for (unsigned int i=0; i<noise.size(); i++)
       {
         if (noise[i].size() == 0) continue;
-        tmp.push_back(noise[i][iSector]);
+        if (noise[i][iSector] != 0) tmp.push_back(noise[i][iSector]);
       }
+      if (tmp.size() == 0) tmp.push_back(0);
       noiseFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
       noiseFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
       noiseFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
@@ -745,8 +752,9 @@ void mergeGraphs(string files, string outputFolder)
       for (unsigned int i=0; i<noiseE.size(); i++)
       {
         if (noiseE[i].size() == 0) continue;
-        tmp.push_back(noiseE[i][iSector]);
+        if (noiseE[i][iSector] != 0) tmp.push_back(noiseE[i][iSector]);
       }
+      if (tmp.size() == 0) tmp.push_back(0);
       noiseEFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
       noiseEFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
       noiseEFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
@@ -2544,7 +2552,8 @@ TGraph* Get1DFrom2D(TGraph2D* graph, bool IthrVcasn, double value, bool isEffici
       if (!isEfficiency) 
       {
         graph1D->SetPoint(tmp,varying[i],Z[i]);
-        graph1D->SetPointError(tmp,0,errorZ[i]);
+        if (errorZ != NULL)
+          graph1D->SetPointError(tmp,0,errorZ[i]);
       }
       else 
       {
