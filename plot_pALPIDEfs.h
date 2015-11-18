@@ -223,8 +223,8 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
 
 void mergeGraphs(string files, string outputFolder="./");
 
-void compareDifferentGraphsFromTree(string files, string xName, string hist, int iSector, string canVary="", bool addBB=true, bool addIrr=true, bool addChipNumber=true, bool addRate=false);
-void compareDifferentGraphsFromTree(string files, string xName, string hist, int iSector, double xlow, double xhigh, string xTitle, double ylow1, double yhigh1, double line1, bool log1, string yTitle1, double ylow2, double yhigh2, double line2, bool log2, string yTitle2, string legendTitle, string canVary, bool addBB, bool addIrr, bool addChipNumber, bool addRate);
+void compareDifferentGraphsFromTree(string files, string xName, string hist, int iSector, string canVary="", string oneValueName="", string oneValue="", bool addBB=true, bool addIrr=true, bool addChipNumber=true, bool addRate=false);
+void compareDifferentGraphsFromTree(string files, string xName, string hist, int iSector, double xlow, double xhigh, string xTitle, double ylow1, double yhigh1, double line1, bool log1, string yTitle1, double ylow2, double yhigh2, double line2, bool log2, string yTitle2, string legendTitle, string canVary,  string oneValueName, string oneValue, bool addBB, bool addIrr, bool addChipNumber, bool addRate);
 void compareDifferentGraphs2D(string files, string hist, int sector, bool IthrVcasn, double IthrVcasnValue, bool BB=true, bool irr=true, bool chip=true, bool rate=false);
 void compareDifferentGraphs2D(string file, string hist, int sector, bool IthrVcasn, double IthrVcasnValue, const char* xTitle1, const char* xTitle2, double x1low, double x1high, double x2low, double x2high, const char* legend, const char* yTitle1, double y1low, double y1high, bool log1, double line1, const char* yTitle2, double y2low, double y2high, double line2, bool log2, bool BB, bool irr, bool chip, bool rate);
 void compareOneHistogram(string files, string hist, string sectorStr, bool IthrVcasn, double IthrVcasnValue, int type, bool BB=false, bool irr=true, bool chip=false, bool rate=false, string comparison = "");

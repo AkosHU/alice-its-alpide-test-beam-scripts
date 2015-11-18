@@ -325,26 +325,38 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
       clusterSizeV.push_back(clusterSizeHisto[iSector]->GetMean());
       clusterSizeVRMS.push_back(clusterSizeHisto[iSector]->GetRMS());
       residualXHisto = runs[i].getResidualX();
-      TFitResultPtr resultX = residualXHisto[iSector]->Fit("gaus","QNOS");
-      Int_t fitStatusX = resultX;
+      Int_t fitStatusX = -1, fitStatusY = -1;
+      TFitResultPtr resultX, resultY;
+      if (residualXHisto[iSector]->GetEntries() != 0)
+      {
+        resultX = residualXHisto[iSector]->Fit("gaus","QNOS");
+        fitStatusX = resultX;
+      }
       residualYHisto = runs[i].getResidualY();
-      TFitResultPtr resultY = residualYHisto[iSector]->Fit("gaus","QNOS");
-      Int_t fitStatusY = resultY;
-      double resX = 0, resY = 0;
+      if (residualYHisto[iSector]->GetEntries() != 0)
+      {
+        resultY = residualYHisto[iSector]->Fit("gaus","QNOS");
+        fitStatusY = resultY;
+      }
+      double resX = 0, resY = 0, resXE = 0, resYE = 0;
       if (fitStatusX == 0 && fitStatusY == 0)
       {
         resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000);
         resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000);
+        resXE = resultX->ParError(2);
+        resYE = resultY->ParError(2);
       }
       residualV.push_back((resX+resY)/2.);
-      residualVE.push_back(sqrt(resultX->ParError(2)*resultX->ParError(2)+resultY->ParError(2)*resultY->ParError(2))*1000);
+      residualVE.push_back(sqrt(resXE*resXE+resYE*resYE)*1000);
       if (fitStatusX == 0 && fitStatusY == 0) 
       {
         resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000-pointingRes*pointingRes);
         resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000-pointingRes*pointingRes);
+        resXE = resultX->ParError(2);
+        resYE = resultY->ParError(2);
       }
       resolutionV.push_back((resX+resY)/2.);
-      resolutionVE.push_back(sqrt(resultX->ParError(2)*resultX->ParError(2)+resultY->ParError(2)*resultY->ParError(2))*1000);
+      resolutionVE.push_back(sqrt(resXE*resXE+resYE*resYE)*1000);
       if (clusterSizeHisto[iSector]->Integral() < 100) continue;
       clusterSizeIthrVcasn[iSector]->SetPoint(clusterSizeIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),clusterSizeHisto[iSector]->GetMean());
       clusterSizeIthrVcasn[iSector]->SetPointError(clusterSizeIthrVcasn[iSector]->GetN()-1,0,0,clusterSizeHisto[iSector]->GetMeanError());
@@ -395,20 +407,24 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
 
   for (int i=0;i<nRun;i++)
   {
+    vector<double> effV;
     if (runs[i].isNoise()) continue;
     for (int iSector=0; iSector<4; iSector++)
     {
+      double nTrd = runs[i].getnTr()[iSector];
+      double nTrpAd = runs[i].getnTrpA()[iSector];
+      double effd = nTrpAd/nTrd;
+      effV.push_back(effd*100);
       if (runs[i].getnTr()[iSector] > 100)
       {
-        double nTrd = runs[i].getnTr()[iSector];
-        double nTrpAd = runs[i].getnTrpA()[iSector];
-        double effd = nTrpAd/nTrd;
         efficiencyIthrVcasn[iSector]->SetPoint(efficiencyIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),effd*100);
         nTrIthrVcasn[iSector]->SetPoint(nTrIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),nTrd);
         nTrpAIthrVcasn[iSector]->SetPoint(nTrpAIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),nTrpAd);
         if (runs[i].getThr()[iSector] != 0) thresholdIthrVcasn[iSector]->SetPoint(thresholdIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),runs[i].getThr()[iSector]);
       }
     }
+    runs[i].setEff(effV);
+    effV.clear();
   }
 
   for (int i=0;i<nRun;i++)
@@ -424,6 +440,7 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
   }    
   TH2* fakeHitHistoFromNoise2;
   vector<TH1F*>noiseOccupancy;
+  cerr << "Looking for hotest pixels to remove" << endl; 
   for (int i=0;i<nRun;i++)
   {
     if (!runs[i].isNoise()) continue;
@@ -444,7 +461,6 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
       }
     }
     runs[i].setFakeHitHistoFromNoise(fakeHitHistoFromNoise);
-    
     noiseOccupancy = CalculateNoiseFromNoise(fakeHitHistoFromNoise,i,runs);
 
     noiseOccupancyBeforeRemovalFromNoiseHisto = noiseOccupancy[0];
@@ -472,6 +488,7 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
     noiseOccupancyBeforeRemovalFromNoiseHisto->Delete();
     noiseOccupancyAfterRemovalFromNoiseHisto->Delete();
   }
+  cerr << "Finished looking for hotest pixels to remove" << endl; 
   vector<TGraph2DErrors*> noiseOccupancyAfterRemovalIthrVcasnFromLab(4);
   for (int iSector=0; iSector<4; iSector++)
     noiseOccupancyAfterRemovalIthrVcasnFromLab[iSector] = new TGraph2DErrors;
@@ -790,7 +807,7 @@ void mergeGraphs(string files, string outputFolder)
   outputFile->Close();
 }
 
-void compareDifferentGraphsFromTree(string files, string xName, string hist, int iSector, string canVary, bool addBB, bool addIrr, bool addChipNumber, bool addRate)
+void compareDifferentGraphsFromTree(string files, string xName, string hist, int iSector, string canVary, string oneValueName, string oneValue, bool addBB, bool addIrr, bool addChipNumber, bool addRate)
 {
   vector<string> filesV;
   std::istringstream filesIs(files);
@@ -826,10 +843,10 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
     return;
   }
   legendTitle = legendTitle1 + "#color[2]{" + legendTitle2 + "}";
-  compareDifferentGraphsFromTree(files, xName, hist, iSector, xlow, xhigh, xTitle, ylow1, yhigh1, line1, log1, yTitle1, ylow2, yhigh2, line2, log2, yTitle2, legendTitle, canVary, addBB, addIrr, addChipNumber, addRate);
+  compareDifferentGraphsFromTree(files, xName, hist, iSector, xlow, xhigh, xTitle, ylow1, yhigh1, line1, log1, yTitle1, ylow2, yhigh2, line2, log2, yTitle2, legendTitle, canVary, oneValueName, oneValue, addBB, addIrr, addChipNumber, addRate);
 }
 
-void compareDifferentGraphsFromTree(string files, string xName, string hist, int iSector, double xlow, double xhigh, string xTitle, double ylow1, double yhigh1, double line1, bool log1, string yTitle1, double ylow2, double yhigh2, double line2, bool log2, string yTitle2, string legendTitle, string canVary, bool addBB, bool addIrr, bool addChipNumber, bool addRate)
+void compareDifferentGraphsFromTree(string files, string xName, string hist, int iSector, double xlow, double xhigh, string xTitle, double ylow1, double yhigh1, double line1, bool log1, string yTitle1, double ylow2, double yhigh2, double line2, bool log2, string yTitle2, string legendTitle, string canVary, string oneValueName, string oneValue, bool addBB, bool addIrr, bool addChipNumber, bool addRate)
 {
   static const string namesA[] = {"ithr", "vcasn", "vaux", "idb", "vcasp", "vreset", "BB", "readoutDelay", "triggerDelay", "strobeLength", "strobeBLength", "energy"};
   vector<string> names (namesA, namesA + sizeof(namesA) / sizeof(namesA[0]) );
@@ -864,6 +881,23 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
   if (xName.compare(histV[0]) == 0 || (histV.size() == 2 && (xName.compare(histV[1]) == 0 || histV[0].compare(histV[1]) == 0)))
   {
     cerr << "Two of the thee axises are the same, exiting!" << endl;
+    return;
+  }
+  vector<string> oneValueNameV;
+  std::istringstream oneValueNameIs(oneValueName);
+  string oneValueNameStr;
+  while( oneValueNameIs >> oneValueNameStr)
+    oneValueNameV.push_back(oneValueNameStr);
+
+  vector<int> oneValueV;
+  std::istringstream oneValueIs(oneValue);
+  int oneValueI;
+  while( oneValueIs >> oneValueI)
+    oneValueV.push_back(oneValueI);
+
+  if (oneValueNameV.size() != oneValueV.size())
+  {
+    cerr << "If you don't allow all parameters to be varied give as many parameter names as values." << endl;
     return;
   }
 
@@ -952,6 +986,7 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
         {
           tree->SetBranchAddress(names[iNames].c_str(),&settingsTmp[tmp]);
           tmp++;
+          //TODO
           varyingNames.push_back(names[iNames]);
         }
       }
@@ -962,24 +997,45 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
         {
           tree->GetEntry(iEntries);
           bool hasAppeared = false;
-          for (unsigned int iChangedSettings=0; iChangedSettings<settings.size(); iChangedSettings++)
+          for (unsigned int iSetting=0; iSetting<settingsTmp.size(); iSetting++)
+          {
+            for (unsigned int iOneValue=0; iOneValue<oneValueNameV.size(); iOneValue++)
+            {
+              if (oneValueNameV[iOneValue].compare(varyingNames[iSetting]) == 0 && oneValueV[iOneValue] != settingsTmp[iSetting]) 
+              {
+                hasAppeared = true;
+                break;
+              }
+            }
+            if (hasAppeared) break;
+          }
+          for (unsigned int iChangedSettings=0; iChangedSettings<settings.size() && !hasAppeared; iChangedSettings++)
           {
             for (unsigned int iSetting=0; iSetting<settingsTmp.size(); iSetting++)
             {
               if (settingsTmp[iSetting] != settings[iChangedSettings][iSetting])
                 break;
               else if (iSetting != settingsTmp.size()-1) continue;
-                hasAppeared = true;
+              hasAppeared = true;
             }
           }
-          if (!hasAppeared) settings.push_back(settingsTmp);
+          if (!hasAppeared) 
+            settings.push_back(settingsTmp);
         }
         for (unsigned int iSetting=0; iSetting<settings.size(); iSetting++)
         {
           string legend = "";
           for (unsigned int iChangedSetting=0; iChangedSetting<settings[iSetting].size(); iChangedSetting++)
           {
-            if (iChangedSetting != 0) legend += ", ";
+            bool onlyOneValue = false;
+            for (unsigned int iOneValue=0; iOneValue<oneValueNameV.size(); iOneValue++)
+              if (varyingNames[iChangedSetting].compare(oneValueNameV[iOneValue]) == 0)
+              {
+                onlyOneValue = true;
+                break;
+              }
+            if (onlyOneValue) continue;
+            if (!legend.empty()) legend += ", ";
             legend += varyingNames[iChangedSetting];
             legend += Form(": %0.f",settings[iSetting][iChangedSetting]);
           }
@@ -1076,10 +1132,10 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
     vector<double> settingsTmp(varyingNames.size());
     for (unsigned int iNames=0; iNames<varyingNames.size(); iNames++)
       tree->SetBranchAddress(varyingNames[iNames].c_str(),&settingsTmp[iNames]);
-    int index = -1;
     bool thresholdFromNoise = true;
     for (int i=0; i<nEntries; i++)
     {
+      int index = -1;
       tree->GetEntry(i);
       if (i == 0)  thresholdFromNoise = isNoise;
       if ((histFromData(xName) == 2 || histFromData(histV[0]) == 2 || histFromData(histV[1]) == 2) && ((histFromData(xName) != histFromData(histV[0])) || (histV.size() == 2 && histFromData(xName) != histFromData(histV[1]))))
@@ -1206,7 +1262,7 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
     for (int iSetting=0; iSetting<size; iSetting++)
     {
       string legend = getLegend(filesV[iFile], addBB, addIrr, addChipNumber, addRate);
-      if (legend.compare("      ") != 0 && !allCanVary) legend += ", ";
+      if (legend.compare("      ") != 0 && !allCanVary && legends.size() > 0 && !legends[iSetting].empty()) legend += ", ";
       if (legends.size() > 0) legend += legends[iSetting];
       legendV.push_back(legend);
       graph1[iSetting] = reorder(graph1[iSetting]);
@@ -2215,8 +2271,9 @@ string getLegend(string file, bool addBB, bool addIrr, bool addChipNumber, bool 
   else irr = atoi(irrStr.c_str());
   size_t BBPos = file.find("BB");
   string BBStr = file.substr(BBPos+2,1);
-  if (BBStr == "-") BBStr = file.substr(BBPos+2,3);
-  else BBStr = "-" + file.substr(BBPos+2,2); // BB is stored normally as a positive value in the config file, because it is supplied by inverting the cable.
+  if (BBStr == "-") BBStr = file.substr(BBPos+2,2) + " V";
+  else if (BBStr == "0" ) BBStr = file.substr(BBPos+2,1) + " V";
+  else BBStr = "-" + file.substr(BBPos+2,1) + " V"; // BB is stored normally as a positive value in the config file, because it is supplied by inverting the cable.
   if (BBPos == string::npos || !addBB) BB = -100;
   else BB = atoi(BBStr.c_str());
   size_t chipPos = file.find("graphs_W");
@@ -2261,6 +2318,7 @@ void Draw(vector<TGraph*> graph, string canvas, const char* titleX, const char* 
     drawLegend = false;
   }
   TCanvas * C = new TCanvas(canvas.c_str(),"",800,600);
+  C->SetFillStyle(0);
   C->cd();
   if (log) C->SetLogy();
   int markerColorShift = 0;
@@ -2387,9 +2445,11 @@ void DrawOverDifferentGraphs(vector<TGraph*> graph1, double rangeLow1, double ra
     drawLegend = false;
   }
   TCanvas * C = new TCanvas(canvas,"",800,600);
+  C->SetFillStyle(0);
   C->cd();
   TPad *pad = new TPad("pad","",0,0,1,1);
   pad->SetFillColor(0);
+  pad->SetFillStyle(0);
   if (log1) pad->SetLogy();
   pad->Draw();
   pad->cd();
