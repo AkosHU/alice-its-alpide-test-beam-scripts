@@ -11,7 +11,7 @@ bool Skip(int runNumber)
   else return false;
 }
 
-void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string toSkip, double pointingRes, string noiseFileName, string thresholdFileName, string settingsFileFolder, double BBOverWrite)
+void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string toSkip, string pointingRes, string noiseFileName, string thresholdFileName, string settingsFileFolder, double BBOverWrite)
 {
   double globalBB;
   int globalIrr;
@@ -44,6 +44,18 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
         toSkipV.push_back(i);
     }    
   }
+  vector<double> pointingResV;
+  std::istringstream pointingResIs(pointingRes);
+  string pointingResStr;
+  while( pointingResIs >> pointingResStr)
+  {
+    double pointingResTmp;
+    pointingResTmp = atof(pointingResStr.c_str());
+    pointingResV.push_back(pointingResTmp);
+  }
+  if (pointingResV.size() == 0)
+    for (int iSector=0; iSector<4; iSector++)
+      pointingResV.push_back(0);
   std::map<int,int> runNumberConvert;
   vector<Run> runs;
   Run run;
@@ -288,6 +300,29 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
     clusterSizeHisto = runs[i].getClusterSize();
     residualXHisto = runs[i].getResidualX();
     residualYHisto = runs[i].getResidualY();
+    bool isEmpty = true;
+    for (int iSector=0; iSector<4; iSector++)
+      if (residualXHisto[iSector]->GetMean() != 0 || residualXHisto[iSector]->GetRMS() != 0 || residualYHisto[iSector]->GetMean() != 0 || residualYHisto[iSector]->GetRMS() != 0) isEmpty = false;
+    if (isEmpty) continue;
+    for (int iSector=0; iSector<4; iSector++)
+    {
+      TH1 *residualXHistoTmp = (TH1*)residualXHisto[iSector]->Clone("residualXHistoTmp");
+      TH1 *residualYHistoTmp = (TH1*)residualYHisto[iSector]->Clone("residualYHistoTmp");
+      residualXHistoTmp->Reset();
+      residualYHistoTmp->Reset();
+      for (int iBin=1; iBin<residualXHisto[iSector]->GetNbinsX()+1; iBin++)
+      {
+        if (residualXHisto[iSector]->GetBinCenter(iBin)-residualXHisto[iSector]->GetMean() > -0.3 && residualXHisto[iSector]->GetBinCenter(iBin)-residualXHisto[iSector]->GetMean() < 0.3)
+          residualXHistoTmp->SetBinContent(residualXHisto[iSector]->FindBin(residualXHisto[iSector]->GetBinCenter(iBin)-residualXHisto[iSector]->GetMean()),residualXHisto[iSector]->GetBinContent(iBin));
+      }
+      for (int iBin=1; iBin<residualYHisto[iSector]->GetNbinsX()+1; iBin++)
+      {
+        if (residualYHisto[iSector]->GetBinCenter(iBin)-residualYHisto[iSector]->GetMean() > -0.3 && residualYHisto[iSector]->GetBinCenter(iBin)-residualYHisto[iSector]->GetMean() < 0.3)
+          residualYHistoTmp->SetBinContent(residualYHisto[iSector]->FindBin(residualYHisto[iSector]->GetBinCenter(iBin)-residualYHisto[iSector]->GetMean()),residualYHisto[iSector]->GetBinContent(iBin));
+      }
+      residualXHisto[iSector] = (TH1*)residualXHistoTmp->Clone();
+      residualYHisto[iSector] = (TH1*)residualYHistoTmp->Clone();
+    }
     for (int j=i+1;j<nRun;j++)
     {
       if (runs[j].isNoise()) continue;
@@ -301,9 +336,24 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
         {
           clusterSizeHisto[iSector]->Add(clusterSizeHisto2[iSector]);
           clusterSizeHisto2[iSector]->Reset();
-          residualXHisto[iSector]->Add(residualXHisto2[iSector]);
+
+          TH1 *residualXHistoTmp = (TH1*)residualXHisto2[iSector]->Clone("residualXHistoTmp");
+          TH1 *residualYHistoTmp = (TH1*)residualYHisto2[iSector]->Clone("residualYHistoTmp");
+          residualXHistoTmp->Reset();
+          residualYHistoTmp->Reset();
+          for (int iBin=1; iBin<residualXHisto2[iSector]->GetNbinsX()+1; iBin++)
+          {
+            if (residualXHisto2[iSector]->GetBinCenter(iBin)-residualXHisto2[iSector]->GetMean() > -0.3 && residualXHisto2[iSector]->GetBinCenter(iBin)-residualXHisto2[iSector]->GetMean() < 0.3)
+              residualXHistoTmp->SetBinContent(residualXHisto2[iSector]->FindBin(residualXHisto2[iSector]->GetBinCenter(iBin)-residualXHisto2[iSector]->GetMean()),residualXHisto2[iSector]->GetBinContent(iBin));
+          }
+          for (int iBin=1; iBin<residualYHisto2[iSector]->GetNbinsX()+1; iBin++)
+          {
+            if (residualYHisto2[iSector]->GetBinCenter(iBin)-residualYHisto2[iSector]->GetMean() > -0.3 && residualYHisto2[iSector]->GetBinCenter(iBin)-residualYHisto2[iSector]->GetMean() < 0.3)
+              residualYHistoTmp->SetBinContent(residualYHisto2[iSector]->FindBin(residualYHisto2[iSector]->GetBinCenter(iBin)-residualYHisto2[iSector]->GetMean()),residualYHisto2[iSector]->GetBinContent(iBin));
+          }
+          residualXHisto[iSector]->Add(residualXHistoTmp);
           residualXHisto2[iSector]->Reset();
-          residualYHisto[iSector]->Add(residualYHisto2[iSector]);
+          residualYHisto[iSector]->Add(residualYHistoTmp);
           residualYHisto2[iSector]->Reset();
         }
         runs[j].setClusterSize(clusterSizeHisto2);
@@ -350,8 +400,8 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
       residualVE.push_back(sqrt(resXE*resXE+resYE*resYE)*1000);
       if (fitStatusX == 0 && fitStatusY == 0) 
       {
-        resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000-pointingRes*pointingRes);
-        resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000-pointingRes*pointingRes);
+        resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000-pointingResV[iSector]*pointingResV[iSector]);
+        resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000-pointingResV[iSector]*pointingResV[iSector]);
         resXE = resultX->ParError(2);
         resYE = resultY->ParError(2);
       }
@@ -366,8 +416,8 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
         resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000);
         residualIthrVcasn[iSector]->SetPoint(residualIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),(resX+resY)/2.);
         residualIthrVcasn[iSector]->SetPointError(residualIthrVcasn[iSector]->GetN()-1,0,0,sqrt(resultX->ParError(2)*resultX->ParError(2)+resultY->ParError(2)*resultY->ParError(2))*1000);
-        resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000-pointingRes*pointingRes);
-        resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000-pointingRes*pointingRes);
+        resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000-pointingResV[iSector]*pointingResV[iSector]);
+        resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000-pointingResV[iSector]*pointingResV[iSector]);
         resolutionIthrVcasn[iSector]->SetPoint(resolutionIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),(resX+resY)/2.);
         resolutionIthrVcasn[iSector]->SetPointError(resolutionIthrVcasn[iSector]->GetN()-1,0,0,sqrt(resultX->ParError(2)*resultX->ParError(2)+resultY->ParError(2)*resultY->ParError(2))*1000);
       }
@@ -550,17 +600,16 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
     }
   }
   string outputFileName;
-  string BBStr, irrStr, firstRunStr, lastRunStr, pointingResStr;
+  string BBStr, irrStr, firstRunStr, lastRunStr;
   BBStr = Form("%0.f", globalBB);
   irrStr = Form("%d", globalIrr);
   firstRunStr = Form("%d", firstRun);
   lastRunStr = Form("%d", lastRun);
-  pointingResStr = Form("%.2f", pointingRes);
   outputFileName = outputFolder + "/graphs";
   if (globalFileInfo != "") outputFileName += "_" + globalFileInfo;
   if (globalBB != -100) outputFileName += "_BB" + BBStr + "V";
   if (globalIrr != -100) outputFileName += "_Irr" + irrStr;
-  outputFileName += "_" + firstRunStr + "-" + lastRunStr + "_PR" + pointingResStr + "um.root";
+  outputFileName += "_" + firstRunStr + "-" + lastRunStr + ".root";
   cerr << outputFileName << endl;
   TFile* outputFile = new TFile(outputFileName.c_str(),"RECREATE");
   TTree *tree = new TTree("tree","Output");
