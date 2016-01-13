@@ -310,12 +310,12 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
       TH1 *residualYHistoTmp = (TH1*)residualYHisto[iSector]->Clone("residualYHistoTmp");
       residualXHistoTmp->Reset();
       residualYHistoTmp->Reset();
-      for (int iBin=1; iBin<residualXHisto[iSector]->GetNbinsX()+1; iBin++)
+      for (int iBin=1; iBin<residualXHisto[iSector]->GetNbinsX()+1 && residualXHisto[iSector]->GetEntries() != 0; iBin++)
       {
         if (residualXHisto[iSector]->GetBinCenter(iBin)-residualXHisto[iSector]->GetMean() > -0.3 && residualXHisto[iSector]->GetBinCenter(iBin)-residualXHisto[iSector]->GetMean() < 0.3)
           residualXHistoTmp->SetBinContent(residualXHisto[iSector]->FindBin(residualXHisto[iSector]->GetBinCenter(iBin)-residualXHisto[iSector]->GetMean()),residualXHisto[iSector]->GetBinContent(iBin));
       }
-      for (int iBin=1; iBin<residualYHisto[iSector]->GetNbinsX()+1; iBin++)
+      for (int iBin=1; iBin<residualYHisto[iSector]->GetNbinsX()+1 && residualYHisto[iSector]->GetEntries() != 0; iBin++)
       {
         if (residualYHisto[iSector]->GetBinCenter(iBin)-residualYHisto[iSector]->GetMean() > -0.3 && residualYHisto[iSector]->GetBinCenter(iBin)-residualYHisto[iSector]->GetMean() < 0.3)
           residualYHistoTmp->SetBinContent(residualYHisto[iSector]->FindBin(residualYHisto[iSector]->GetBinCenter(iBin)-residualYHisto[iSector]->GetMean()),residualYHisto[iSector]->GetBinContent(iBin));
@@ -341,12 +341,12 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
           TH1 *residualYHistoTmp = (TH1*)residualYHisto2[iSector]->Clone("residualYHistoTmp");
           residualXHistoTmp->Reset();
           residualYHistoTmp->Reset();
-          for (int iBin=1; iBin<residualXHisto2[iSector]->GetNbinsX()+1; iBin++)
+          for (int iBin=1; iBin<residualXHisto2[iSector]->GetNbinsX()+1 && residualXHisto2[iSector]->GetEntries() != 0; iBin++)
           {
             if (residualXHisto2[iSector]->GetBinCenter(iBin)-residualXHisto2[iSector]->GetMean() > -0.3 && residualXHisto2[iSector]->GetBinCenter(iBin)-residualXHisto2[iSector]->GetMean() < 0.3)
               residualXHistoTmp->SetBinContent(residualXHisto2[iSector]->FindBin(residualXHisto2[iSector]->GetBinCenter(iBin)-residualXHisto2[iSector]->GetMean()),residualXHisto2[iSector]->GetBinContent(iBin));
           }
-          for (int iBin=1; iBin<residualYHisto2[iSector]->GetNbinsX()+1; iBin++)
+          for (int iBin=1; iBin<residualYHisto2[iSector]->GetNbinsX()+1 && residualYHisto2[iSector]->GetEntries() != 0; iBin++)
           {
             if (residualYHisto2[iSector]->GetBinCenter(iBin)-residualYHisto2[iSector]->GetMean() > -0.3 && residualYHisto2[iSector]->GetBinCenter(iBin)-residualYHisto2[iSector]->GetMean() < 0.3)
               residualYHistoTmp->SetBinContent(residualYHisto2[iSector]->FindBin(residualYHisto2[iSector]->GetBinCenter(iBin)-residualYHisto2[iSector]->GetMean()),residualYHisto2[iSector]->GetBinContent(iBin));
@@ -388,7 +388,7 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
         resultY = residualYHisto[iSector]->Fit("gaus","QNOS");
         fitStatusY = resultY;
       }
-      double resX = 0, resY = 0, resXE = 0, resYE = 0;
+      double resX = -1, resY = -1, resXE = -1, resYE = -1;
       if (fitStatusX == 0 && fitStatusY == 0)
       {
         resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000);
@@ -1220,6 +1220,13 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
             xED = xE[iSector];
           }
           if ((xName.find("threshold") != string::npos || xName.find("temporalNoise") != string::npos) && x[iSector] == 0) continue;
+          else if (!merged && xName.find("efficiency") != string::npos)
+          {
+            vector<double> nTr = *nTrack;
+            if (nTr[iSector] == 0) continue;
+          }
+          if (xName.find("residual") != string::npos || xName.find("resolution") != string::npos)
+            if (xD < 0) continue;
         }
         noX = false;
       }
@@ -1235,12 +1242,20 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
             y1E = *y1EP;
             y1ED = y1E[iSector];
           }
+          else if (!merged && histV[0].find("efficiency") != string::npos)
+          {
+            vector<double> nTr = *nTrack;
+            if (nTr[iSector] == 0) continue;
+          }
+          if (histV[0].find("residual") != string::npos || histV[0].find("resolution") != string::npos)
+            if (y1D < 0) continue;
           if ((histV[0].find("threshold") != string::npos || histV[0].find("temporalNoise") != string::npos) && y1[iSector] == 0) continue;
         }
         graph1[index]->SetPoint(nPoint1[index],xD,y1D);
         if (!merged && histV[0].find("efficiency") != string::npos)
         {
           vector<double> nTr = *nTrack;
+          if (nTr[iSector] == 0) continue;
           vector<double> nTrpA = *nTrackpALPIDE;
           double mean = (nTrpA[iSector]+1)/(nTr[iSector]+2);
           double sigma = sqrt(((nTrpA[iSector]+1)*(nTrpA[iSector]+2))/((nTr[iSector]+2)*(nTr[iSector]+3))-((nTrpA[iSector]+1)*(nTrpA[iSector]+1))/((nTr[iSector]+2)*(nTr[iSector]+2)));
@@ -1249,6 +1264,7 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
         else if (!merged && xName.find("efficiency") != string::npos)
         {
           vector<double> nTr = *nTrack;
+          if (nTr[iSector] == 0) continue;
           vector<double> nTrpA = *nTrackpALPIDE;
           double mean = (nTrpA[iSector]+1)/(nTr[iSector]+2);
           double sigma = sqrt(((nTrpA[iSector]+1)*(nTrpA[iSector]+2))/((nTr[iSector]+2)*(nTr[iSector]+3))-((nTrpA[iSector]+1)*(nTrpA[iSector]+1))/((nTr[iSector]+2)*(nTr[iSector]+2)));
@@ -1278,11 +1294,19 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
             y2E = *y2EP;
             y2ED = y2E[iSector];
           }
+          else if (histV[1].find("efficiency") != string::npos)
+          {
+            vector<double> nTr = *nTrack;
+            if (nTr[iSector] == 0) continue;
+          }
+          if (histV[1].find("residual") != string::npos || histV[1].find("resolution") != string::npos)
+            if (y2D < 0) continue;
         }
         graph2[index]->SetPoint(nPoint2[index],xD,y2D);
         if (!merged && histV[1].find("efficiency") != string::npos)
         {
           vector<double> nTr = *nTrack;
+          if (nTr[iSector] == 0) continue;
           vector<double> nTrpA = *nTrackpALPIDE;
           double mean = (nTrpA[iSector]+1)/(nTr[iSector]+2);
           double sigma = sqrt(((nTrpA[iSector]+1)*(nTrpA[iSector]+2))/((nTr[iSector]+2)*(nTr[iSector]+3))-((nTrpA[iSector]+1)*(nTrpA[iSector]+1))/((nTr[iSector]+2)*(nTr[iSector]+2)));
@@ -1291,6 +1315,7 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
         else if (!merged && xName.find("efficiency") != string::npos)
         {
           vector<double> nTr = *nTrack;
+          if (nTr[iSector] == 0) continue;
           vector<double> nTrpA = *nTrackpALPIDE;
           double mean = (nTrpA[iSector]+1)/(nTr[iSector]+2);
           double sigma = sqrt(((nTrpA[iSector]+1)*(nTrpA[iSector]+2))/((nTr[iSector]+2)*(nTr[iSector]+3))-((nTrpA[iSector]+1)*(nTrpA[iSector]+1))/((nTr[iSector]+2)*(nTr[iSector]+2)));
