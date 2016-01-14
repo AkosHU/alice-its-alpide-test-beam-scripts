@@ -11,7 +11,7 @@ bool Skip(int runNumber)
   else return false;
 }
 
-void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string toSkip, string pointingRes, string noiseFileName, string thresholdFileName, string settingsFileFolder, double BBOverWrite)
+void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string toSkip, string pointingRes, string thrNoiseFileName, string noiseFileName, string thresholdFileName, string settingsFileFolder, double BBOverWrite)
 {
   double globalBB;
   int globalIrr;
@@ -242,6 +242,83 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
   }
 
   settingsFile.close();
+
+  if (thrNoiseFileName.compare("") !=0)
+  {
+    ifstream thrNoiseFile;
+    thrNoiseFile.open(thrNoiseFileName.c_str());
+    bool thrNoiseFileFound = true;
+    if (!thrNoiseFile.is_open())
+    {
+      cerr << "Threshold/noise file at " << thrNoiseFileName << "is not found, continuing wihtout threshold/noise values." << endl;
+      thrNoiseFileFound = false;
+    }
+    if (thrNoiseFileFound)
+    {
+      while (getline(thrNoiseFile, line))
+      {
+        stringstream strstr(line);
+        string word;
+        int nWords = 0;
+        size_t BBPos = 0;
+        string BBStr="";
+        while (getline(strstr,word, ';'))
+        {
+          switch(nWords) {
+            case 0:
+              chipID = word;
+              break;
+            case 1:
+              BBPos = word.find("V");
+              BBStr = word.substr(BBPos-1,1);
+              BB = std::atof(BBStr.c_str());
+              if (BB != 0) BB = -1*BB;
+              break;
+            case 2:
+              vcasn=std::atof(word.c_str());
+              break;
+            case 3:
+              ithr=std::atof(word.c_str());
+              break;
+            case 4:
+              vaux=std::atof(word.c_str());
+              break;
+            case 5:
+              for (int iSector=0; iSector<4; iSector++)
+              {
+                thr[iSector] = std::atof(word.c_str());
+                getline(strstr,word, ';');
+                thrE[iSector] = std::atof(word.c_str());
+                if (iSector != 3) getline(strstr,word, ';');
+              }
+              break;
+            case 6:
+              for (int iSector=0; iSector<4; iSector++)
+              {
+                noise[iSector] = std::atof(word.c_str());
+                getline(strstr,word, ';');
+                noiseE[iSector] = std::atof(word.c_str());
+                if (iSector != 3) getline(strstr,word, ';');
+              }
+              break;
+            default:
+              break;
+          }
+          nWords++;
+        }
+        for (int i=0;i<nRun;i++)
+        {
+          if (runs[i].getChipID().compare(chipID) == 0 && (BBOverWrite == BB || runs[i].getBB() == BB) && runs[i].getIthr() == ithr && runs[i].getVcasn() == vcasn && runs[i].getVaux() == vaux)
+          {
+            runs[i].setThr(thr);
+            runs[i].setThrE(thrE);
+            runs[i].setNoise(noise);
+            runs[i].setNoiseE(noiseE);
+          }
+        }
+      }
+    }
+  }
   vector<TGraph2D*> efficiencyIthrVcasn(4);
   vector<TGraph2D*> nTrIthrVcasn(4);
   vector<TGraph2D*> nTrpAIthrVcasn(4);
@@ -646,18 +723,19 @@ void mergeGraphs(string files, string outputFolder)
   vector< vector<Run> > runsToAdd;
   size_t PRFirstPos = filesV[0].find("PR");
   string PRFirst = filesV[0].substr(PRFirstPos+2,4);
-  bool averageRes = true;
+//  bool averageRes = true;
   for (unsigned int iFile=0; iFile<filesV.size(); iFile++)
   {
     if (!graphFile[iFile] || graphFile[iFile]->IsZombie())
       return;
-    size_t PRPos = filesV[iFile].find("PR");
+/*    size_t PRPos = filesV[iFile].find("PR");
     string PR = filesV[iFile].substr(PRPos+2,4);
     if (PR.compare(PRFirst) != 0)
     {
       cerr << "Pointing resolution is not the same for all the files, cannot average the resolution values like this!" << endl;
       averageRes = false;
     }
+*/
     TTree *tree = (TTree*)graphFile[iFile]->Get("tree");
     if (!tree || tree->IsZombie())
       return;
@@ -845,9 +923,9 @@ void mergeGraphs(string files, string outputFolder)
   }
   string outputFileName = "";
   outputFileName = outputFolder + "/graphs_merged";
-  outputFileName += Form("_BB%0.0fV_Irr%d_PR",BB,irradiation);
-  if (!averageRes) outputFileName += ".root";
-  else outputFileName += PRFirst + ".root";
+  outputFileName += Form("_BB%0.0fV_Irr%d.root",BB,irradiation);
+//  if (!averageRes) outputFileName += ".root";
+//  else outputFileName += PRFirst + ".root";
   cerr << outputFileName << endl;
   TFile* outputFile = new TFile(outputFileName.c_str(),"RECREATE");
   TTree *tree = new TTree("tree","Output");

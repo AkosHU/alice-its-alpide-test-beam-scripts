@@ -219,7 +219,7 @@ class Run {
 bool Skip(int runNumber);
 vector<TH1F*> CalculateNoiseFromNoise(TH2* fakeHitHisto, int runNumberIndex, vector<Run> runs);
 
-void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string toSkip="", string pointingRes="", string noiseFileName="", string thresholdFileName="", string settingsFileFolder="", double BBOverWrite = 0);
+void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string toSkip="", string pointingRes="", string thrNoiseFileName="", string noiseFileName="", string thresholdFileName="", string settingsFileFolder="", double BBOverWrite = 0);
 
 void mergeGraphs(string files, string outputFolder="./");
 
