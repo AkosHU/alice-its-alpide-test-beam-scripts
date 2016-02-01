@@ -76,6 +76,7 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
   double energy=0, ithr=0, idb=0, vcasn=0, vaux=0, vcasp=0, vreset=0, BB=0, readoutDelay=0, triggerDelay=0, strobeLength=0, strobeBLength=0;
   string chipID, rate;
   vector<double> thr(4), thrE(4), noise(4), noiseE(4), eff(4), nTrack(4), nTrackFound(4);
+  bool delaysNotSaved = false;
   while (getline(settingsFile, line))
   {
     stringstream strstr(line);
@@ -183,6 +184,15 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
     bool isNoise = true;
     if (isData == 1) {isNoise = false;}
     double ithrpA = ithr/51*500; //Converting to pA
+    if (BB == -4) BB = BBOverWrite;
+    if (readoutDelay == -100 && triggerDelay == -100 && strobeLength == -100 && strobeBLength == -100)
+    {
+      readoutDelay = 10;
+      triggerDelay = 75;
+      strobeLength = 10;
+      strobeBLength = 20;
+      delaysNotSaved = true;
+    }
     run.Set(runNumber,vcasn,vaux,vcasp,vreset,ithr,ithrpA,idb,thr,thrE,noise,noiseE,BB,irr,chipID,readoutDelay,triggerDelay,strobeLength,strobeBLength,isNoise,nEvent,energy);
     for (int iSector=0; iSector<4; iSector++) eff[iSector] = eff[iSector]*100;
     run.setEff(eff);
@@ -193,6 +203,8 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
     cout << runs[tmp].getRunNumber() << " (" << tmp << ") : " << runs[tmp].getVcasn() << "\t" << runs[tmp].getIthr() << "\t" << runs[tmp].getBB() << "\t" << runs[tmp].isNoise() << endl;
     tmp++;
   }
+  if (delaysNotSaved) 
+    cerr << " At least in one run Readout Delay, Trigger Delay, Strobe Length, StrobeB Length was not saved in raw data, assuming readOutDelay = 10, triggerDelay = 75, strobeLength = 10, strobeBLength = 20." << endl;
   int nRun = tmp;
   if (nRun == 0)
   {
@@ -746,6 +758,8 @@ void mergeGraphs(string files, string outputFolder)
   vector<Run> mergedRuns;
   double BB = -1;
   int irradiation = -1;
+  irradiation = runsToAdd[0][0].getIrradiation();
+  BB = runsToAdd[0][0].getBB();
   for (unsigned int iRun=0; iRun<runsToAdd[0].size(); iRun++)
   {
     vector<vector<double> > eff, thr, thrE, noise, noiseE, clusterSize, clusterSizeRMS, residual, resolution, noiseOccupancyBeforeRemoval, noiseOccupancyAfterRemoval;
@@ -763,6 +777,16 @@ void mergeGraphs(string files, string outputFolder)
     noiseOccupancyAfterRemoval.push_back(runsToAdd[0][iRun].getNoiseOccupancyAfterRemoval());
     for (unsigned int i=1; i<runsToAdd.size(); i++)
     {
+      if (irradiation != runsToAdd[i][0].getIrradiation())
+      {
+        cerr << "Irradiation level not the same for all the files, no merging allowed." << endl;
+        return;
+      }
+      if (BB != runsToAdd[i][0].getBB() && BB != -1*runsToAdd[i][0].getBB() )
+      {
+        cerr << "Back bias level not the same for all the files, no merging allowed." << endl;
+        return;
+      }
       for (unsigned int jRun=0; jRun<runsToAdd[i].size(); jRun++)
       {
         if (runsToAdd[0][iRun].canBeAveraged(runsToAdd[i][jRun]))
@@ -783,6 +807,8 @@ void mergeGraphs(string files, string outputFolder)
       }
     }
     vector<double> effFinal(12,0), thrFinal(12,0), thrEFinal(12,0), noiseFinal(12,0), noiseEFinal(12,0), clusterSizeFinal(12,0), clusterSizeRMSFinal(12,0), residualFinal(12,0), resolutionFinal(12,0), noiseOccupancyBeforeRemovalFinal(12,0), noiseOccupancyAfterRemovalFinal(12,0);
+    if (eff.size() < 2)
+      continue;
     vector<double> tmp;
     for (int iSector=0; iSector<4; iSector++)
     {
@@ -976,6 +1002,7 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
 void compareDifferentGraphsFromTree(string files, string xName, string hist, int iSector, double xlow, double xhigh, string xTitle, double ylow1, double yhigh1, double line1, bool log1, string yTitle1, double ylow2, double yhigh2, double line2, bool log2, string yTitle2, string legendTitle, string canVary, string oneValueName, string oneValue, bool addBB, bool addIrr, bool addChipNumber, bool addRate)
 {
   static const string namesA[] = {"ithr", "vcasn", "vaux", "idb", "vcasp", "vreset", "BB", "readoutDelay", "triggerDelay", "strobeLength", "strobeBLength", "energy"};
+  static const string printableNamesAll[] = {"I_{thr}", "V_{casn}", "V_{aux}", "I_{db}", "V_{casp}", "V_{reset}", "V_{BB}", "Readout delay", "Trigger delay", "Strobe length", "Strobe_{b} length", "Energy"};
   vector<string> names (namesA, namesA + sizeof(namesA) / sizeof(namesA[0]) );
 
 
@@ -1028,22 +1055,22 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
     return;
   }
 
-  bool allCanVary = false;
-  vector<string> canVaryV;
-  if (canVary.empty()) allCanVary = true;
-  else
-  {
-    std::istringstream canVaryIs(canVary);
-    string canVaryStr;
-    while( canVaryIs >> canVaryStr)
-      canVaryV.push_back(canVaryStr);
-  }
 
   vector<TGraph*> graph1V;
   vector<TGraph*> graph2V;
   vector<string> legendV;
   for (unsigned int iFile=0; iFile<graphFile.size(); iFile++)
   {
+    bool allCanVary = false;
+    vector<string> canVaryV;
+    if (canVary.empty()) allCanVary = true;
+    else
+    {
+      std::istringstream canVaryIs(canVary);
+      string canVaryStr;
+      while( canVaryIs >> canVaryStr)
+        canVaryV.push_back(canVaryStr);
+    }
     if (!graphFile[iFile] || graphFile[iFile]->IsZombie())
       return;
     TTree* tree = (TTree*)graphFile[iFile]->Get("tree");
@@ -1071,6 +1098,7 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
     vector<vector<double> > settings;
     vector<string> legends;
     vector<string> varyingNames;
+    vector<string> printableNames;
     if (!allCanVary)
     {
       vector<bool> settingsChangeV(names.size(),false);
@@ -1092,11 +1120,14 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
               break;
             }
           if (canVaryB) continue;
-          if (iEntries!=0 && setting[iNames] != settingPrev[iNames])
+          if (iEntries != 0 && setting[iNames] != settingPrev[iNames])
           {
             settingsChangeV[iNames] = true;
 //            continue;
           }
+          for (unsigned int iOneValue=0; iOneValue<oneValueNameV.size(); iOneValue++)
+            if (iEntries != 0 && oneValueNameV[iOneValue].compare(names[iNames]) == 0 && oneValueV[iOneValue] != setting[iNames]) 
+              settingsChangeV[iNames] = true;
           settingPrev[iNames] = setting[iNames];
         }
       }
@@ -1115,6 +1146,7 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
           tmp++;
           //TODO
           varyingNames.push_back(names[iNames]);
+          printableNames.push_back(printableNamesAll[iNames]);
         }
       }
       if (settingsTmp.size() == 0) allCanVary = true;
@@ -1163,8 +1195,8 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
               }
             if (onlyOneValue) continue;
             if (!legend.empty()) legend += ", ";
-            legend += varyingNames[iChangedSetting];
-            legend += Form(": %0.f",settings[iSetting][iChangedSetting]);
+            legend += printableNames[iChangedSetting];
+            legend += Form(" = %0.f DAC units",settings[iSetting][iChangedSetting]);
           }
           legends.push_back(legend);
         }
@@ -2237,7 +2269,7 @@ bool getDefaultsOneAxis(string graph, double& low, double& high, double& line, b
     low = 0;
     high = 20;
     line = -100;
-    title = "Temperal noise (electrons)";
+    title = "Temporal noise (electrons)";
     legend += "Noise   ";
   }
   else if (graph.find("thresholdRMS")!= string::npos)
@@ -2463,6 +2495,8 @@ string getLegend(string file, bool addBB, bool addIrr, bool addChipNumber, bool 
 
 void Draw(vector<TGraph*> graph, string canvas, const char* titleX, const char* titleY, vector<string> legendStr, double rangeLow, double rangeHigh, double line, double xLow, double xHigh, bool log, const char* canvasTitle)
 {
+  int markers[] = { 20, 21, 34, 31, 33, 25, 24, 27, 28, 30, 31, 32, 33, 34, 2, 5};
+  int colors[] = { 1, kGreen+1, kRed, kBlue, kOrange-3, kGray+1, kViolet-9, kCyan+1, kMagenta-2, kGreen+3, kGray+1, kOrange+1, 28, 30, 36, 40, 46 };
   bool drawLegend = true;
   if (graph.size() != legendStr.size()) 
   {
@@ -2473,15 +2507,18 @@ void Draw(vector<TGraph*> graph, string canvas, const char* titleX, const char* 
   C->SetFillStyle(0);
   C->cd();
   if (log) C->SetLogy();
-  int markerColorShift = 0;
   int tmp = 0;
-  TLegend * legend = new TLegend(0.1,0.1,0.77,0.3);
+  TLegend * legend = new TLegend(0.12,0.12,0.6,0.42);
   if (drawLegend)
+  {
     legend->SetFillColor(0);
+    legend->SetFillStyle(0);
+    legend->SetLineColor(0);
+    legend->SetBorderSize(0);
+  }
   for (unsigned int i=0; i<graph.size(); i++)
   {
     if (graph[i]->GetN() == 0) continue;
-    if (tmp+1+markerColorShift == 5 || tmp+1+markerColorShift == 7 || tmp+1+markerColorShift == 10) markerColorShift++;
     graph[i]->GetXaxis()->SetTitle(titleX);
     graph[i]->GetYaxis()->SetTitle(titleY);
     graph[i]->GetXaxis()->SetTitleOffset(0.9);
@@ -2491,11 +2528,12 @@ void Draw(vector<TGraph*> graph, string canvas, const char* titleX, const char* 
     graph[i]->SetTitle(canvasTitle);
     graph[i]->SetFillColor(0);
     graph[i]->GetYaxis()->SetRangeUser(rangeLow,rangeHigh);
-    graph[i]->SetLineColor(tmp+1+markerColorShift);
-    graph[i]->SetMarkerStyle(tmp+20);
+    graph[i]->SetLineColor(colors[tmp]);
+    graph[i]->SetMarkerStyle(markers[tmp]);
     graph[i]->SetMarkerSize(1.3);
-    graph[i]->SetMarkerColor(tmp+1+markerColorShift);
+    graph[i]->SetMarkerColor(colors[tmp]);
     graph[i]->GetXaxis()->SetLimits(xLow,xHigh);
+    graph[i]->SetTitle("");
 
     graph[i]->Draw(tmp==0?"APL":"SAMEPL");
     if (drawLegend)
