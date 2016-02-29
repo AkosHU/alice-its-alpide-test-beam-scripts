@@ -40,7 +40,7 @@ $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option MaxAllowedFiringFreq=$ma
 if ((${#runsGood[@]} == 1)); then
   $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option ExcludedPlanes="${exludedPlanes[0]} ${exludedPlanes[1]}" --option LCIOInputFiles=${outputFolder}/lcio/run@RunNumber@-converter.slcio clustering ${runsGood[0]} > /dev/null 2>&1
 else 
-  $EUTELESCOPE/jobsub/jobsub.py --concatenate ${commonOptions} --option ExcludedPlanes="${exludedPlanes[0]} ${exludedPlanes[1]}" LCIOInputFiles=${outputFolder}/lcio/run@RunRange@-converter.slcio clustering ${runsGood[@]} > /dev/null 2>&1 
+  $EUTELESCOPE/jobsub/jobsub.py --concatenate ${commonOptions} --option ExcludedPlanes="${exludedPlanes[0]} ${exludedPlanes[1]}" --option LCIOInputFiles=${outputFolder}/lcio/run@RunRange@-converter.slcio clustering ${runsGood[@]} > /dev/null 2>&1 
 fi
 $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} hitmaker ${runsGood[0]} > /dev/null 2>&1
 $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} prealign ${runsGood[0]} > /dev/null 2>&1

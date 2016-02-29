@@ -8,7 +8,7 @@
 #  6: input data folder
 #  7: number of planes in the telescope
 #  8: config file
-#  9: DUT type (0: pALPIDE(fs) , 1: pALPIDEss)
+#  9: DUT type (0: pALPIDE(ss) , 1: pALPIDEfs-1 2: pALPIDE-2 3: pALPIDE-3)
 # 10: alignment method (0 common alignment, 1: run-by-run alignment)
 # 11: Processing type: DEBUG (all temporary output is kept), REPROCESS
 # 12: Extra busy time
@@ -42,15 +42,19 @@ nativeFolder=${inputFolder}
 if [ -n $SLURM_JOB_ID ]; then
     echo $SLURM_JOB_ID > ${outputFolder}/slurm_job_id.txt
 fi
-if (( ${dutType} == 1)); then
+if (( ${dutType} == 0)); then
   if [ "${processingMode}" == "DEBUG" ] && [ -a `printf ${outputFolder}/run"%06d".raw ${runNumber}` ]; then
     rm -r `printf ${outputFolder}/run"%06d".raw ${runNumber}`
   fi
   $EUDAQ/bin/Converter.exe -s -t native `printf ${inputFolder}/run"%06d".raw ${runNumber}` -o `printf ${outputFolder}/run"%06d".raw ${runNumber}`
   nativeFolder=${outputFolder}
   echo "DUT(s) are set to be a pALPIDEss" > ${outputFolder}/analysis.log
-elif (( ${dutType} == 0)); then
-  echo "DUT(s) are set to be a pALPIDEfs" > ${outputFolder}/analysis.log
+elif (( ${dutType} == 1)); then
+  echo "DUT(s) are set to be a pALPIDE-1" > ${outputFolder}/analysis.log
+elif (( ${dutType} == 2)); then
+  echo "DUT(s) are set to be a pALPIDE-2" > ${outputFolder}/analysis.log
+elif (( ${dutType} == 3)); then
+  echo "DUT(s) are set to be a pALPIDE-3" > ${outputFolder}/analysis.log
 fi
 $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option NativePath=$nativeFolder converter ${runNumber} > $redirect 2>&1
 name=`printf ${outputFolder}/lcio/run"%06d"-converter.slcio ${runNumber}`
@@ -62,6 +66,9 @@ if ! [[ $nEvent =~ $re ]] ; then
   echo "Converter failed" >> ${outputFolder}/analysis.log
   if [ -f `printf run"%06d"-maskedPixels_*.txt ${runNumber}` ]; then
     rm `printf run"%06d"-maskedPixels_*.txt ${runNumber}`
+  fi
+  if [ -f `printf run"%06d"-temperature.txt ${runNumber}` ]; then
+    rm `printf run"%06d"-temperature.txt ${runNumber}`
   fi
   if [ "${processingMode}" != "DEBUG" ]; then
     rm -r ${outputFolder}/lcio/
@@ -81,9 +88,11 @@ if (($nEvent < 10000)); then
     fi
   fi
   rm `printf run"%06d"-maskedPixels_*.txt ${runNumber}`
+  rm `printf run"%06d"-temperature.txt ${runNumber}`
   exit 0
 fi
 mv `printf run"%06d"-maskedPixels_*.txt ${runNumber}` ${outputFolder}/database/
+mv `printf run"%06d"-temperature.txt ${runNumber}` ${outputFolder}/database/
 cd ${outputFolder}/logs/
 converterName=`printf converter-"%06d".zip ${runNumber}`
 unzip $converterName > /dev/null 2>&1
@@ -213,7 +222,7 @@ elif (( ( ${dataType}==0 && $place <= 100) || ${dataType}==1)); then
       exit 0
     fi
   fi
-  if (( ${dutType} == 0 )); then
+  if (( ${dutType} == 1 ) || (${dutType} == 2 ) || (${dutType} == 3)); then
     $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} deadColumn ${runNumber} > $redirect 2>&1
   fi
   cd ${outputFolder}/logs
@@ -284,9 +293,9 @@ elif (( ( ${dataType}==0 && $place <= 100) || ${dataType}==1)); then
       mkdir $outputFolderQA
       mkdir $outputFolderQA/important
       mkdir $outputFolderQA/others
-      if (( ${dutType} == 0)); then
+      if (( ${dutType} == 1) || (${dutType} == 2 ) || (${dutType} == 3))); then
         root -l -q -b qualityCheckfs.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
-      elif (( ${dutType} == 1)); then
+      elif (( ${dutType} == 0)); then
         root -l -q -b qualityCheckss.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
       fi
       echo "QA written to" $outputFolderQA >> ${outputFolder}/analysis.log
@@ -369,7 +378,7 @@ elif (( ( ${dataType}==0 && $place <= 100) || ${dataType}==1)); then
      rm ${outputFolder}/settings_DUT$i.txt
     fi
     echo "Using events with a timestamp larger than" $minTimeStamp >> ${outputFolder}/analysis.log
-    $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option dutID="$i" --option MinTimeStamp=$minTimeStamp analysis ${runNumber} > $redirect 2>&1
+    $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option dutID="$i" --option MinTimeStamp=$minTimeStamp --option ChipVersion=${dutType} analysis ${runNumber} > $redirect 2>&1
     if ! [ -f ${outputFolder}/../settings_DUT$i.txt ]; then
       cat ${outputFolder}/settings_DUT$i.txt > ${outputFolder}/../settings_DUT$i.txt
     else
@@ -379,7 +388,7 @@ elif (( ( ${dataType}==0 && $place <= 100) || ${dataType}==1)); then
     cd ${outputFolder}/logs/
     unzip `printf analysis-"%06d".zip ${runNumber}` > /dev/null 2>&1
     analysisName=`printf analysis-"%06d".log ${runNumber}`
-    if (( ${dutType} == 0)); then
+    if (( ${dutType} == 1)|| (${dutType} == 2 )) ; then
       efficiencies=`awk '/Overall efficiency of pALPIDEfs sectors/{x=NR+4;next}(NR<=x){print}' $analysisName | sed -n -e 's/^.*\[ MESSAGE4 \"Analysis\"\] //p'`
       rm *.log *.xml
       cd - > /dev/null 2>&1
@@ -388,7 +397,16 @@ elif (( ( ${dataType}==0 && $place <= 100) || ${dataType}==1)); then
       for ((j=1;j<=10;j=j+3)) do
         echo ${effArray[j-1]} >> ${outputFolder}/analysis.log
       done
-    elif (( ${dutType} == 1)); then
+    elif ((${dutType} == 3)); then
+      efficiencies=`awk '/Overall efficiency of pALPIDEfs sectors/{x=NR+8;next}(NR<=x){print}' $analysisName | sed -n -e 's/^.*\[ MESSAGE4 \"Analysis\"\] //p'`
+      rm *.log *.xml
+      cd - > /dev/null 2>&1
+      echo "Efficiencies of the eight sectors in DUT" $i":" >> ${outputFolder}/analysis.log
+      effArray=($efficiencies)
+      for ((j=1;j<=22;j=j+3)) do
+        echo ${effArray[j-1]} >> ${outputFolder}/analysis.log
+      done  
+    elif (( ${dutType} == 0)); then
       echo "Efficiencies of the four sectors in DUT" $i":" >> ${outputFolder}/analysis.log
       effArray=($efficiencies)
       cat $analysisName | grep Sector | sed -n -e 's/^.*\[ MESSAGE4 \"Analysis\"\] //p' >> ${outputFolder}/analysis.log
@@ -408,9 +426,9 @@ elif (( ( ${dataType}==0 && $place <= 100) || ${dataType}==1)); then
   mkdir $outputFolderQA
   mkdir $outputFolderQA/important
   mkdir $outputFolderQA/others
-  if (( ${dutType} == 0)); then
+  if (( ${dutType} == 1) || ( ${dutType} == 2) ||( ${dutType} == 3)); then
     root -l -q -b qualityCheckfs.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
-  elif (( ${dutType} == 1)); then
+  elif (( ${dutType} == 0)); then
     root -l -q -b qualityCheckss.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
   fi
   echo "QA written to" $outputFolderQA >> ${outputFolder}/analysis.log
