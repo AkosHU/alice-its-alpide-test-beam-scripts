@@ -20,7 +20,7 @@ outputFolder=<outputFolder>
 settingsFile=<settingsFile>
 configFile=<configFile>
 withAlign=<withAlign> #1 for aligning each run separately and 0 for using commmon alignment
-whichChip=<whichChip> #0 for full scale, 1 for small scale
+whichChip=<whichChip> #0 for small scale, 1/2/3 for pALPIDE-1/2/3
 extraBusyTime=<extraBusyTime> #Time to add after normal busy in which events are not considered (in clock cycles). Used for past protection to avoid efficiency loss because of pulse duration differences in tracking planes and DUTs. Only working for pALPIDEfs DUTs
 isNoise=<isNoise> #0: decide from the data if it's noise or data run, 1: force it to be treated as data, 2: force it to be treated as noise
 
