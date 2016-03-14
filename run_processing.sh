@@ -98,14 +98,14 @@ converterName=`printf converter-"%06d".zip ${runNumber}`
 unzip $converterName > /dev/null 2>&1
 converterLogName=`printf converter-"%06d".log ${runNumber}`
 place=`cat $converterLogName | sed -n -e "s/^.*Place of telescope://p" | bc -l`
-if (($place == -100 && ${dataType}==0)); then
+if (( $(bc <<< "${dataType} == 0 && ${place} == -100") )); then
   echo "Whether it's data or noise is not specified in the rawdata. Please force it to be treated as noise or data." >> ${outputFolder}/analysis.log
   echo "In run" ${runNumber} "it's not specified in the rawdata whether it's data or noise. Please force it to be treated as noise or data." >> ${outputFolder}/../analysis.log
   exit 0
 fi
 rm *.log *.xml
 cd - > /dev/null 2>&1
-if (( ( ${dataType}==0 && $place > 100) || ${dataType}==2 )); then
+if (( $(bc <<< "(${dataType} == 0 && ${place} > 100) || ${dataType} == 2") )); then
   echo "Treated as noise run" >> ${outputFolder}/analysis.log
   for ((i=${firstDUTid};i<=${lastDUTid};i++)) do
     if [ -f ${outputFolder}/../settings_DUT$i.txt ]; then
@@ -159,7 +159,7 @@ if (( ( ${dataType}==0 && $place > 100) || ${dataType}==2 )); then
   mkdir $outputFolderQA
   root -l -q -b qualityCheckNoise.C\(${runNumber},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
   echo "QA written to" $outputFolderQA >> ${outputFolder}/analysis.log
-elif (( ( ${dataType}==0 && $place <= 100) || ${dataType}==1)); then
+elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") )); then
   echo "Treated as data run" >> ${outputFolder}/analysis.log
   if (( ${alignMethod} == 0)); then
     prealignFiles=`ls ${outputFolder}/../prealign_*.slcio`
@@ -222,7 +222,7 @@ elif (( ( ${dataType}==0 && $place <= 100) || ${dataType}==1)); then
       exit 0
     fi
   fi
-  if (( ${dutType} == 1 ) || (${dutType} == 2 ) || (${dutType} == 3)); then
+  if (( ${dutType} == 1 || ${dutType} == 2 || ${dutType} == 3 )); then
     $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} deadColumn ${runNumber} > $redirect 2>&1
   fi
   cd ${outputFolder}/logs
@@ -293,7 +293,7 @@ elif (( ( ${dataType}==0 && $place <= 100) || ${dataType}==1)); then
       mkdir $outputFolderQA
       mkdir $outputFolderQA/important
       mkdir $outputFolderQA/others
-      if (( ${dutType} == 1) || (${dutType} == 2 ) || (${dutType} == 3))); then
+      if (( ${dutType} == 1 || ${dutType} == 2 || ${dutType} == 3 )); then
         root -l -q -b qualityCheckfs.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
       elif (( ${dutType} == 0)); then
         root -l -q -b qualityCheckss.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
@@ -388,7 +388,7 @@ elif (( ( ${dataType}==0 && $place <= 100) || ${dataType}==1)); then
     cd ${outputFolder}/logs/
     unzip `printf analysis-"%06d".zip ${runNumber}` > /dev/null 2>&1
     analysisName=`printf analysis-"%06d".log ${runNumber}`
-    if (( ${dutType} == 1)|| (${dutType} == 2 )) ; then
+    if (( ${dutType} == 1 || ${dutType} == 2 )) ; then
       efficiencies=`awk '/Overall efficiency of pALPIDEfs sectors/{x=NR+4;next}(NR<=x){print}' $analysisName | sed -n -e 's/^.*\[ MESSAGE4 \"Analysis\"\] //p'`
       rm *.log *.xml
       cd - > /dev/null 2>&1
@@ -426,7 +426,7 @@ elif (( ( ${dataType}==0 && $place <= 100) || ${dataType}==1)); then
   mkdir $outputFolderQA
   mkdir $outputFolderQA/important
   mkdir $outputFolderQA/others
-  if (( ${dutType} == 1) || ( ${dutType} == 2) ||( ${dutType} == 3)); then
+  if (( ${dutType} == 1 ||  ${dutType} == 2 || ${dutType} == 3)); then
     root -l -q -b qualityCheckfs.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
   elif (( ${dutType} == 0)); then
     root -l -q -b qualityCheckss.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
