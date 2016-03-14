@@ -99,10 +99,13 @@ void qualityCheckfs(int runNumber, int firstDUT, int lastDUT, string histFolder,
   }
   for (int iDetector=1; iDetector<nDetector && clusteringAvailable; iDetector++)
   {
-    correlationX[iDetector-1] = (TH2I*)clusteringFile->Get(Form("Correlator/ClusterX/ClusterXCorrelationHisto_d0_d%d",iDetector));
-    correlationY[iDetector-1] = (TH2I*)clusteringFile->Get(Form("Correlator/ClusterY/ClusterYCorrelationHisto_d0_d%d",iDetector));
+    cerr << "itt" << endl;
+    correlationX[iDetector-1] = (TH2I*)clusteringFile->Get(Form("Correlator/ClusterX/ClusterXCorrelation_d0_d%d",iDetector));
+    cerr << fileName << endl;
+    correlationY[iDetector-1] = (TH2I*)clusteringFile->Get(Form("Correlator/ClusterY/ClusterYCorrelation_d0_d%d",iDetector));
     correlationC[iDetector-1]->cd(1)->SetLogz();
     correlationX[iDetector-1]->Draw("COLZ");
+    cerr << "after" << endl;
     correlationC[iDetector-1]->cd(2)->SetLogz();
     correlationY[iDetector-1]->Draw("COLZ");
     string outputFile = outputFolder + Form("/others/correlation_0_%d.pdf",iDetector);
@@ -119,8 +122,8 @@ void qualityCheckfs(int runNumber, int firstDUT, int lastDUT, string histFolder,
   }
   for (int iDetector=1; iDetector<nDetector && prealignAvailable; iDetector++)
   {
-    prealignX[iDetector-1] = (TH2I*)prealignFile->Get(Form("PreAligner/plane_%d/hitXCorr_0_to_%d",iDetector,iDetector));
-    prealignY[iDetector-1] = (TH2I*)prealignFile->Get(Form("PreAligner/plane_%d/hitYCorr_0_to_%d",iDetector,iDetector));
+    prealignX[iDetector-1] = (TH2I*)prealignFile->Get(Form("PreAligner/plane_%d/hitXCorr_fixed_to_%d",iDetector,iDetector));
+    prealignY[iDetector-1] = (TH2I*)prealignFile->Get(Form("PreAligner/plane_%d/hitYCorr_fixed_to_%d",iDetector,iDetector));
     prealignC[iDetector-1]->cd(1);
     prealignX[iDetector-1]->Draw();
     prealignC[iDetector-1]->cd(2);
