@@ -629,8 +629,12 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
   }
   cerr << "Finished looking for hotest pixels to remove" << endl; 
   vector<TGraph2DErrors*> noiseOccupancyAfterRemovalIthrVcasnFromLab(4);
+  vector<TGraph2DErrors*> noiseOccupancyBeforeRemovalIthrVcasnFromLab(4);
   for (int iSector=0; iSector<4; iSector++)
+  {
     noiseOccupancyAfterRemovalIthrVcasnFromLab[iSector] = new TGraph2DErrors;
+    noiseOccupancyBeforeRemovalIthrVcasnFromLab[iSector] = new TGraph2DErrors;
+  }
   if (noiseFileName.compare("") !=0)
   {
     TFile* noiseFile = new TFile(noiseFileName.c_str(),"READONLY");
@@ -641,12 +645,15 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
       {
         string noiseGraphName = "g_noiseVsITHR_" + globalFileInfo + "_TEMP28.0_VBB" + Form("%0.1f_VCASN135_RATE10000_BUSY50_sec%d", globalBB, iSector);
         noiseFromLab[iSector] = (TGraphAsymmErrors*)noiseFile->Get(noiseGraphName.c_str());
-        double x=0,y=0;
+        double x=0,y=0, yHigh;
         for (int i=0; i<noiseFromLab[iSector]->GetN(); i++)
         {
           noiseFromLab[iSector]->GetPoint(i,x,y);
+          yHigh = noiseFromLab[iSector]->GetErrorYhigh(i);
           noiseOccupancyAfterRemovalIthrVcasnFromLab[iSector]->SetPoint(i,x,135.,y);
           noiseOccupancyAfterRemovalIthrVcasnFromLab[iSector]->SetPointError(i,0,0,0);
+          noiseOccupancyBeforeRemovalIthrVcasnFromLab[iSector]->SetPoint(i,x,135.,y+yHigh);
+          noiseOccupancyBeforeRemovalIthrVcasnFromLab[iSector]->SetPointError(i,0,0,0);
         }
       }
     }
@@ -707,6 +714,7 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
   Write(noiseOccupancyBeforeRemovalIthrVcasnFromNoise, "noiseOccupancyBeforeRemovalFromNoiseIthrVcasn2D");
   Write(noiseOccupancyAfterRemovalIthrVcasnFromNoise, "noiseOccupancyAfterRemovalFromNoiseIthrVcasn2D");
   Write(noiseOccupancyAfterRemovalIthrVcasnFromLab,"noiseOccupancyAfterRemovalFromLabIthrVcasn2D");
+  Write(noiseOccupancyBeforeRemovalIthrVcasnFromLab,"noiseOccupancyBeforeRemovalFromLabIthrVcasn2D");
   Write(thresholdIthrVcasnFromLab,"thresholdFromLabIthrVcasn2D");
   Write(temporalNoiseIthrVcasnFromLab,"temporalNoiseFromLabIthrVcasn2D");
   Write(efficiencyIthrVcasn,"efficiencyIthrVcasn2D");
@@ -999,12 +1007,12 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
   compareDifferentGraphsFromTree(files, xName, hist, iSector, xlow, xhigh, xTitle, ylow1, yhigh1, line1, log1, yTitle1, ylow2, yhigh2, line2, log2, yTitle2, legendTitle, canVary, oneValueName, oneValue, addBB, addIrr, addChipNumber, addRate);
 }
 
-void compareDifferentGraphsFromTree(string files, string xName, string hist, int iSector, double xlow, double xhigh, string xTitle, double ylow1, double yhigh1, double line1, bool log1, string yTitle1, double ylow2, double yhigh2, double line2, bool log2, string yTitle2, string legendTitle, string canVary, string oneValueName, string oneValue, bool addBB, bool addIrr, bool addChipNumber, bool addRate)
+void compareDifferentGraphsFromTree(string files, string xName, string hist, int sector, double xlow, double xhigh, string xTitle, double ylow1, double yhigh1, double line1, bool log1, string yTitle1, double ylow2, double yhigh2, double line2, bool log2, string yTitle2, string legendTitle, string canVary, string oneValueName, string oneValue, bool addBB, bool addIrr, bool addChipNumber, bool addRate)
 {
+  static string sectorLegendEntries[4] = {"PMOS reset, 1 #mum spacing (sector 0)", "PMOS reset, 2 #mum spacing (sector 1)", "Diode reset, 2 #mum spacing (sector 2)", "PMOS reset, 4 #mum spacing (sector 3)"};
   static const string namesA[] = {"ithr", "vcasn", "vaux", "idb", "vcasp", "vreset", "BB", "readoutDelay", "triggerDelay", "strobeLength", "strobeBLength", "energy"};
   static const string printableNamesAll[] = {"I_{thr}", "V_{casn}", "V_{aux}", "I_{db}", "V_{casp}", "V_{reset}", "V_{BB}", "Readout delay", "Trigger delay", "Strobe length", "Strobe_{b} length", "Energy"};
   vector<string> names (namesA, namesA + sizeof(namesA) / sizeof(namesA[0]) );
-
 
   bool merged = false;
   if (files.find("merged") != string::npos)
@@ -1022,6 +1030,13 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
   for (unsigned int i=0; i<filesV.size(); i++)
     graphFile[i] =  new TFile(filesV[i].c_str(),"READONLY");
 
+  if (sector == 5 && filesV.size() == 1)
+    cerr << "Plotting all sectors on the same plot" << endl;
+  else if (sector == 5)
+  {
+    cerr << "If you want to plot all sectors then only one file is allowed!" << endl;
+    return;
+  }
   vector<string> histV;
   std::istringstream histIs(hist);
   string histStr;
@@ -1061,6 +1076,14 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
   vector<string> legendV;
   for (unsigned int iFile=0; iFile<graphFile.size(); iFile++)
   {
+    for (unsigned int iSector=0; iSector<4; iSector++)
+    {
+      if (sector != 5)
+      {
+        if (iSector > 0) continue;
+        else iSector = sector;
+      }
+//      else if (iSector == 0) continue;
     bool allCanVary = false;
     vector<string> canVaryV;
     if (canVary.empty()) allCanVary = true;
@@ -1144,7 +1167,6 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
         {
           tree->SetBranchAddress(names[iNames].c_str(),&settingsTmp[tmp]);
           tmp++;
-          //TODO
           varyingNames.push_back(names[iNames]);
           printableNames.push_back(printableNamesAll[iNames]);
         }
@@ -1446,18 +1468,25 @@ void compareDifferentGraphsFromTree(string files, string xName, string hist, int
     for (int iSetting=0; iSetting<size; iSetting++)
     {
       string legend = getLegend(filesV[iFile], addBB, addIrr, addChipNumber, addRate);
-      if (legend.compare("      ") != 0 && !allCanVary && legends.size() > 0 && !legends[iSetting].empty()) legend += ", ";
-      if (legends.size() > 0) legend += legends[iSetting];
+      if (sector == 5 && (legend.compare("      ") != 0 || legends.size() > 1 ))
+      {
+        if (legend.compare("      ") != 0) legend += ", ";
+        legend += Form("Sector %d",iSector);
+      }
+      else if (sector == 5) legend = sectorLegendEntries[iSector];
+      if (legend.compare("      ") != 0 && legends.size() > 1) legend += ", ";
+      if (legends.size() > 1) legend += legends[iSetting];
       legendV.push_back(legend);
       graph1[iSetting] = reorder(graph1[iSetting]);
       graph1V.push_back(graph1[iSetting]);
       graph2[iSetting] = reorder(graph2[iSetting]);
       graph2V.push_back(graph2[iSetting]);
     }
+    }
   }
   string canvasName = xName + histV[0];
-  if (histV.size() == 1) Draw(graph1V, canvasName.c_str(), xTitle.c_str(), yTitle1.c_str(), legendV, ylow1, yhigh1, line1, xlow, xhigh, log1, Form("Sector %d", iSector));
-  else if (histV.size() == 2) DrawOverDifferentGraphs(graph1V, ylow1, yhigh1, line1, yTitle1.c_str(), graph2V, ylow2, yhigh2, line2, yTitle2.c_str(), canvasName.c_str(), legendTitle.c_str(), legendV, xlow, xhigh, log1, log2, xTitle.c_str(), Form("Sector %d", iSector));
+  if (histV.size() == 1) Draw(graph1V, canvasName.c_str(), xTitle.c_str(), yTitle1.c_str(), legendV, ylow1, yhigh1, line1, xlow, xhigh, log1, Form("Sector %d", sector));
+  else if (histV.size() == 2) DrawOverDifferentGraphs(graph1V, ylow1, yhigh1, line1, yTitle1.c_str(), graph2V, ylow2, yhigh2, line2, yTitle2.c_str(), canvasName.c_str(), legendTitle.c_str(), legendV, xlow, xhigh, log1, log2, xTitle.c_str(), Form("Sector %d", sector));
 }
 
 vector<TH1F*> CalculateNoiseFromNoise(TH2* fakeHitHisto, int runNumberIndex, vector<Run> runs) 
@@ -2444,7 +2473,7 @@ bool getDefaults(string graph, double& xlow, double& xhigh, double& ylow, double
 
 string getLegend(string file, bool addBB, bool addIrr, bool addChipNumber, bool addRate)
 {
-  string irradiationLevels[5] = {"Non irradiated","0.25e13 1 MeV n_{eq}/cm^{2}","1e13 1 MeV n_{eq}/cm^{2}","700 krad","1e13 1 MeV n_{eq}/cm^{2} + 700 krad"};
+  string irradiationLevels[5] = {"Non irradiated","0.25e13 1 MeV n_{eq} / cm^{2}","1e13 1 MeV n_{eq} / cm^{2}","700 krad","1e13 1 MeV n_{eq}/cm^{2} + 700 krad"};
   string rateLevels[4] = {"100-1000 events/spill","4000-4500 events/spill","10000-12000 events/spill","15000-18000 events/spill"};
   int BB;
   int irr;
@@ -2519,6 +2548,12 @@ void Draw(vector<TGraph*> graph, string canvas, const char* titleX, const char* 
   for (unsigned int i=0; i<graph.size(); i++)
   {
     if (graph[i]->GetN() == 0) continue;
+    else 
+    {
+      double* Y = graph[i]->GetY();
+      for (int iPoint=graph[i]->GetN()-1; iPoint>=0; iPoint--)
+        if (Y[iPoint] == 0) graph[i]->RemovePoint(iPoint);
+    }
     graph[i]->GetXaxis()->SetTitle(titleX);
     graph[i]->GetYaxis()->SetTitle(titleY);
     graph[i]->GetXaxis()->SetTitleOffset(0.9);
@@ -2744,6 +2779,8 @@ void DrawOverDifferentGraphs(vector<TGraph*> graph1, double rangeLow1, double ra
   if (drawLegend)
   {
     legend->SetFillColor(0);
+    legend->SetFillStyle(0);
+    legend->SetLineColor(0);
     legend->SetNColumns(2);
     for (unsigned int i=0; i<legendStr.size(); i++)
     {
@@ -3143,3 +3180,189 @@ void treeRead(TTree* tree, vector<Run> &runs)
   }
 }
 
+void drawClusterSizeDistribution(string outputFolder)
+{
+  int colors[] = { kGreen+1, kRed, kBlue, kOrange-3, 1, kGray+1, kViolet-9, kCyan+1, kMagenta-2, kGreen+3, kGray+1, kOrange+1, 28, 30, 36, 40, 46 };
+  new TCanvas("clusterSize","clusterSize",800,600);
+  const int nFiles = 5;
+  int fileNumbers[] = {392,351,405,407,411};
+  int ithr[] = {70,51,40,30,20};
+  TLegend * legend = new TLegend(0.55,0.62,0.9,0.88);
+  legend->SetFillColor(0);
+  legend->SetFillStyle(0);
+  legend->SetLineColor(0);
+  legend->SetBorderSize(0);
+  for (int iFiles=0; iFiles<nFiles; iFiles++)
+  {
+    string fileName = outputFolder +  Form("/run%06d/histogram/run%06d-analysis_DUT3.root",fileNumbers[iFiles],fileNumbers[iFiles]);
+    TFile* histFile = new TFile(fileName.c_str(),"READONLY");
+    if (!histFile || histFile->IsZombie())
+      continue;
+    TH1I* tmp = (TH1I*)histFile->Get("Analysis/Sector_2/clusterSizeHisto_2");
+    TH1F tmp2;
+    tmp->Copy(tmp2);
+    TH1F* clusterSizeHisto = &tmp2;
+    clusterSizeHisto->SetStats(0);
+    clusterSizeHisto->SetTitle("");
+    clusterSizeHisto->GetXaxis()->SetTitleSize(0.05);
+    clusterSizeHisto->GetYaxis()->SetTitleSize(0.05);
+    clusterSizeHisto->GetXaxis()->SetTitleOffset(0.9);
+    clusterSizeHisto->GetYaxis()->SetTitleOffset(0.9);
+    clusterSizeHisto->GetXaxis()->SetRangeUser(1,10);
+    clusterSizeHisto->GetYaxis()->SetTitle("Fraction of clusters");
+    clusterSizeHisto->GetXaxis()->SetTitle("Cluster size (pixels)");
+    float entries = clusterSizeHisto->GetEntries();
+    clusterSizeHisto->Scale(1./entries);
+    clusterSizeHisto->SetLineColor(colors[iFiles]);
+    clusterSizeHisto->SetLineStyle(iFiles==4?1:iFiles+2);
+    clusterSizeHisto->SetLineWidth(2);
+    clusterSizeHisto->SetMarkerColor(colors[iFiles]);
+    legend->AddEntry(clusterSizeHisto->Clone(), Form("I_{thr} = %d DAC units",ithr[iFiles]));
+    clusterSizeHisto->DrawClone(iFiles==0?"":"SAME");
+  }
+  legend->Draw(); 
+}
+
+void draw2DClusterShapePlots()
+{
+  string fileName = "/mnt/data/scratch/analysis/pALPIDEfs/PS/July/run000411/histogram/run000411-analysis_DUT3.root";
+  TFile* histFile = new TFile(fileName.c_str(),"READONLY");
+  if (!histFile || histFile->IsZombie())
+    return;
+  for (int iShape=0; iShape<13; iShape++)
+  {
+    if (iShape == 5 || iShape == 8 || iShape == 9 || iShape == 12) continue;
+    TCanvas* c = new TCanvas(Form("clusterShape%d",iShape),"Cluster size",850,800);
+    TH2* clusterShape = 0;
+    if (iShape < 8)
+      clusterShape = (TH2*)histFile->Get(Form("Analysis/ClusterShape/clusterShape2D2by2_%d",iShape));
+    else clusterShape = (TH2*)histFile->Get(Form("Analysis/ClusterShape/clusterShapeGrouped2D2by2_%d",iShape-9));
+    clusterShape->GetZaxis()->SetTitle("Number of clusters");
+    clusterShape->SetStats(0); 
+    clusterShape->SetTitle("");
+    c->SetRightMargin(0.15);
+//    clusterShape->GetXaxis()->SetTitleSize(0.05); 
+//    clusterShape->GetYaxis()->SetTitleSize(0.05); 
+    clusterShape->GetXaxis()->SetTitleOffset(0.9);
+    clusterShape->GetYaxis()->SetTitleOffset(0.9);
+    clusterShape->GetXaxis()->SetNdivisions(505); 
+    clusterShape->GetYaxis()->SetNdivisions(505); 
+
+    clusterShape->Draw("COLZ");
+    c->Update();
+    TLine* l1 = new TLine(c->GetUxmin(),0.028,c->GetUxmax(),0.028);
+    l1->SetLineColor(1);
+    l1->SetLineStyle(9);
+    l1->SetLineWidth(11);
+    l1->Draw();
+    TLine* l2 = new TLine(0.028,c->GetUxmin(),0.028,c->GetUxmax());
+    l2->SetLineColor(1);
+    l2->SetLineStyle(9);
+    l2->SetLineWidth(11);
+    l2->Draw();
+    if (iShape < 8) c->SaveAs(Form("summary/clusterShape2D_%d.pdf",iShape));
+    else c->SaveAs(Form("summary/clusterShapeGrouped2D_%d.pdf",iShape-9));
+  }
+}
+
+void drawClusterShapeDistribution()
+{
+  int colors[] = { kGreen+1, kRed, kBlue, kOrange-3, 1, kGray+1, kViolet-9, kCyan+1, kMagenta-2, kGreen+3, kGray+1, kOrange+1, 28, 30, 36, 40, 46 };
+  new TCanvas("clusterShape","clusterShape",800,600);
+  const int nFiles = 5;
+  int fileNumbers[] = {392,351,405,407,411};
+  int ithr[] = {70,51,40,30,20};
+  TLegend * legend = new TLegend(0.55,0.62,0.9,0.88);
+  legend->SetFillColor(0);
+  legend->SetFillStyle(0);
+  legend->SetLineColor(0);
+  legend->SetBorderSize(0);
+  for (int iFiles=0; iFiles<nFiles; iFiles++)
+  {
+    string fileName = Form("/mnt/data/scratch/analysis/pALPIDEfs/PS/July/run%06d/histogram/run%06d-analysis_DUT3.root",fileNumbers[iFiles],fileNumbers[iFiles]);
+    TFile* histFile = new TFile(fileName.c_str(),"READONLY");
+    if (!histFile || histFile->IsZombie())
+      continue;
+    TH1I* tmp = (TH1I*)histFile->Get("Analysis/ClusterShape/clusterShapeHistoGrouped");
+    TH1I* tmpNorm = (TH1I*)histFile->Get("Analysis/ClusterShape/clusterShapeHisto");
+    TH1F tmp2;
+    tmp->Copy(tmp2);
+    TH1F* clusterShapeHisto = &tmp2;
+    clusterShapeHisto->SetStats(0);
+    clusterShapeHisto->SetTitle("");
+    clusterShapeHisto->GetXaxis()->SetTitleSize(0.05);
+    clusterShapeHisto->GetYaxis()->SetTitleSize(0.05);
+    clusterShapeHisto->GetXaxis()->SetTitleOffset(0.9);
+    clusterShapeHisto->GetYaxis()->SetTitleOffset(0.9);
+    clusterShapeHisto->GetXaxis()->SetRangeUser(-0.5,3.5);
+    clusterShapeHisto->GetYaxis()->SetTitle("Fraction of clusters");
+    clusterShapeHisto->GetXaxis()->SetTitle("Shape ID");
+    float entries = tmpNorm->GetEntries();
+    clusterShapeHisto->Scale(1./entries);
+    clusterShapeHisto->SetLineColor(colors[iFiles]);
+    clusterShapeHisto->SetLineStyle(iFiles==4?1:iFiles+2);
+    clusterShapeHisto->SetLineWidth(2);
+    clusterShapeHisto->SetMarkerColor(colors[iFiles]);
+    legend->AddEntry(clusterShapeHisto->Clone(), Form("I_{thr} = %d DAC units",ithr[iFiles]));
+    clusterShapeHisto->DrawClone(iFiles==0?"":"SAME");
+  }
+  legend->Draw(); 
+}
+
+void drawResidual2DPlots()
+{
+  int runNumber = 411;
+  string fileName = Form("/mnt/data/scratch/analysis/pALPIDEfs/PS/July/run000%d/histogram/run000%d-analysis_DUT3.root",runNumber,runNumber);
+  TFile* histFile = new TFile(fileName.c_str(),"READONLY");
+  if (!histFile || histFile->IsZombie())
+    return;
+  TCanvas* cX = new TCanvas("residualX","Residual X",860,800);
+  TCanvas* cY = new TCanvas("residualY","Residual Y",860,800);
+  TH2* residualX = (TH2*)histFile->Get("Analysis/Sector_2/residualAverageXPixel2by2_30.0_2");
+  TH2* residualY = (TH2*)histFile->Get("Analysis/Sector_2/residualAverageYPixel2by2_30.0_2");
+  residualX->GetZaxis()->SetTitle("Residual in X (mm)");
+  residualX->SetStats(0); 
+  residualX->SetTitle("");
+  cX->cd();
+  cX->SetRightMargin(0.18);
+  residualX->GetZaxis()->SetTitleOffset(1.8);
+  residualX->GetXaxis()->SetTitleOffset(0.9);
+  residualX->GetYaxis()->SetTitleOffset(0.9);
+  residualX->SetMinimum(0);
+  residualX->SetMaximum(0.015);
+  residualX->GetXaxis()->SetNdivisions(505); 
+  residualX->GetYaxis()->SetNdivisions(505); 
+
+  residualX->Draw("COLZ");
+  residualY->GetZaxis()->SetTitle("Residual in Y (mm)");
+  residualY->SetStats(0); 
+  residualY->SetTitle("");
+  cY->cd();
+  cY->SetRightMargin(0.18);
+  residualY->GetZaxis()->SetTitleOffset(1.8);
+  residualY->GetXaxis()->SetTitleOffset(0.9);
+  residualY->GetYaxis()->SetTitleOffset(0.9);
+  residualY->SetMinimum(0);
+  residualY->SetMaximum(0.015);
+  residualY->GetXaxis()->SetNdivisions(505); 
+  residualY->GetYaxis()->SetNdivisions(505); 
+  residualY->Draw("COLZ");
+  cX->cd();
+  cX->Update();
+  TLine* l1 = new TLine(cX->GetUxmin(),0.028,cX->GetUxmax(),0.028);
+  l1->SetLineColor(1);
+  l1->SetLineStyle(9);
+  l1->SetLineWidth(11);
+  l1->DrawClone();
+  TLine* l2 = new TLine(0.028,cX->GetUxmin(),0.028,cX->GetUxmax());
+  l2->SetLineColor(1);
+  l2->SetLineStyle(9);
+  l2->SetLineWidth(11);
+  l2->DrawClone();
+  cX->SaveAs("summary/residualX2D.pdf");
+  cY->cd();
+  cY->Update();
+  l1->Draw();
+  l2->Draw();
+  cY->SaveAs("summary/residualY2D.pdf");
+}
