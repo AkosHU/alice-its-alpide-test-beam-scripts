@@ -146,20 +146,20 @@
      # BB=0V W2-31
        echo "{" > tmp.C
        echo 'gROOT->LoadMacro("/home/analysis/ILCSOFT_DESY/palpidefs_scripts/plot_pALPIDEfs.C+");' >> tmp.C
-       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1182,1953,"1190 1199-1211 1215-1248 1252-1274 1278-1284 1286-1862 1871-1886 1895-1910 1919-1938 1945-1947","2.80 2.41 2.26 2.53","thr.dat","","","",0);' >> tmp.C
-       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1200,1211,"1208-1211","6.03 5.53 5.33 5.68","thr.dat","","","",0);' >> tmp.C
+       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1182,1953,"1190 1199-1211 1215-1248 1252-1274 1278-1284 1286-1862 1871-1886 1895-1910 1919-1938 1945-1947","2.80 2.43 2.26 2.54","thr.dat","","","",0);' >> tmp.C
+       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1200,1211,"1208-1211","6.14 5.65 5.44 5.81","thr.dat","","","",0);' >> tmp.C
        echo "}" >> tmp.C
        root -b -q tmp.C
      # BB=-3V W2-31
        echo "{" > tmp.C
        echo 'gROOT->LoadMacro("/home/analysis/ILCSOFT_DESY/palpidefs_scripts/plot_pALPIDEfs.C+");' >> tmp.C
-       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1244,2223,"1245-1267 1273-2131 2134 2139-2142 2154 2163-2170 2183-2200","2.80 2.41 2.26 2.53","thr.dat","","","",-3);' >> tmp.C
+       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1244,2223,"1245-1267 1273-2131 2134 2139-2142 2154 2163-2170 2183-2200","2.80 2.43 2.26 2.54","thr.dat","","","",-3);' >> tmp.C
        echo "}" >> tmp.C
        root -b -q tmp.C
      # BB=-6V W2-31
        echo "{" > tmp.C
        echo 'gROOT->LoadMacro("/home/analysis/ILCSOFT_DESY/palpidefs_scripts/plot_pALPIDEfs.C+");' >> tmp.C
-       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1252,1265,"1253","2.80 2.41 2.26 2.53","thr.dat","","","",-6);' >> tmp.C
+       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1252,1265,"1253","2.80 2.43 2.26 2.54","thr.dat","","","",-6);' >> tmp.C
        echo "}" >> tmp.C
        root -b -q tmp.C
      # BB=0V FLEX
@@ -171,96 +171,96 @@
      # BB=0V W2-23
        echo "{" > tmp.C
        echo 'gROOT->LoadMacro("/home/analysis/ILCSOFT_DESY/palpidefs_scripts/plot_pALPIDEfs.C+");' >> tmp.C
-       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1993,2020,"2001-2003 2009-2010 2016-2019","2.80 2.41 2.26 2.53","thr.dat","","","",0);' >> tmp.C
+       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1993,2020,"2001-2003 2009-2010 2016-2019","2.80 2.43 2.26 2.54","thr.dat","","","",0);' >> tmp.C
        echo "}" >> tmp.C
        root -b -q tmp.C
      # BB=0V W8-29
        echo "{" > tmp.C
        echo 'gROOT->LoadMacro("/home/analysis/ILCSOFT_DESY/palpidefs_scripts/plot_pALPIDEfs.C+");' >> tmp.C
-       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,2023,2029,"","2.80 2.41 2.26 2.53","thr.dat","","","",0);' >> tmp.C
+       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,2023,2029,"","2.80 2.43 2.26 2.54","thr.dat","","","",0);' >> tmp.C
        echo "}" >> tmp.C
        root -b -q tmp.C
     # Irradiated with 0.25 x 10^13 
       # BB=0V W2-10
        echo "{" > tmp.C
        echo 'gROOT->LoadMacro("/home/analysis/ILCSOFT_DESY/palpidefs_scripts/plot_pALPIDEfs.C+");' >> tmp.C
-       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1175,1181,"","2.80 2.41 2.26 2.53","thr.dat","","","",0)' >> tmp.C
+       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1175,1181,"","2.80 2.43 2.26 2.54","thr.dat","","","",0)' >> tmp.C
        echo "}" >> tmp.C
        root -b -q tmp.C
       # BB=0V W2-08
        echo "{" > tmp.C
        echo 'gROOT->LoadMacro("/home/analysis/ILCSOFT_DESY/palpidefs_scripts/plot_pALPIDEfs.C+");' >> tmp.C
-       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1104,1110,"","2.80 2.41 2.26 2.53","thr.dat","","","",0);' >> tmp.C
+       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1104,1110,"","2.80 2.43 2.26 2.54","thr.dat","","","",0);' >> tmp.C
        echo "}" >> tmp.C
        root -b -q tmp.C
       # BB=-3V W2-08
        echo "{" > tmp.C
        echo 'gROOT->LoadMacro("/home/analysis/ILCSOFT_DESY/palpidefs_scripts/plot_pALPIDEfs.C+");' >> tmp.C
-       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1111,2231,"1113 1119-2224 2229","2.80 2.41 2.26 2.53","thr.dat","","","",-3);' >> tmp.C
+       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1111,2231,"1113 1119-2224 2229","2.80 2.43 2.26 2.54","thr.dat","","","",-3);' >> tmp.C
        echo "}" >> tmp.C
        root -b -q tmp.C
       # BB=-6V W2-08
        echo "{" > tmp.C
        echo 'gROOT->LoadMacro("/home/analysis/ILCSOFT_DESY/palpidefs_scripts/plot_pALPIDEfs.C+");' >> tmp.C
-       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1119,1124,"","2.80 2.41 2.26 2.53","thr.dat","","","",-6);' >> tmp.C
+       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1119,1124,"","2.80 2.43 2.26 2.54","thr.dat","","","",-6);' >> tmp.C
        echo "}" >> tmp.C
        root -b -q tmp.C
       # BB=0V W2-09
        echo "{" > tmp.C
        echo 'gROOT->LoadMacro("/home/analysis/ILCSOFT_DESY/palpidefs_scripts/plot_pALPIDEfs.C+");' >> tmp.C
-       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1160,1166,"","2.80 2.41 2.26 2.53","thr.dat","","","",0);' >> tmp.C
-       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1168,1174,"","6.03 5.53 5.33 5.68","thr.dat","","","",0);' >> tmp.C
+       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1160,1166,"","2.80 2.43 2.26 2.54","thr.dat","","","",0);' >> tmp.C
+       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1168,1174,"","6.14 5.65 5.44 5.81","thr.dat","","","",0);' >> tmp.C
        echo "}" >> tmp.C
        root -b -q tmp.C
     # Irradiated with 1 x 10^13 
       # BB=0V W2-15
        echo "{" > tmp.C
        echo 'gROOT->LoadMacro("/home/analysis/ILCSOFT_DESY/palpidefs_scripts/plot_pALPIDEfs.C+");' >> tmp.C
-       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1153,1159,"","2.80 2.41 2.26 2.53","thr.dat","","","",0);' >> tmp.C
+       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1153,1159,"","2.80 2.43 2.26 2.54","thr.dat","","","",0);' >> tmp.C
        echo "}" >> tmp.C
        root -b -q tmp.C
       # BB=0V W2-12
        echo "{" > tmp.C
        echo 'gROOT->LoadMacro("/home/analysis/ILCSOFT_DESY/palpidefs_scripts/plot_pALPIDEfs.C+");' >> tmp.C
-       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1097,1103,"","2.80 2.41 2.26 2.53","thr.dat","","","",0);' >> tmp.C
+       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1097,1103,"","2.80 2.43 2.26 2.54","thr.dat","","","",0);' >> tmp.C
        echo "}" >> tmp.C
        root -b -q tmp.C
       # BB=-3V W2-12
        echo "{" > tmp.C
        echo 'gROOT->LoadMacro("/home/analysis/ILCSOFT_DESY/palpidefs_scripts/plot_pALPIDEfs.C+");' >> tmp.C
-       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1090,2200,"1096-2191","2.80 2.41 2.26 2.53","thr.dat","","","",-3);' >> tmp.C
+       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1090,2200,"1096-2191","2.80 2.43 2.26 2.54","thr.dat","","","",-3);' >> tmp.C
        echo "}" >> tmp.C
        root -b -q tmp.C
       # BB=-6V W2-12
        echo "{" > tmp.C
        echo 'gROOT->LoadMacro("/home/analysis/ILCSOFT_DESY/palpidefs_scripts/plot_pALPIDEfs.C+");' >> tmp.C
-       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1085,1089,"","2.80 2.41 2.26 2.53","thr.dat","","","",-6);' >> tmp.C
+       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1085,1089,"","2.80 2.43 2.26 2.54","thr.dat","","","",-6);' >> tmp.C
        echo "}" >> tmp.C
        root -b -q tmp.C
     # Irradiated with 700 krad 
       # BB=0V W2-32
        echo "{" > tmp.C
        echo 'gROOT->LoadMacro("/home/analysis/ILCSOFT_DESY/palpidefs_scripts/plot_pALPIDEfs.C+");' >> tmp.C
-       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1146,1151,"","2.80 2.41 2.26 2.53","thr.dat","","","",0);' >> tmp.C
+       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1146,1151,"","2.80 2.43 2.26 2.54","thr.dat","","","",0);' >> tmp.C
        echo "}" >> tmp.C
        root -b -q tmp.C
     # Irradiated with 1 x 10^13 + 700 krad 
       # BB=0V W2-14
        echo "{" > tmp.C
        echo 'gROOT->LoadMacro("/home/analysis/ILCSOFT_DESY/palpidefs_scripts/plot_pALPIDEfs.C+");' >> tmp.C
-       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1125,1130,"","2.80 2.41 2.26 2.53","thr.dat","","","",0);' >> tmp.C
+       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1125,1130,"","2.80 2.43 2.26 2.54","thr.dat","","","",0);' >> tmp.C
        echo "}" >> tmp.C
        root -b -q tmp.C
       # BB=-3V W2-14
        echo "{" > tmp.C
        echo 'gROOT->LoadMacro("/home/analysis/ILCSOFT_DESY/palpidefs_scripts/plot_pALPIDEfs.C+");' >> tmp.C
-       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1131,1137,"","2.80 2.41 2.26 2.53","thr.dat","","","",-3);' >> tmp.C
+       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1131,1137,"","2.80 2.43 2.26 2.54","thr.dat","","","",-3);' >> tmp.C
        echo "}" >> tmp.C
        root -b -q tmp.C
       # BB=-6V W2-14
        echo "{" > tmp.C
        echo 'gROOT->LoadMacro("/home/analysis/ILCSOFT_DESY/palpidefs_scripts/plot_pALPIDEfs.C+");' >> tmp.C
-       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1138,1145,"","2.80 2.41 2.26 2.53","thr.dat","","","",-6);' >> tmp.C
+       echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/PS/Sept-Nov/",3,1138,1145,"","2.80 2.43 2.26 2.54","thr.dat","","","",-6);' >> tmp.C
        echo "}" >> tmp.C
        root -b -q tmp.C
   # July
@@ -308,19 +308,19 @@
   # BB=0V
     echo "{" > tmp.C
     echo 'gROOT->LoadMacro("/home/analysis/ILCSOFT_DESY/palpidefs_scripts/plot_pALPIDEfs.C+");' >> tmp.C
-    echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/SPS/Oct/",3,1652,1788,"1653-1659 1666 1675 1684 1693-1694 1703-1704 1713-1729 1738-1769 1778-1780","2.65 2.25 2.08 2.37","","","","",0);' >> tmp.C
+    echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/SPS/Oct/",3,1652,1788,"1653-1659 1666 1675 1684 1693-1694 1703-1704 1713-1729 1738-1769 1778-1780","2.64 2.25 2.07 2.39","","","","",0);' >> tmp.C
     echo "}" >> tmp.C
     root -b -q tmp.C
   # BB=-3V
     echo "{" > tmp.C
     echo 'gROOT->LoadMacro("/home/analysis/ILCSOFT_DESY/palpidefs_scripts/plot_pALPIDEfs.C+");' >> tmp.C
-    echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/SPS/Oct/",3,1740,1769,"1745 1755-1762","2.65 2.25 2.08 2.37","","","","",-3);' >> tmp.C
+    echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/SPS/Oct/",3,1740,1769,"1745 1755-1762","2.64 2.25 2.07 2.39","","","","",-3);' >> tmp.C
     echo "}" >> tmp.C
     root -b -q tmp.C
   # BB=-6V
     echo "{" > tmp.C
     echo 'gROOT->LoadMacro("/home/analysis/ILCSOFT_DESY/palpidefs_scripts/plot_pALPIDEfs.C+");' >> tmp.C
-    echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/SPS/Oct/",3,1755,1760,"","2.65 2.25 2.08 2.37","","","","",-6);' >> tmp.C
+    echo 'WriteGraph("/mnt/data/scratch/analysis/pALPIDEfs/SPS/Oct/",3,1755,1760,"","2.64 2.25 2.07 2.39","","","","",-6);' >> tmp.C
     echo "}" >> tmp.C
     root -b -q tmp.C
 
