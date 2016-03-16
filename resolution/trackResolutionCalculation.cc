@@ -103,7 +103,7 @@ double Resolution(int nPlanes, bool vacuum, bool airAtFitting, double * inputDis
   bool passiveLayer[nScatteringLayer];
   for (int i=0; i<nScatteringLayer; i++)
   {
-    if (resolution[i] < 0 || i == ((!vacuum)?(dutID-1)*2:dutID-1)) passiveLayer[i] = true;
+    if (resolution[i] <= 0 || i == ((!vacuum)?(dutID-1)*2:dutID-1)) passiveLayer[i] = true;
     else  passiveLayer[i] = false;
     if (resolution[i] >= 0) radiationLength[i] = 93.688;
   }
@@ -133,6 +133,8 @@ double Resolution(int nPlanes, bool vacuum, bool airAtFitting, double * inputDis
       double resolX = resolutionFit[iPlanes];
       double resolY = resolutionFit[iPlanes];
       dTheta[iPlanes] = 13.6/energy*TMath::Sqrt(thickness[iPlanes]/radiationLength[iPlanes])*(1.0+0.038*TMath::Log(thickness[iPlanes]/radiationLength[iPlanes]));
+//      cerr << dTheta[iPlanes] << "\t" << dTheta[iPlanes]/3.14*180. << endl;
+//      cerr << TMath::Tan(dTheta[iPlanes])*19.6*1000 << endl;
       scattering[iPlanes] = 1.0/(dTheta[iPlanes]*dTheta[iPlanes]);
       if (iPlanes == 0)
       {

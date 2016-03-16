@@ -11,7 +11,7 @@ bool Skip(int runNumber)
   else return false;
 }
 
-void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string toSkip, double pointingRes, string noiseFileName, string thresholdFileName, string settingsFileFolder, double BBOverWrite)
+void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string toSkip, string pointingRes, string thrNoiseFileName, string noiseFileName, string thresholdFileName, string settingsFileFolder, double BBOverWrite)
 {
   double globalBB;
   int globalIrr;
@@ -44,9 +44,18 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
         toSkipV.push_back(i);
     }    
   }
-//  TTree *tree = new TTree("tree","Output");
-//  tree->Branch("",&point,"x:y:z");
-//  tree->Branch("hpx","TH1F",&hpx,128000,0);
+  vector<double> pointingResV;
+  std::istringstream pointingResIs(pointingRes);
+  string pointingResStr;
+  while( pointingResIs >> pointingResStr)
+  {
+    double pointingResTmp;
+    pointingResTmp = atof(pointingResStr.c_str());
+    pointingResV.push_back(pointingResTmp);
+  }
+  if (pointingResV.size() == 0)
+    for (int iSector=0; iSector<4; iSector++)
+      pointingResV.push_back(0);
   std::map<int,int> runNumberConvert;
   vector<Run> runs;
   Run run;
@@ -67,9 +76,7 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
   double energy=0, ithr=0, idb=0, vcasn=0, vaux=0, vcasp=0, vreset=0, BB=0, readoutDelay=0, triggerDelay=0, strobeLength=0, strobeBLength=0;
   string chipID, rate;
   vector<double> thr(4), thrE(4), noise(4), noiseE(4), eff(4), nTrack(4), nTrackFound(4);
-//  tree->Branch("nEvent",&nEvent);
-//  tree->Branch("eff",&eff);
-//  tree->Branch("run",&run,"runNumber/I:nEvent/I");
+  bool delaysNotSaved = false;
   while (getline(settingsFile, line))
   {
     stringstream strstr(line);
@@ -167,8 +174,6 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
     }
     if (Skip(runNumber)) continue; 
     runNumberConvert[runNumber] = tmp;
-//      ithr = ithr/51*500; //Converting to pA
-//    ithrM = ithrM/4096*1000; //Converting to pA
     for (int iSector=0; iSector<4; iSector++) 
     {
       thr[iSector] *= 7.;
@@ -178,22 +183,35 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
     }
     bool isNoise = true;
     if (isData == 1) {isNoise = false;}
-    run.Set(runNumber,vcasn,vaux,vcasp,vreset,ithr,idb,thr,thrE,noise,noiseE,BB,irr,chipID,readoutDelay,triggerDelay,strobeLength,strobeBLength,isNoise,nEvent);
+    double ithrpA = ithr/51*500; //Converting to pA
+    if (BB == -4) BB = BBOverWrite;
+    if (readoutDelay == -100 && triggerDelay == -100 && strobeLength == -100 && strobeBLength == -100)
+    {
+      readoutDelay = 10;
+      triggerDelay = 75;
+      strobeLength = 10;
+      strobeBLength = 20;
+      delaysNotSaved = true;
+    }
+    run.Set(runNumber,vcasn,vaux,vcasp,vreset,ithr,ithrpA,idb,thr,thrE,noise,noiseE,BB,irr,chipID,readoutDelay,triggerDelay,strobeLength,strobeBLength,isNoise,nEvent,energy);
+    for (int iSector=0; iSector<4; iSector++) eff[iSector] = eff[iSector]*100;
     run.setEff(eff);
     run.setnTr(nTrack);
     run.setnTrpA(nTrackFound);
+    run.setPlotFlag(true);
     runs.push_back(run);
     cout << runs[tmp].getRunNumber() << " (" << tmp << ") : " << runs[tmp].getVcasn() << "\t" << runs[tmp].getIthr() << "\t" << runs[tmp].getBB() << "\t" << runs[tmp].isNoise() << endl;
     tmp++;
-//    tree->Fill();
   }
+  if (delaysNotSaved) 
+    cerr << " At least in one run Readout Delay, Trigger Delay, Strobe Length, StrobeB Length was not saved in raw data, assuming readOutDelay = 10, triggerDelay = 75, strobeLength = 10, strobeBLength = 20." << endl;
   int nRun = tmp;
   if (nRun == 0)
   {
     cerr << "No runs from the list of runs you provided was in the setting file" << endl;
     return;
   }
-  if (nRun < lastRun-firstRun+1-toSkipV.size())
+  if ((unsigned int)nRun < lastRun-firstRun+1-toSkipV.size())
     cerr << "Some runs from the list of runs you provided were not in the setting file. Continuing, but you should check what happened to those runs." << endl;
   for (int i=0;i<nRun;i++)
   {
@@ -201,10 +219,9 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
       for (int j=0;j<nRun;j++)
       {
         if (i == j) continue;
-	if (!runs[i].isNoise()) continue;
+	if (!runs[j].isNoise()) continue;
         if (runs[i].equalSettings(runs[j]))
         {
-//          cerr << runs[i].getRunNumber() << "\t" << runs[j].getRunNumber() << endl;
           runs[i].setThr(runs[j].getThr());
           runs[i].setThrE(runs[j].getThrE());
           runs[i].setNoise(runs[j].getNoise());
@@ -237,59 +254,112 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
   }
 
   settingsFile.close();
-  vector<TGraphAsymmErrors*> efficiencyThr(4);
-//  vector<TGraphAsymmErrors*> efficiencyIthr(4);
+
+  if (thrNoiseFileName.compare("") !=0)
+  {
+    ifstream thrNoiseFile;
+    thrNoiseFile.open(thrNoiseFileName.c_str());
+    bool thrNoiseFileFound = true;
+    if (!thrNoiseFile.is_open())
+    {
+      cerr << "Threshold/noise file at " << thrNoiseFileName << "is not found, continuing wihtout threshold/noise values." << endl;
+      thrNoiseFileFound = false;
+    }
+    if (thrNoiseFileFound)
+    {
+      while (getline(thrNoiseFile, line))
+      {
+        stringstream strstr(line);
+        string word;
+        int nWords = 0;
+        size_t BBPos = 0;
+        string BBStr="";
+        while (getline(strstr,word, ';'))
+        {
+          switch(nWords) {
+            case 0:
+              chipID = word;
+              break;
+            case 1:
+              BBPos = word.find("V");
+              BBStr = word.substr(BBPos-1,1);
+              BB = std::atof(BBStr.c_str());
+              if (BB != 0) BB = -1*BB;
+              break;
+            case 2:
+              vcasn=std::atof(word.c_str());
+              break;
+            case 3:
+              ithr=std::atof(word.c_str());
+              break;
+            case 4:
+              vaux=std::atof(word.c_str());
+              break;
+            case 5:
+              for (int iSector=0; iSector<4; iSector++)
+              {
+                thr[iSector] = std::atof(word.c_str());
+                getline(strstr,word, ';');
+                thrE[iSector] = std::atof(word.c_str());
+                if (iSector != 3) getline(strstr,word, ';');
+              }
+              break;
+            case 6:
+              for (int iSector=0; iSector<4; iSector++)
+              {
+                noise[iSector] = std::atof(word.c_str());
+                getline(strstr,word, ';');
+                noiseE[iSector] = std::atof(word.c_str());
+                if (iSector != 3) getline(strstr,word, ';');
+              }
+              break;
+            default:
+              break;
+          }
+          nWords++;
+        }
+        for (int i=0;i<nRun;i++)
+        {
+          if (runs[i].getChipID().compare(chipID) == 0 && (BBOverWrite == BB || runs[i].getBB() == BB) && runs[i].getIthr() == ithr && runs[i].getVcasn() == vcasn && runs[i].getVaux() == vaux)
+          {
+            runs[i].setThr(thr);
+            runs[i].setThrE(thrE);
+            runs[i].setNoise(noise);
+            runs[i].setNoiseE(noiseE);
+          }
+        }
+      }
+    }
+  }
   vector<TGraph2D*> efficiencyIthrVcasn(4);
   vector<TGraph2D*> nTrIthrVcasn(4);
   vector<TGraph2D*> nTrpAIthrVcasn(4);
+  vector<TGraph2D*> thresholdIthrVcasn(4);
   for (int i=0; i<4; i++)
   {
-    efficiencyThr[i] = new TGraphAsymmErrors;
     efficiencyIthrVcasn[i] = new TGraph2D;
     nTrIthrVcasn[i] = new TGraph2D;
     nTrpAIthrVcasn[i] = new TGraph2D;
-//    efficiencyIthr[i] = new TGraphAsymmErrors;
+    thresholdIthrVcasn[i] = new TGraph2D;
   }
   vector<double> nTr0(4,0), nTrpA0(4,0);
   vector<TH1*> clusterSizeHisto(4);
-  vector<TGraphErrors*> clusterSizeThr(4);
   vector<TGraph2DErrors*> clusterSizeIthrVcasn(4);
-//  vector<TGraphErrors*> clusterSizeIthr(4);
   vector<TH1*> residualXHisto(4);
-  vector<TGraphErrors*> residualXThr(4);
-  vector<TGraphErrors*> resolutionXThr(4);
   vector<TH1*> residualYHisto(4);
-  vector<TGraphErrors*> residualYThr(4);
-  vector<TGraphErrors*> resolutionYThr(4);
-  vector<TGraphErrors*> residualThr(4);
   vector<TGraph2DErrors*> residualIthrVcasn(4);
-  vector<TGraphErrors*> resolutionThr(4);
   vector<TGraph2DErrors*> resolutionIthrVcasn(4);
   TH2* fakeHitHistoFromNoise;
   TH1* noiseOccupancyBeforeRemovalFromNoiseHisto;
   TH1* noiseOccupancyAfterRemovalFromNoiseHisto;
-  vector<TGraphErrors*> noiseOccupancyBeforeRemovalThrFromNoise(4);
-  vector<TGraphErrors*> noiseOccupancyAfterRemovalThrFromNoise(4);
   vector<TGraph2DErrors*> noiseOccupancyBeforeRemovalIthrVcasnFromNoise(4);
   vector<TGraph2DErrors*> noiseOccupancyAfterRemovalIthrVcasnFromNoise(4);
-//  vector<TGraphErrors*> noiseOccupancyAfterRemovalFromNoiseIthr(4);
 
   for (int i=0; i<4; i++)
   {
-    noiseOccupancyBeforeRemovalThrFromNoise[i] = new TGraphErrors;
     noiseOccupancyBeforeRemovalIthrVcasnFromNoise[i] = new TGraph2DErrors;
-    noiseOccupancyAfterRemovalThrFromNoise[i] = new TGraphErrors;
     noiseOccupancyAfterRemovalIthrVcasnFromNoise[i] = new TGraph2DErrors;
-//    noiseOccupancyAfterRemovalFromNoiseIthr[i] = new TGraphErrors;
-    clusterSizeThr[i] = new TGraphErrors;
     clusterSizeIthrVcasn[i] = new TGraph2DErrors;
-//    clusterSizeIthr[i] = new TGraphErrors;
-    residualXThr[i] = new TGraphErrors;
-    resolutionXThr[i] = new TGraphErrors;
-    residualYThr[i] = new TGraphErrors;
-    resolutionYThr[i] = new TGraphErrors;
-    residualThr[i] = new TGraphErrors;
-    resolutionThr[i] = new TGraphErrors;
     residualIthrVcasn[i] = new TGraph2DErrors;
     resolutionIthrVcasn[i] = new TGraph2DErrors;
   }
@@ -319,11 +389,35 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
     clusterSizeHisto = runs[i].getClusterSize();
     residualXHisto = runs[i].getResidualX();
     residualYHisto = runs[i].getResidualY();
+    bool isEmpty = true;
+    for (int iSector=0; iSector<4; iSector++)
+      if (residualXHisto[iSector]->GetMean() != 0 || residualXHisto[iSector]->GetRMS() != 0 || residualYHisto[iSector]->GetMean() != 0 || residualYHisto[iSector]->GetRMS() != 0) isEmpty = false;
+    if (isEmpty) continue;
+    for (int iSector=0; iSector<4; iSector++)
+    {
+      TH1 *residualXHistoTmp = (TH1*)residualXHisto[iSector]->Clone("residualXHistoTmp");
+      TH1 *residualYHistoTmp = (TH1*)residualYHisto[iSector]->Clone("residualYHistoTmp");
+      residualXHistoTmp->Reset();
+      residualYHistoTmp->Reset();
+      for (int iBin=1; iBin<residualXHisto[iSector]->GetNbinsX()+1 && residualXHisto[iSector]->GetEntries() != 0; iBin++)
+      {
+        if (residualXHisto[iSector]->GetBinCenter(iBin)-residualXHisto[iSector]->GetMean() > -0.3 && residualXHisto[iSector]->GetBinCenter(iBin)-residualXHisto[iSector]->GetMean() < 0.3)
+          residualXHistoTmp->SetBinContent(residualXHisto[iSector]->FindBin(residualXHisto[iSector]->GetBinCenter(iBin)-residualXHisto[iSector]->GetMean()),residualXHisto[iSector]->GetBinContent(iBin));
+      }
+      for (int iBin=1; iBin<residualYHisto[iSector]->GetNbinsX()+1 && residualYHisto[iSector]->GetEntries() != 0; iBin++)
+      {
+        if (residualYHisto[iSector]->GetBinCenter(iBin)-residualYHisto[iSector]->GetMean() > -0.3 && residualYHisto[iSector]->GetBinCenter(iBin)-residualYHisto[iSector]->GetMean() < 0.3)
+          residualYHistoTmp->SetBinContent(residualYHisto[iSector]->FindBin(residualYHisto[iSector]->GetBinCenter(iBin)-residualYHisto[iSector]->GetMean()),residualYHisto[iSector]->GetBinContent(iBin));
+      }
+      residualXHisto[iSector] = (TH1*)residualXHistoTmp->Clone();
+      residualYHisto[iSector] = (TH1*)residualYHistoTmp->Clone();
+    }
     for (int j=i+1;j<nRun;j++)
     {
       if (runs[j].isNoise()) continue;
       if (runs[i].equalSettings(runs[j]))
       {
+        runs[j].setPlotFlag(false);
         clusterSizeHisto2 = runs[j].getClusterSize();
         residualXHisto2 = runs[j].getResidualX();
         residualYHisto2 = runs[j].getResidualY();
@@ -331,9 +425,24 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
         {
           clusterSizeHisto[iSector]->Add(clusterSizeHisto2[iSector]);
           clusterSizeHisto2[iSector]->Reset();
-          residualXHisto[iSector]->Add(residualXHisto2[iSector]);
+
+          TH1 *residualXHistoTmp = (TH1*)residualXHisto2[iSector]->Clone("residualXHistoTmp");
+          TH1 *residualYHistoTmp = (TH1*)residualYHisto2[iSector]->Clone("residualYHistoTmp");
+          residualXHistoTmp->Reset();
+          residualYHistoTmp->Reset();
+          for (int iBin=1; iBin<residualXHisto2[iSector]->GetNbinsX()+1 && residualXHisto2[iSector]->GetEntries() != 0; iBin++)
+          {
+            if (residualXHisto2[iSector]->GetBinCenter(iBin)-residualXHisto2[iSector]->GetMean() > -0.3 && residualXHisto2[iSector]->GetBinCenter(iBin)-residualXHisto2[iSector]->GetMean() < 0.3)
+              residualXHistoTmp->SetBinContent(residualXHisto2[iSector]->FindBin(residualXHisto2[iSector]->GetBinCenter(iBin)-residualXHisto2[iSector]->GetMean()),residualXHisto2[iSector]->GetBinContent(iBin));
+          }
+          for (int iBin=1; iBin<residualYHisto2[iSector]->GetNbinsX()+1 && residualYHisto2[iSector]->GetEntries() != 0; iBin++)
+          {
+            if (residualYHisto2[iSector]->GetBinCenter(iBin)-residualYHisto2[iSector]->GetMean() > -0.3 && residualYHisto2[iSector]->GetBinCenter(iBin)-residualYHisto2[iSector]->GetMean() < 0.3)
+              residualYHistoTmp->SetBinContent(residualYHisto2[iSector]->FindBin(residualYHisto2[iSector]->GetBinCenter(iBin)-residualYHisto2[iSector]->GetMean()),residualYHisto2[iSector]->GetBinContent(iBin));
+          }
+          residualXHisto[iSector]->Add(residualXHistoTmp);
           residualXHisto2[iSector]->Reset();
-          residualYHisto[iSector]->Add(residualYHisto2[iSector]);
+          residualYHisto[iSector]->Add(residualYHistoTmp);
           residualYHisto2[iSector]->Reset();
         }
         runs[j].setClusterSize(clusterSizeHisto2);
@@ -344,79 +453,86 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
     runs[i].setClusterSize(clusterSizeHisto);
     runs[i].setResidualX(residualXHisto);
     runs[i].setResidualY(residualYHisto);
-//    if (runs[i].getPlace() == 0 && runs[i].getVcasn() ==145) residualXHisto[0]->Draw("SAME");
   }
   for (int i=0;i<nRun;i++)
   {
     if (runs[i].isNoise()) continue;
+    vector<double> clusterSizeV, clusterSizeVRMS, residualV, residualVE, resolutionV, resolutionVE;
     for (int iSector=0; iSector<4; iSector++)
     {
       clusterSizeHisto = runs[i].getClusterSize();
-      if (clusterSizeHisto[iSector]->Integral() < 100) continue;
+      clusterSizeV.push_back(clusterSizeHisto[iSector]->GetMean());
+      clusterSizeVRMS.push_back(clusterSizeHisto[iSector]->GetRMS());
       residualXHisto = runs[i].getResidualX();
-      TFitResultPtr resultX = residualXHisto[iSector]->Fit("gaus","QNOS");
-      Int_t fitStatusX = resultX;
+      Int_t fitStatusX = -1, fitStatusY = -1;
+      TFitResultPtr resultX, resultY;
+      if (residualXHisto[iSector]->GetEntries() != 0)
+      {
+        resultX = residualXHisto[iSector]->Fit("gaus","QNOS");
+        fitStatusX = resultX;
+      }
       residualYHisto = runs[i].getResidualY();
-      TFitResultPtr resultY = residualYHisto[iSector]->Fit("gaus","QNOS");
-      Int_t fitStatusY = resultY;
-      clusterSizeThr[iSector]->SetPoint(clusterSizeThr[iSector]->GetN(),runs[i].getThr()[iSector],clusterSizeHisto[iSector]->GetMean());
-      clusterSizeThr[iSector]->SetPointError(clusterSizeThr[iSector]->GetN()-1,runs[i].getThrE()[iSector],clusterSizeHisto[iSector]->GetMeanError());
-      clusterSizeIthrVcasn[iSector]->SetPoint(clusterSizeIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),clusterSizeHisto[iSector]->GetMean());
-      clusterSizeIthrVcasn[iSector]->SetPointError(clusterSizeIthrVcasn[iSector]->GetN()-1,0,0,clusterSizeHisto[iSector]->GetMeanError());
-//      clusterSizeIthr[iSector]->SetPoint(clusterSizeIthr[iSector]->GetN(),runs[i].getIthr(),clusterSizeHisto[iSector]->GetMean());
-//      clusterSizeIthr[iSector]->SetPointError(clusterSizeIthr[iSector]->GetN()-1,0,clusterSizeHisto[iSector]->GetMeanError());
-      if (fitStatusX == 0)
+      if (residualYHisto[iSector]->GetEntries() != 0)
       {
-        double resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000);
-        residualXThr[iSector]->SetPoint(residualXThr[iSector]->GetN(),runs[i].getThr()[iSector],resX);
-        residualXThr[iSector]->SetPointError(residualXThr[iSector]->GetN()-1,runs[i].getThrE()[iSector],resultX->ParError(2)*1000);
-        resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000-pointingRes*pointingRes);
-        resolutionXThr[iSector]->SetPoint(resolutionXThr[iSector]->GetN(),runs[i].getThr()[iSector],resX);
-        resolutionXThr[iSector]->SetPointError(resolutionXThr[iSector]->GetN()-1,runs[i].getThrE()[iSector],resultX->ParError(2)*1000);
+        resultY = residualYHisto[iSector]->Fit("gaus","QNOS");
+        fitStatusY = resultY;
       }
-      if (fitStatusY == 0)
-      {
-        double resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000);
-        residualYThr[iSector]->SetPoint(residualYThr[iSector]->GetN(),runs[i].getThr()[iSector],resY);
-        residualYThr[iSector]->SetPointError(residualYThr[iSector]->GetN()-1,runs[i].getThrE()[iSector],resultY->ParError(2)*1000);
-        resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000-pointingRes*pointingRes);
-        resolutionYThr[iSector]->SetPoint(resolutionYThr[iSector]->GetN(),runs[i].getThr()[iSector],resY);
-        resolutionYThr[iSector]->SetPointError(resolutionYThr[iSector]->GetN()-1,runs[i].getThrE()[iSector],resultY->ParError(2)*1000);
-      }
+      double resX = -1, resY = -1, resXE = -1, resYE = -1;
       if (fitStatusX == 0 && fitStatusY == 0)
       {
-        double resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000);
-        double resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000);
-        residualThr[iSector]->SetPoint(residualThr[iSector]->GetN(),runs[i].getThr()[iSector],(resX+resY)/2.);
-        residualThr[iSector]->SetPointError(residualThr[iSector]->GetN()-1,runs[i].getThrE()[iSector],sqrt(resultX->ParError(2)*resultX->ParError(2)+resultY->ParError(2)*resultY->ParError(2))*1000);
+        resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000);
+        resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000);
+        resXE = resultX->ParError(2);
+        resYE = resultY->ParError(2);
+      }
+      residualV.push_back((resX+resY)/2.);
+      residualVE.push_back(sqrt(resXE*resXE+resYE*resYE)*1000);
+      if (fitStatusX == 0 && fitStatusY == 0) 
+      {
+        resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000-pointingResV[iSector]*pointingResV[iSector]);
+        resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000-pointingResV[iSector]*pointingResV[iSector]);
+        resXE = resultX->ParError(2);
+        resYE = resultY->ParError(2);
+      }
+      resolutionV.push_back((resX+resY)/2.);
+      resolutionVE.push_back(sqrt(resXE*resXE+resYE*resYE)*1000);
+      if (clusterSizeHisto[iSector]->Integral() < 100) continue;
+      clusterSizeIthrVcasn[iSector]->SetPoint(clusterSizeIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),clusterSizeHisto[iSector]->GetMean());
+      clusterSizeIthrVcasn[iSector]->SetPointError(clusterSizeIthrVcasn[iSector]->GetN()-1,0,0,clusterSizeHisto[iSector]->GetMeanError());
+      if (fitStatusX == 0 && fitStatusY == 0)
+      {
+        resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000);
+        resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000);
         residualIthrVcasn[iSector]->SetPoint(residualIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),(resX+resY)/2.);
         residualIthrVcasn[iSector]->SetPointError(residualIthrVcasn[iSector]->GetN()-1,0,0,sqrt(resultX->ParError(2)*resultX->ParError(2)+resultY->ParError(2)*resultY->ParError(2))*1000);
-        resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000-pointingRes*pointingRes);
-        resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000-pointingRes*pointingRes);
-        resolutionThr[iSector]->SetPoint(resolutionThr[iSector]->GetN(),runs[i].getThr()[iSector],(resX+resY)/2.);
-        resolutionThr[iSector]->SetPointError(resolutionThr[iSector]->GetN()-1,runs[i].getThrE()[iSector],sqrt(resultX->ParError(2)*resultX->ParError(2)+resultY->ParError(2)*resultY->ParError(2))*1000);
+        resX = sqrt(resultX->Parameter(2)*1000*resultX->Parameter(2)*1000-pointingResV[iSector]*pointingResV[iSector]);
+        resY = sqrt(resultY->Parameter(2)*1000*resultY->Parameter(2)*1000-pointingResV[iSector]*pointingResV[iSector]);
         resolutionIthrVcasn[iSector]->SetPoint(resolutionIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),(resX+resY)/2.);
         resolutionIthrVcasn[iSector]->SetPointError(resolutionIthrVcasn[iSector]->GetN()-1,0,0,sqrt(resultX->ParError(2)*resultX->ParError(2)+resultY->ParError(2)*resultY->ParError(2))*1000);
-//        resolutionIthr[iSector]->SetPoint(resolutionIthr[iSector]->GetN(),runs[i].getIthr(),(resX+resY)/2.);
-//        resolutionIthr[iSector]->SetPointError(resolutionIthr[iSector]->GetN()-1,0,sqrt(resultX->ParError(2)*resultX->ParError(2)+resultY->ParError(2)*resultY->ParError(2))*1000);
       }
+    }
+    if (runs[i].PlotFlag())
+    {
+      runs[i].setClusterSizeVector(clusterSizeV);
+      runs[i].setClusterSizeVectorRMS(clusterSizeVRMS);
+      runs[i].setResidualVector(residualV);
+      runs[i].setResidualVectorE(residualVE);
+      runs[i].setResolutionVector(resolutionV);
+      runs[i].setResolutionVectorE(resolutionVE);
     }
   }
   for (int i=0;i<nRun;i++)
   {
     if (runs[i].isNoise()) continue;
-//    cerr << runs[i].getRunNumber() << endl;
     for (int j=i+1;j<nRun;j++)
     {
       if (runs[j].isNoise()) continue;
       if (runs[i].equalSettings(runs[j])) 
       {
-//        cerr << runs[i].getRunNumber() << "\t" << runs[j].getRunNumber() << endl;
+        runs[j].setPlotFlag(false);
         vector<double> nTr(4), nTrpA(4);
         for (int iSector=0; iSector<4; iSector++)
         {
-//          cerr << runs[i].getRunNumber()  << "\t" << runs[j].getRunNumber() << "\t" << iSector << "\t" << runs[i].getnTr()[iSector] << "\t" << runs[j].getnTr()[iSector] << endl;
-//          cerr << runs[i].getRunNumber() << "\t" << runs[j].getRunNumber() << "\t" << iSector << "\t" << runs[i].getnTrpA()[iSector] <<"\t" << runs[j].getnTrpA()[iSector] << endl;
           nTr[iSector] = runs[i].getnTr()[iSector]+runs[j].getnTr()[iSector];
           nTrpA[iSector] = runs[i].getnTrpA()[iSector]+runs[j].getnTrpA()[iSector];
         }
@@ -430,28 +546,24 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
 
   for (int i=0;i<nRun;i++)
   {
+    vector<double> effV;
     if (runs[i].isNoise()) continue;
-//    cerr << runs[i].getRunNumber() << endl;
     for (int iSector=0; iSector<4; iSector++)
     {
-//      cerr << runs[i].getRunNumber() << endl;
+      double nTrd = runs[i].getnTr()[iSector];
+      double nTrpAd = runs[i].getnTrpA()[iSector];
+      double effd = nTrpAd/nTrd;
+      effV.push_back(effd*100);
       if (runs[i].getnTr()[iSector] > 100)
       {
-        double nTrd = runs[i].getnTr()[iSector];
-        double nTrpAd = runs[i].getnTrpA()[iSector];
-        double effd = nTrpAd/nTrd;
-        double mean = (nTrpAd+1)/(nTrd+2);
-        double sigma = sqrt(((nTrpAd+1)*(nTrpAd+2))/((nTrd+2)*(nTrd+3))-((nTrpAd+1)*(nTrpAd+1))/((nTrd+2)*(nTrd+2)));
-        efficiencyThr[iSector]->SetPoint(efficiencyThr[iSector]->GetN(),runs[i].getThr()[iSector],effd*100.); 
-        efficiencyThr[iSector]->SetPointError(efficiencyThr[iSector]->GetN()-1,runs[i].getThrE()[iSector],runs[i].getThrE()[iSector],(effd-(mean-sigma))*100.,((mean+sigma)-effd)*100.);
         efficiencyIthrVcasn[iSector]->SetPoint(efficiencyIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),effd*100);
         nTrIthrVcasn[iSector]->SetPoint(nTrIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),nTrd);
         nTrpAIthrVcasn[iSector]->SetPoint(nTrpAIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),nTrpAd);
-//        efficiencyIthr[iSector]->SetPoint(efficiencyIthr[iSector]->GetN(),runs[i].getIthr(),effd*100.); 
-//        efficiencyIthr[iSector]->SetPointError(efficiencyIthr[iSector]->GetN()-1,0,0,(effd-(mean-sigma))*100.,((mean+sigma)-effd)*100.);
+        if (runs[i].getThr()[iSector] != 0) thresholdIthrVcasn[iSector]->SetPoint(thresholdIthrVcasn[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),runs[i].getThr()[iSector]);
       }
-//      else cerr << runs[i].getRunNumber() << "\t" << iSector << endl;
     }
+    runs[i].setEff(effV);
+    effV.clear();
   }
 
   for (int i=0;i<nRun;i++)
@@ -464,10 +576,10 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
     fakeHitHistoFromNoise = (TH2I*)histFile->Get(Form("noiseMap_%d",dut));
 
     runs[i].setFakeHitHistoFromNoise(fakeHitHistoFromNoise);
-    runs[i].setPlotFlag(true);
   }    
   TH2* fakeHitHistoFromNoise2;
   vector<TH1F*>noiseOccupancy;
+  cerr << "Looking for hotest pixels to remove" << endl; 
   for (int i=0;i<nRun;i++)
   {
     if (!runs[i].isNoise()) continue;
@@ -475,8 +587,7 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
       
     for (int j=i+1;j<nRun;j++)
     {
-      if (!runs[i].isNoise()) continue;
-      
+      if (!runs[j].isNoise()) continue;
       if (runs[i].equalSettings(runs[j]))
       {
         fakeHitHistoFromNoise2 = runs[j].getFakeHitHistoFromNoise();
@@ -489,34 +600,41 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
       }
     }
     runs[i].setFakeHitHistoFromNoise(fakeHitHistoFromNoise);
-    
     noiseOccupancy = CalculateNoiseFromNoise(fakeHitHistoFromNoise,i,runs);
 
     noiseOccupancyBeforeRemovalFromNoiseHisto = noiseOccupancy[0];
     noiseOccupancyAfterRemovalFromNoiseHisto = noiseOccupancy[1];
     noiseOccupancy.clear();
-
+    vector<double> noiseOccupancyBeforeRemovalV, noiseOccupancyBeforeRemovalVE, noiseOccupancyAfterRemovalV, noiseOccupancyAfterRemovalVE;
     for (int iSector=0; iSector<4; iSector++)
     {
-//      if (noiseOccupancyBeforeRemovalFromNoiseHisto->GetBinContent(iSector+1) == 0) continue;
 	  
       if (runs[i].getnEvent() == 0) continue;
       if(!runs[i].PlotFlag()) continue;
-      noiseOccupancyBeforeRemovalThrFromNoise[iSector]->SetPoint(noiseOccupancyBeforeRemovalThrFromNoise[iSector]->GetN(),runs[i].getThr()[iSector],noiseOccupancyBeforeRemovalFromNoiseHisto->GetBinContent(iSector+1));
-      noiseOccupancyBeforeRemovalThrFromNoise[iSector]->SetPointError(noiseOccupancyBeforeRemovalThrFromNoise[iSector]->GetN()-1,runs[i].getThrE()[iSector],noiseOccupancyBeforeRemovalFromNoiseHisto->GetBinError(iSector+1));
       noiseOccupancyBeforeRemovalIthrVcasnFromNoise[iSector]->SetPoint(noiseOccupancyBeforeRemovalIthrVcasnFromNoise[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),noiseOccupancyBeforeRemovalFromNoiseHisto->GetBinContent(iSector+1));
       noiseOccupancyBeforeRemovalIthrVcasnFromNoise[iSector]->SetPointError(noiseOccupancyBeforeRemovalIthrVcasnFromNoise[iSector]->GetN()-1,0,0,noiseOccupancyBeforeRemovalFromNoiseHisto->GetBinError(iSector+1));
-      noiseOccupancyAfterRemovalThrFromNoise[iSector]->SetPoint(noiseOccupancyAfterRemovalThrFromNoise[iSector]->GetN(),runs[i].getThr()[iSector],noiseOccupancyAfterRemovalFromNoiseHisto->GetBinContent(iSector+1));
-      noiseOccupancyAfterRemovalThrFromNoise[iSector]->SetPointError(noiseOccupancyAfterRemovalThrFromNoise[iSector]->GetN()-1,runs[i].getThrE()[iSector],noiseOccupancyAfterRemovalFromNoiseHisto->GetBinError(iSector+1));
       noiseOccupancyAfterRemovalIthrVcasnFromNoise[iSector]->SetPoint(noiseOccupancyAfterRemovalIthrVcasnFromNoise[iSector]->GetN(),runs[i].getIthr(),runs[i].getVcasn(),noiseOccupancyAfterRemovalFromNoiseHisto->GetBinContent(iSector+1));
       noiseOccupancyAfterRemovalIthrVcasnFromNoise[iSector]->SetPointError(noiseOccupancyAfterRemovalIthrVcasnFromNoise[iSector]->GetN()-1,0,0,noiseOccupancyAfterRemovalFromNoiseHisto->GetBinError(iSector+1));
+      noiseOccupancyBeforeRemovalV.push_back(noiseOccupancyBeforeRemovalFromNoiseHisto->GetBinContent(iSector+1));
+      noiseOccupancyBeforeRemovalVE.push_back(noiseOccupancyBeforeRemovalFromNoiseHisto->GetBinError(iSector+1));
+      noiseOccupancyAfterRemovalV.push_back(noiseOccupancyAfterRemovalFromNoiseHisto->GetBinContent(iSector+1));
+      noiseOccupancyAfterRemovalVE.push_back(noiseOccupancyAfterRemovalFromNoiseHisto->GetBinError(iSector+1));
     }
-      noiseOccupancyBeforeRemovalFromNoiseHisto->Delete();
-      noiseOccupancyAfterRemovalFromNoiseHisto->Delete();
+    runs[i].setNoiseOccupancyBeforeRemovalV(noiseOccupancyBeforeRemovalV);
+    runs[i].setNoiseOccupancyBeforeRemovalVE(noiseOccupancyBeforeRemovalVE);
+    runs[i].setNoiseOccupancyAfterRemovalV(noiseOccupancyAfterRemovalV);
+    runs[i].setNoiseOccupancyAfterRemovalVE(noiseOccupancyAfterRemovalVE);
+    noiseOccupancyBeforeRemovalFromNoiseHisto->Delete();
+    noiseOccupancyAfterRemovalFromNoiseHisto->Delete();
   }
+  cerr << "Finished looking for hotest pixels to remove" << endl; 
   vector<TGraph2DErrors*> noiseOccupancyAfterRemovalIthrVcasnFromLab(4);
+  vector<TGraph2DErrors*> noiseOccupancyBeforeRemovalIthrVcasnFromLab(4);
   for (int iSector=0; iSector<4; iSector++)
+  {
     noiseOccupancyAfterRemovalIthrVcasnFromLab[iSector] = new TGraph2DErrors;
+    noiseOccupancyBeforeRemovalIthrVcasnFromLab[iSector] = new TGraph2DErrors;
+  }
   if (noiseFileName.compare("") !=0)
   {
     TFile* noiseFile = new TFile(noiseFileName.c_str(),"READONLY");
@@ -526,26 +644,26 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
       for (int iSector=0; iSector<4; iSector++)
       {
         string noiseGraphName = "g_noiseVsITHR_" + globalFileInfo + "_TEMP28.0_VBB" + Form("%0.1f_VCASN135_RATE10000_BUSY50_sec%d", globalBB, iSector);
-        cerr << noiseGraphName << endl;
         noiseFromLab[iSector] = (TGraphAsymmErrors*)noiseFile->Get(noiseGraphName.c_str());
-        double x=0,y=0;
+        double x=0,y=0, yHigh;
         for (int i=0; i<noiseFromLab[iSector]->GetN(); i++)
         {
           noiseFromLab[iSector]->GetPoint(i,x,y);
-          cerr << x << "\t" << y << endl;
+          yHigh = noiseFromLab[iSector]->GetErrorYhigh(i);
           noiseOccupancyAfterRemovalIthrVcasnFromLab[iSector]->SetPoint(i,x,135.,y);
-          cerr << noiseOccupancyAfterRemovalIthrVcasnFromLab[iSector]->GetX()[i] << endl;
           noiseOccupancyAfterRemovalIthrVcasnFromLab[iSector]->SetPointError(i,0,0,0);
+          noiseOccupancyBeforeRemovalIthrVcasnFromLab[iSector]->SetPoint(i,x,135.,y+yHigh);
+          noiseOccupancyBeforeRemovalIthrVcasnFromLab[iSector]->SetPointError(i,0,0,0);
         }
       }
     }
     
   }
-  vector<TGraph2DErrors*> temperalNoiseIthrVcasnFromLab(4);
+  vector<TGraph2DErrors*> temporalNoiseIthrVcasnFromLab(4);
   vector<TGraph2DErrors*> thresholdIthrVcasnFromLab(4);
   for (int iSector=0; iSector<4; iSector++)
   {
-    temperalNoiseIthrVcasnFromLab[iSector] = new TGraph2DErrors;
+    temporalNoiseIthrVcasnFromLab[iSector] = new TGraph2DErrors;
     thresholdIthrVcasnFromLab[iSector] = new TGraph2DErrors;
   }
   if (thresholdFileName.compare("") !=0)
@@ -553,21 +671,20 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
     TFile* thresholdFile = new TFile(thresholdFileName.c_str(),"READONLY");
     if (thresholdFile && !thresholdFile->IsZombie())
     {
-      vector<TGraphAsymmErrors*> temperalNoise(4);
+      vector<TGraphAsymmErrors*> temporalNoise(4);
       vector<TGraphAsymmErrors*> threshold(4);
       for (int iSector=0; iSector<4; iSector++)
       {
-        string temperalNosieGraphName = "g_thresnoiseVsITHR_" + globalFileInfo + "_TEMP28.0_VBB" + Form("%0.1f_VCASN135_sec%d", globalBB, iSector);
+        string temporalNosieGraphName = "g_thresnoiseVsITHR_" + globalFileInfo + "_TEMP28.0_VBB" + Form("%0.1f_VCASN135_sec%d", globalBB, iSector);
         string thresholdGraphName = "g_thresVsITHR_" + globalFileInfo + "_TEMP28.0_VBB" + Form("%0.1f_VCASN135_sec%d", globalBB, iSector);
-        cerr << temperalNosieGraphName << endl << thresholdGraphName << endl;
-        temperalNoise[iSector] = (TGraphAsymmErrors*)thresholdFile->Get(temperalNosieGraphName.c_str());
+        temporalNoise[iSector] = (TGraphAsymmErrors*)thresholdFile->Get(temporalNosieGraphName.c_str());
         threshold[iSector] = (TGraphAsymmErrors*)thresholdFile->Get(thresholdGraphName.c_str());
         double x=0,y=0;
-        for (int i=0; i<temperalNoise[iSector]->GetN(); i++)
+        for (int i=0; i<temporalNoise[iSector]->GetN(); i++)
         {
-          temperalNoise[iSector]->GetPoint(i,x,y);
-          temperalNoiseIthrVcasnFromLab[iSector]->SetPoint(i,x,135.,y);
-          temperalNoiseIthrVcasnFromLab[iSector]->SetPointError(i,0,0,0);
+          temporalNoise[iSector]->GetPoint(i,x,y);
+          temporalNoiseIthrVcasnFromLab[iSector]->SetPoint(i,x,135.,y);
+          temporalNoiseIthrVcasnFromLab[iSector]->SetPointError(i,0,0,0);
         }
         for (int i=0; i<threshold[iSector]->GetN(); i++)
         {
@@ -579,60 +696,797 @@ void WriteGraph(string outputFolder, int dut, int firstRun, int lastRun, string 
     }
   }
   string outputFileName;
-  string BBStr, irrStr, firstRunStr, lastRunStr, pointingResStr;
+  string BBStr, irrStr, firstRunStr, lastRunStr;
   BBStr = Form("%0.f", globalBB);
   irrStr = Form("%d", globalIrr);
   firstRunStr = Form("%d", firstRun);
   lastRunStr = Form("%d", lastRun);
-  pointingResStr = Form("%.2f", pointingRes);
-//  char BBStr [33];
-//  snprintf(BBStr, sizeof(BBStr), "%d", globalBB);
-//  char irrStr [33];
-//  snprintf(irrStr, sizeof(irrStr), "%d", globalIrr);
-//  ostringstream firstRunStr;
-//  firstRunStr << firstRun;
-//  ostringstream lastRunStr;
-//  lastRunStr << lastRun;
-//  ostringstream pointingResStr;
-//  pointingResStr << pointingRes;
   outputFileName = outputFolder + "/graphs";
   if (globalFileInfo != "") outputFileName += "_" + globalFileInfo;
   if (globalBB != -100) outputFileName += "_BB" + BBStr + "V";
   if (globalIrr != -100) outputFileName += "_Irr" + irrStr;
-  outputFileName += "_" + firstRunStr + "-" + lastRunStr + "_PR" + pointingResStr + "um.root";
+  outputFileName += "_" + firstRunStr + "-" + lastRunStr + ".root";
   cerr << outputFileName << endl;
-//  cerr << fileName << endl;
   TFile* outputFile = new TFile(outputFileName.c_str(),"RECREATE");
-  Write(noiseOccupancyBeforeRemovalThrFromNoise, "noiseOccupancyBeforeRemovalFromNoiseThr");
+  TTree *tree = new TTree("tree","Output");
+  treeFill(tree, runs);
+  tree->Write();
   Write(noiseOccupancyBeforeRemovalIthrVcasnFromNoise, "noiseOccupancyBeforeRemovalFromNoiseIthrVcasn2D");
-  Write(noiseOccupancyAfterRemovalThrFromNoise, "noiseOccupancyAfterRemovalFromNoiseThr");
   Write(noiseOccupancyAfterRemovalIthrVcasnFromNoise, "noiseOccupancyAfterRemovalFromNoiseIthrVcasn2D");
   Write(noiseOccupancyAfterRemovalIthrVcasnFromLab,"noiseOccupancyAfterRemovalFromLabIthrVcasn2D");
+  Write(noiseOccupancyBeforeRemovalIthrVcasnFromLab,"noiseOccupancyBeforeRemovalFromLabIthrVcasn2D");
   Write(thresholdIthrVcasnFromLab,"thresholdFromLabIthrVcasn2D");
-  Write(temperalNoiseIthrVcasnFromLab,"temperalNoiseFromLabIthrVcasn2D");
-//  Write(noiseOccupancyAfterRemovalFromNoiseIthr, "noiseOccupancyAfterRemovalFromNoiseIthr");
-  Write(efficiencyThr,"efficiencyThr");
-//  Write(efficiencyIthr,"efficiencyIthr");
+  Write(temporalNoiseIthrVcasnFromLab,"temporalNoiseFromLabIthrVcasn2D");
   Write(efficiencyIthrVcasn,"efficiencyIthrVcasn2D");
   Write(nTrIthrVcasn,"nTrIthrVcasn2D");
   Write(nTrpAIthrVcasn,"nTrpAIthrVcasn2D");
-  Write(clusterSizeThr,"clusterSizeThr");
+  Write(thresholdIthrVcasn,"thresholdIthrVcasn2D");
   Write(clusterSizeIthrVcasn,"clusterSizeIthrVcasn2D");
-//  Write(clusterSizeIthr,"clusterSizeIthr");
-//  Write(residualXThr,"residualXThr");
-//  Write(residualYThr,"residualYThr");
-  Write(residualThr,"residualThr");
   Write(residualIthrVcasn,"residualIthrVcasn2D");
-//  Write(resolutionXThr,"resolutionXThr");
-//  Write(resolutionYThr,"resolutionYThr");
-  Write(resolutionThr,"resolutionThr");
   Write(resolutionIthrVcasn,"resolutionIthrVcasn2D");
-//  Write(resolutionIthr,"resolutionIthr");
-//  tree->Write();
   outputFile->Close();
-//  WriteTextFile(efficiencyThr,"efficiency");
-//  WriteTextFile(noiseOccupancyAfterRemovalThr, "noiseOccupancy");
+}
 
+void mergeGraphs(string files, string outputFolder)
+{
+  vector<string> filesV;
+  std::istringstream filesIs(files);
+  string filesStr;
+  while( filesIs >> filesStr)
+    filesV.push_back(filesStr);
+
+  vector<TFile*> graphFile(filesV.size());
+  for (unsigned int i=0; i<filesV.size(); i++)
+    graphFile[i] =  new TFile(filesV[i].c_str(),"READONLY");
+
+  vector<Run> runs;
+  vector< vector<Run> > runsToAdd;
+  size_t PRFirstPos = filesV[0].find("PR");
+  string PRFirst = filesV[0].substr(PRFirstPos+2,4);
+//  bool averageRes = true;
+  for (unsigned int iFile=0; iFile<filesV.size(); iFile++)
+  {
+    if (!graphFile[iFile] || graphFile[iFile]->IsZombie())
+      return;
+/*    size_t PRPos = filesV[iFile].find("PR");
+    string PR = filesV[iFile].substr(PRPos+2,4);
+    if (PR.compare(PRFirst) != 0)
+    {
+      cerr << "Pointing resolution is not the same for all the files, cannot average the resolution values like this!" << endl;
+      averageRes = false;
+    }
+*/
+    TTree *tree = (TTree*)graphFile[iFile]->Get("tree");
+    if (!tree || tree->IsZombie())
+      return;
+    treeRead(tree, runs);
+    runsToAdd.push_back(runs);
+    runs.clear();
+  }
+  vector<Run> mergedRuns;
+  double BB = -1;
+  int irradiation = -1;
+  irradiation = runsToAdd[0][0].getIrradiation();
+  BB = runsToAdd[0][0].getBB();
+  for (unsigned int iRun=0; iRun<runsToAdd[0].size(); iRun++)
+  {
+    vector<vector<double> > eff, thr, thrE, noise, noiseE, clusterSize, clusterSizeRMS, residual, resolution, noiseOccupancyBeforeRemoval, noiseOccupancyAfterRemoval;
+    bool isNoise = runsToAdd[0][iRun].isNoise();
+    eff.push_back(runsToAdd[0][iRun].getEff());
+    thr.push_back(runsToAdd[0][iRun].getThr());
+    thrE.push_back(runsToAdd[0][iRun].getThrE());
+    noise.push_back(runsToAdd[0][iRun].getNoise());
+    noiseE.push_back(runsToAdd[0][iRun].getNoiseE());
+    clusterSize.push_back(runsToAdd[0][iRun].getClusterSizeV());
+    clusterSizeRMS.push_back(runsToAdd[0][iRun].getClusterSizeRMSV());
+    residual.push_back(runsToAdd[0][iRun].getResidualV());
+    resolution.push_back(runsToAdd[0][iRun].getResolutionV());
+    noiseOccupancyBeforeRemoval.push_back(runsToAdd[0][iRun].getNoiseOccupancyBeforeRemoval());
+    noiseOccupancyAfterRemoval.push_back(runsToAdd[0][iRun].getNoiseOccupancyAfterRemoval());
+    for (unsigned int i=1; i<runsToAdd.size(); i++)
+    {
+      if (irradiation != runsToAdd[i][0].getIrradiation())
+      {
+        cerr << "Irradiation level not the same for all the files, no merging allowed." << endl;
+        return;
+      }
+      if (BB != runsToAdd[i][0].getBB() && BB != -1*runsToAdd[i][0].getBB() )
+      {
+        cerr << "Back bias level not the same for all the files, no merging allowed." << endl;
+        return;
+      }
+      for (unsigned int jRun=0; jRun<runsToAdd[i].size(); jRun++)
+      {
+        if (runsToAdd[0][iRun].canBeAveraged(runsToAdd[i][jRun]))
+        {
+          eff.push_back(runsToAdd[i][jRun].getEff());
+          thr.push_back(runsToAdd[i][jRun].getThr());
+          thrE.push_back(runsToAdd[i][jRun].getThrE());
+          noise.push_back(runsToAdd[i][jRun].getNoise()); 
+          noiseE.push_back(runsToAdd[i][jRun].getNoiseE()); 
+          clusterSize.push_back(runsToAdd[i][jRun].getClusterSizeV()); 
+          clusterSizeRMS.push_back(runsToAdd[i][jRun].getClusterSizeRMSV()); 
+          residual.push_back(runsToAdd[i][jRun].getResidualV()); 
+          resolution.push_back(runsToAdd[i][jRun].getResolutionV()); 
+          noiseOccupancyBeforeRemoval.push_back(runsToAdd[i][jRun].getNoiseOccupancyBeforeRemoval()); 
+          noiseOccupancyAfterRemoval.push_back(runsToAdd[i][jRun].getNoiseOccupancyAfterRemoval()); 
+          break;
+        }
+      }
+    }
+    vector<double> effFinal(12,0), thrFinal(12,0), thrEFinal(12,0), noiseFinal(12,0), noiseEFinal(12,0), clusterSizeFinal(12,0), clusterSizeRMSFinal(12,0), residualFinal(12,0), resolutionFinal(12,0), noiseOccupancyBeforeRemovalFinal(12,0), noiseOccupancyAfterRemovalFinal(12,0);
+    if (eff.size() < 2)
+      continue;
+    vector<double> tmp;
+    for (int iSector=0; iSector<4; iSector++)
+    {
+      if (!isNoise)
+      {
+        for (unsigned int i=0; i<eff.size(); i++) 
+        {
+          if (eff[i].size() == 0) continue;
+          tmp.push_back(eff[i][iSector]);
+        }
+        effFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
+        effFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
+        effFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
+        tmp.clear();
+
+        for (unsigned int i=0; i<clusterSize.size(); i++)
+        {
+          if (clusterSize[i].size() == 0) continue;
+          tmp.push_back(clusterSize[i][iSector]);
+        }
+        clusterSizeFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
+        clusterSizeFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
+        clusterSizeFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
+        tmp.clear();
+
+        for (unsigned int i=0; i<clusterSizeRMS.size(); i++)
+        {
+          if (clusterSizeRMS[i].size() == 0) continue;
+          tmp.push_back(clusterSizeRMS[i][iSector]);
+        }
+        clusterSizeRMSFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
+        clusterSizeRMSFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
+        clusterSizeRMSFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
+        tmp.clear();
+
+        for (unsigned int i=0; i<residual.size(); i++)
+        {
+          if (residual[i].size() == 0) continue;
+          tmp.push_back(residual[i][iSector]);
+        }
+        residualFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
+        residualFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
+        residualFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
+        tmp.clear();
+      }
+      else
+      {
+        for (unsigned int i=0; i<noiseOccupancyBeforeRemoval.size(); i++)
+        {
+          if (noiseOccupancyBeforeRemoval[i].size() == 0) continue;
+          tmp.push_back(noiseOccupancyBeforeRemoval[i][iSector]);
+        }
+        noiseOccupancyBeforeRemovalFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
+        noiseOccupancyBeforeRemovalFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
+        noiseOccupancyBeforeRemovalFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
+        tmp.clear();
+
+        for (unsigned int i=0; i<noiseOccupancyAfterRemoval.size(); i++)
+        {
+          if (noiseOccupancyAfterRemoval[i].size() == 0) continue;
+          tmp.push_back(noiseOccupancyAfterRemoval[i][iSector]);
+        }
+        noiseOccupancyAfterRemovalFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
+        noiseOccupancyAfterRemovalFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
+        noiseOccupancyAfterRemovalFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
+        tmp.clear();
+      }
+      for (unsigned int i=0; i<resolution.size(); i++)
+      {
+        if (resolution[i].size() == 0) continue;
+        tmp.push_back(resolution[i][iSector]);
+      }
+      resolutionFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
+      resolutionFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
+      resolutionFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
+      tmp.clear();
+
+      for (unsigned int i=0; i<thr.size(); i++)
+      {
+        if (thr[i].size() == 0) continue;
+        if (thr[i][iSector] != 0) tmp.push_back(thr[i][iSector]);
+      }
+      if (tmp.size() == 0) tmp.push_back(0);
+      thrFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
+      thrFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
+      thrFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
+      tmp.clear();
+
+      for (unsigned int i=0; i<thrE.size(); i++)
+      {
+        if (thrE[i].size() == 0) continue;
+        if (thrE[i][iSector] != 0) tmp.push_back(thrE[i][iSector]);
+      }
+      if (tmp.size() == 0) tmp.push_back(0);
+      thrEFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
+      thrEFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
+      thrEFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
+      tmp.clear();
+
+      for (unsigned int i=0; i<noise.size(); i++)
+      {
+        if (noise[i].size() == 0) continue;
+        if (noise[i][iSector] != 0) tmp.push_back(noise[i][iSector]);
+      }
+      if (tmp.size() == 0) tmp.push_back(0);
+      noiseFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
+      noiseFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
+      noiseFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
+      tmp.clear();
+
+      for (unsigned int i=0; i<noiseE.size(); i++)
+      {
+        if (noiseE[i].size() == 0) continue;
+        if (noiseE[i][iSector] != 0) tmp.push_back(noiseE[i][iSector]);
+      }
+      if (tmp.size() == 0) tmp.push_back(0);
+      noiseEFinal[iSector] = std::accumulate(tmp.begin(), tmp.end(),0.0)/tmp.size();
+      noiseEFinal[4+iSector] = *std::min_element(tmp.begin(), tmp.end());
+      noiseEFinal[8+iSector] = *std::max_element(tmp.begin(), tmp.end());
+      tmp.clear();
+    }
+    Run run;
+    int nEvent, runNumber;
+    double ithr, ithrpA, idb, vcasn, vaux, vcasp, vreset, readoutDelay, triggerDelay, strobeLength, strobeBLength, energy;
+    vector<double> threshold, thresholdRMS, efficiency, nTrack, nTrackpALPIDE, temporalNoise, temporalNoiseRMS, clusterSizeV, clusterSizeRMSV, residualV, residualE, resolutionV, resolutionE, noiseOccupancyBeforeRemovalV, noiseOccupancyBeforeRemovalE, noiseOccupancyAfterRemovalV, noiseOccupancyAfterRemovalE;
+    string chipID;
+    runsToAdd[0][iRun].getAllParameters(runNumber, vcasn, vaux, vcasp, vreset, ithr, ithrpA, idb, threshold, thresholdRMS, temporalNoise, temporalNoiseRMS, BB, irradiation, chipID, readoutDelay, triggerDelay, strobeLength, strobeBLength, isNoise, nEvent, energy, efficiency, nTrack, nTrackpALPIDE, clusterSizeV, clusterSizeRMSV, residualV, residualE, resolutionV, resolutionE,  noiseOccupancyBeforeRemovalV, noiseOccupancyBeforeRemovalE, noiseOccupancyAfterRemovalV, noiseOccupancyAfterRemovalE);
+    run.Set(0,vcasn, vaux, vcasp, vreset, ithr, ithrpA, idb, thrFinal, thrEFinal, noiseFinal, noiseEFinal, BB, irradiation, "",readoutDelay, triggerDelay, strobeLength, strobeBLength, isNoise, nEvent, energy);
+    run.setEff(effFinal);
+    run.setClusterSizeVector(clusterSizeFinal);
+    run.setClusterSizeVectorRMS(clusterSizeRMSFinal);
+    run.setResidualVector(residualFinal);
+    run.setResolutionVector(resolutionFinal);
+    run.setNoiseOccupancyBeforeRemovalV(noiseOccupancyBeforeRemovalFinal);
+    run.setNoiseOccupancyAfterRemovalV(noiseOccupancyAfterRemovalFinal);
+    run.setPlotFlag(true);
+    mergedRuns.push_back(run);
+  }
+  string outputFileName = "";
+  outputFileName = outputFolder + "/graphs_merged";
+  outputFileName += Form("_BB%0.0fV_Irr%d.root",BB,irradiation);
+//  if (!averageRes) outputFileName += ".root";
+//  else outputFileName += PRFirst + ".root";
+  cerr << outputFileName << endl;
+  TFile* outputFile = new TFile(outputFileName.c_str(),"RECREATE");
+  TTree *tree = new TTree("tree","Output");
+  treeFill(tree, mergedRuns);
+  tree->Write();
+  outputFile->Close();
+}
+
+void compareDifferentGraphsFromTree(string files, string xName, string hist, int iSector, string canVary, string oneValueName, string oneValue, bool addBB, bool addIrr, bool addChipNumber, bool addRate)
+{
+  vector<string> filesV;
+  std::istringstream filesIs(files);
+  string filesStr;
+  while( filesIs >> filesStr)
+    filesV.push_back(filesStr);
+
+  vector<TFile*> graphFile(filesV.size());
+  for (unsigned int i=0; i<filesV.size(); i++)
+    graphFile[i] =  new TFile(filesV[i].c_str(),"READONLY");
+
+  vector<string> histV;
+  std::istringstream histIs(hist);
+  string histStr;
+  while( histIs >> histStr)
+    histV.push_back(histStr);
+  if (histV.size() > 2)
+  {
+    cerr << "Too many histograms, only 1 or 2 is possible!" << endl;
+    return;
+  }
+
+  double xlow, xhigh, ylow1, yhigh1, line1, ylow2, yhigh2, line2;
+  bool log1, log2;
+  string xTitle, yTitle1, yTitle2, legendTitle, legendTitle1, legendTitle2="";
+  bool defaultsFineX = getDefaultsOneAxis(xName, xlow, xhigh, line1, log1, xTitle, legendTitle);
+  bool defaultsFineY1 = getDefaultsOneAxis(histV[0], ylow1, yhigh1, line1, log1, yTitle1, legendTitle1);
+  bool defaultsFineY2 = true;
+  if (histV.size() == 2) defaultsFineY2 = getDefaultsOneAxis(histV[1], ylow2, yhigh2, line2, log2, yTitle2, legendTitle2);
+  if (!defaultsFineX || !defaultsFineY1 || !defaultsFineY2)
+  {
+    cerr << "Default labels and axis settings not found" << endl;
+    return;
+  }
+  legendTitle = legendTitle1 + "#color[2]{" + legendTitle2 + "}";
+  compareDifferentGraphsFromTree(files, xName, hist, iSector, xlow, xhigh, xTitle, ylow1, yhigh1, line1, log1, yTitle1, ylow2, yhigh2, line2, log2, yTitle2, legendTitle, canVary, oneValueName, oneValue, addBB, addIrr, addChipNumber, addRate);
+}
+
+void compareDifferentGraphsFromTree(string files, string xName, string hist, int sector, double xlow, double xhigh, string xTitle, double ylow1, double yhigh1, double line1, bool log1, string yTitle1, double ylow2, double yhigh2, double line2, bool log2, string yTitle2, string legendTitle, string canVary, string oneValueName, string oneValue, bool addBB, bool addIrr, bool addChipNumber, bool addRate)
+{
+  static string sectorLegendEntries[4] = {"PMOS reset, 1 #mum spacing (sector 0)", "PMOS reset, 2 #mum spacing (sector 1)", "Diode reset, 2 #mum spacing (sector 2)", "PMOS reset, 4 #mum spacing (sector 3)"};
+  static const string namesA[] = {"ithr", "vcasn", "vaux", "idb", "vcasp", "vreset", "BB", "readoutDelay", "triggerDelay", "strobeLength", "strobeBLength", "energy"};
+  static const string printableNamesAll[] = {"I_{thr}", "V_{casn}", "V_{aux}", "I_{db}", "V_{casp}", "V_{reset}", "V_{BB}", "Readout delay", "Trigger delay", "Strobe length", "Strobe_{b} length", "Energy"};
+  vector<string> names (namesA, namesA + sizeof(namesA) / sizeof(namesA[0]) );
+
+  bool merged = false;
+  if (files.find("merged") != string::npos)
+  {
+    cout << "Assuming merged runs, errors will indicate the chip to chip fluctuations" << endl; 
+    merged = true;
+  }
+  vector<string> filesV;
+  std::istringstream filesIs(files);
+  string filesStr;
+  while( filesIs >> filesStr)
+    filesV.push_back(filesStr);
+
+  vector<TFile*> graphFile(filesV.size());
+  for (unsigned int i=0; i<filesV.size(); i++)
+    graphFile[i] =  new TFile(filesV[i].c_str(),"READONLY");
+
+  if (sector == 5 && filesV.size() == 1)
+    cerr << "Plotting all sectors on the same plot" << endl;
+  else if (sector == 5)
+  {
+    cerr << "If you want to plot all sectors then only one file is allowed!" << endl;
+    return;
+  }
+  vector<string> histV;
+  std::istringstream histIs(hist);
+  string histStr;
+  while( histIs >> histStr)
+    histV.push_back(histStr);
+  if (histV.size() > 2)
+  {
+    cerr << "Too many histograms, only 1 or 2 is possible!" << endl;
+    return;
+  }
+  if (xName.compare(histV[0]) == 0 || (histV.size() == 2 && (xName.compare(histV[1]) == 0 || histV[0].compare(histV[1]) == 0)))
+  {
+    cerr << "Two of the thee axises are the same, exiting!" << endl;
+    return;
+  }
+  vector<string> oneValueNameV;
+  std::istringstream oneValueNameIs(oneValueName);
+  string oneValueNameStr;
+  while( oneValueNameIs >> oneValueNameStr)
+    oneValueNameV.push_back(oneValueNameStr);
+
+  vector<int> oneValueV;
+  std::istringstream oneValueIs(oneValue);
+  int oneValueI;
+  while( oneValueIs >> oneValueI)
+    oneValueV.push_back(oneValueI);
+
+  if (oneValueNameV.size() != oneValueV.size())
+  {
+    cerr << "If you don't allow all parameters to be varied give as many parameter names as values." << endl;
+    return;
+  }
+
+
+  vector<TGraph*> graph1V;
+  vector<TGraph*> graph2V;
+  vector<string> legendV;
+  for (unsigned int iFile=0; iFile<graphFile.size(); iFile++)
+  {
+    for (unsigned int iSector=0; iSector<4; iSector++)
+    {
+      if (sector != 5)
+      {
+        if (iSector > 0) continue;
+        else iSector = sector;
+      }
+//      else if (iSector == 0) continue;
+    bool allCanVary = false;
+    vector<string> canVaryV;
+    if (canVary.empty()) allCanVary = true;
+    else
+    {
+      std::istringstream canVaryIs(canVary);
+      string canVaryStr;
+      while( canVaryIs >> canVaryStr)
+        canVaryV.push_back(canVaryStr);
+    }
+    if (!graphFile[iFile] || graphFile[iFile]->IsZombie())
+      return;
+    TTree* tree = (TTree*)graphFile[iFile]->Get("tree");
+    if (!tree->GetBranchStatus(xName.c_str()))
+    {
+      cerr << "Branch name " << xName << " used as x doesn't exist." << endl;
+      return;
+    }
+    if (!tree->GetBranchStatus(histV[0].c_str()) || (histV.size() == 2 && !tree->GetBranchStatus(histV[1].c_str())))
+    {
+      if (histV.size() == 2) cerr << "Branch name " << histV[0] << " or " << histV[1]  << " used az y doesn't exist." << endl;
+      else cerr << "Branch name " << histV[0] << " used az y doesn't exist." << endl;
+      return;
+    }
+    
+    int nEntries = tree->GetBranch(xName.c_str())->GetEntries();
+    int nEntriesy1 = tree->GetBranch(histV[0].c_str())->GetEntries();
+    int nEntriesy2 = nEntriesy1;
+    if (histV.size() == 2) nEntriesy2 = tree->GetBranch(histV[1].c_str())->GetEntries();
+    if (nEntries != nEntriesy1 || nEntriesy1 != nEntriesy2)
+    {
+      cerr << "Problem different number of entries in the two specified branches" << endl;
+      return;
+    }
+    vector<vector<double> > settings;
+    vector<string> legends;
+    vector<string> varyingNames;
+    vector<string> printableNames;
+    if (!allCanVary)
+    {
+      vector<bool> settingsChangeV(names.size(),false);
+      vector<double> setting(names.size());
+      for (unsigned int iNames=0; iNames<names.size(); iNames++)
+        tree->SetBranchAddress(names[iNames].c_str(),&setting[iNames]);
+      vector<double> settingPrev(names.size(),-100);
+      for (int iEntries=0; iEntries<nEntries; iEntries++)
+      {
+        tree->GetEntry(iEntries);
+        for (unsigned int iNames=0; iNames<names.size(); iNames++)
+        {
+          if (settingsChangeV[iNames]) continue;
+          bool canVaryB = false;
+          for (unsigned int iVary=0; iVary<canVaryV.size(); iVary++)
+            if (names[iNames].compare(canVaryV[iVary]) == 0)
+            {
+              canVaryB = true;
+              break;
+            }
+          if (canVaryB) continue;
+          if (iEntries != 0 && setting[iNames] != settingPrev[iNames])
+          {
+            settingsChangeV[iNames] = true;
+//            continue;
+          }
+          for (unsigned int iOneValue=0; iOneValue<oneValueNameV.size(); iOneValue++)
+            if (iEntries != 0 && oneValueNameV[iOneValue].compare(names[iNames]) == 0 && oneValueV[iOneValue] != setting[iNames]) 
+              settingsChangeV[iNames] = true;
+          settingPrev[iNames] = setting[iNames];
+        }
+      }
+      tree->Clear();
+      tree = (TTree*)graphFile[iFile]->Get("tree");
+      int nChangedSettings = 0;
+      for (unsigned int iNames=0; iNames<names.size(); iNames++)
+        if (settingsChangeV[iNames]) nChangedSettings++;
+      vector<double> settingsTmp(nChangedSettings);
+      int tmp = 0;
+      for (unsigned int iNames=0; iNames<names.size(); iNames++)
+      {
+        if (settingsChangeV[iNames])
+        {
+          tree->SetBranchAddress(names[iNames].c_str(),&settingsTmp[tmp]);
+          tmp++;
+          varyingNames.push_back(names[iNames]);
+          printableNames.push_back(printableNamesAll[iNames]);
+        }
+      }
+      if (settingsTmp.size() == 0) allCanVary = true;
+      if (!allCanVary)
+      {
+        for (int iEntries=0; iEntries<nEntries; iEntries++)
+        {
+          tree->GetEntry(iEntries);
+          bool hasAppeared = false;
+          for (unsigned int iSetting=0; iSetting<settingsTmp.size(); iSetting++)
+          {
+            for (unsigned int iOneValue=0; iOneValue<oneValueNameV.size(); iOneValue++)
+            {
+              if (oneValueNameV[iOneValue].compare(varyingNames[iSetting]) == 0 && oneValueV[iOneValue] != settingsTmp[iSetting]) 
+              {
+                hasAppeared = true;
+                break;
+              }
+            }
+            if (hasAppeared) break;
+          }
+          for (unsigned int iChangedSettings=0; iChangedSettings<settings.size() && !hasAppeared; iChangedSettings++)
+          {
+            for (unsigned int iSetting=0; iSetting<settingsTmp.size(); iSetting++)
+            {
+              if (settingsTmp[iSetting] != settings[iChangedSettings][iSetting])
+                break;
+              else if (iSetting != settingsTmp.size()-1) continue;
+              hasAppeared = true;
+            }
+          }
+          if (!hasAppeared) 
+            settings.push_back(settingsTmp);
+        }
+        for (unsigned int iSetting=0; iSetting<settings.size(); iSetting++)
+        {
+          string legend = "";
+          for (unsigned int iChangedSetting=0; iChangedSetting<settings[iSetting].size(); iChangedSetting++)
+          {
+            bool onlyOneValue = false;
+            for (unsigned int iOneValue=0; iOneValue<oneValueNameV.size(); iOneValue++)
+              if (varyingNames[iChangedSetting].compare(oneValueNameV[iOneValue]) == 0)
+              {
+                onlyOneValue = true;
+                break;
+              }
+            if (onlyOneValue) continue;
+            if (!legend.empty()) legend += ", ";
+            legend += printableNames[iChangedSetting];
+            legend += Form(" = %0.f DAC units",settings[iSetting][iChangedSetting]);
+          }
+          legends.push_back(legend);
+        }
+      }
+    }
+    int size = 1;
+    if (!allCanVary) size = settings.size();
+    vector<TGraphAsymmErrors*> graph1(size);
+    vector<TGraphAsymmErrors*> graph2(size);
+    for (int iSetting=0; iSetting<size; iSetting++)
+    {
+      graph1[iSetting] = new TGraphAsymmErrors();
+      graph2[iSetting] = new TGraphAsymmErrors();
+    }
+    vector<double>* xP = 0;
+    vector<double>* xEP = 0;
+    vector<double>* yP1 = 0;
+    vector<double>* y1EP = 0;
+    vector<double>* yP2 = 0;
+    vector<double>* y2EP = 0;
+    vector<double>* nTrack = 0;
+    vector<double>* nTrackpALPIDE = 0;
+    vector<double> x, xE, y1, y1E, y2, y2E;
+    double xD=0, xED=0, y1D=0, y1ED=0, y2D=0, y2ED=0;
+    bool isNoise;
+    tree->Clear();
+    tree = (TTree*)graphFile[iFile]->Get("tree");
+    tree->SetBranchAddress("isNoise",&isNoise);
+    string classNameX = tree->GetBranch(xName.c_str())->GetClassName();
+    bool xErrorOk = true, y0ErrorOk = true, y1ErrorOk = true;;
+    if (classNameX.find("vector<double>") != string::npos)
+    {
+      tree->SetBranchAddress(xName.c_str(),&xP);
+      string xEName = xName+"E";
+      if (tree->GetBranchStatus(xEName.c_str()) && histV[0].compare(xEName) != 0 && (histV.size() < 2 || histV[1].compare(xEName) != 0)) tree->SetBranchAddress(xEName.c_str(),&xEP);
+      else
+      {
+        xEName = xName+"RMS";
+        if (tree->GetBranchStatus(xEName.c_str()) && histV[0].compare(xEName) != 0 && (histV.size() < 2 || histV[1].compare(xEName) != 0)) tree->SetBranchAddress(xEName.c_str(),&xEP);
+        else xErrorOk = false;
+      }
+    }
+    else if (classNameX.find("string") != string::npos)
+      {cerr << "Strings as labels on the axis is not yet implemented" << endl; return;}
+    else
+      tree->SetBranchAddress(xName.c_str(),&xD);
+    string classNameY1 = tree->GetBranch(histV[0].c_str())->GetClassName();
+//      tree->SetBranchAddress(histV[0].c_str(),&yP1);
+    if (classNameY1.find("vector<double>") != string::npos)
+    {
+      tree->SetBranchAddress(histV[0].c_str(),&yP1);
+      string yEName = histV[0]+"E";
+      if (tree->GetBranchStatus(yEName.c_str()) && xName.compare(yEName) != 0 && (histV.size() < 2 || histV[1].compare(yEName) != 0)) tree->SetBranchAddress(yEName.c_str(),&y1EP);
+      else
+      {
+        yEName = histV[0]+"RMS";
+        if (tree->GetBranchStatus(yEName.c_str()) && xName.compare(yEName) != 0 && (histV.size() < 2 || histV[1].compare(yEName) != 0)) tree->SetBranchAddress(yEName.c_str(),&y1EP);
+        else y0ErrorOk = false;
+      }
+    }
+    else if (classNameY1.find("string") != string::npos)
+      {cerr << "Strings as labels on the axis is not yet implemented" << endl; return;}
+    else
+      tree->SetBranchAddress(histV[0].c_str(),&y1D);
+    string classNameY2 = "";
+    if (histV.size() == 2)
+    {
+      classNameY2 = tree->GetBranch(histV[1].c_str())->GetClassName();
+      if (classNameY2.find("vector<double>") != string::npos)
+      {
+        tree->SetBranchAddress(histV[1].c_str(),&yP2);
+        string yEName = histV[1]+"E";
+        if (tree->GetBranchStatus(yEName.c_str()) && xName.compare(yEName) != 0 &&  histV[0].compare(yEName) != 0) tree->SetBranchAddress(yEName.c_str(),&y2EP);
+        else
+        {
+          yEName = histV[1]+"RMS";
+          if (tree->GetBranchStatus(yEName.c_str()) && xName.compare(yEName) != 0 &&  histV[0].compare(yEName) != 0) tree->SetBranchAddress(yEName.c_str(),&y2EP);
+          y1ErrorOk = false;
+        }
+      }
+      else if (classNameY2.find("string") != string::npos)
+        {cerr << "Strings as labels on the axis is not yet implemented" << endl; return;}
+      else
+        tree->SetBranchAddress(histV[1].c_str(),&y2D);
+    }
+    if (histV[0].find("efficiency") != string::npos || (histV.size() == 2 && histV[1].find("efficiency")) != string::npos || xName.find("efficiency") != string::npos)
+    {
+      if (!merged) tree->SetBranchAddress("nTrack",&nTrack);
+      if (!merged) tree->SetBranchAddress("nTrackpALPIDE",&nTrackpALPIDE);
+    }
+    vector<int> nPoint1(size,0), nPoint2(size,0);
+    vector<double> settingsTmp(varyingNames.size());
+    for (unsigned int iNames=0; iNames<varyingNames.size(); iNames++)
+      tree->SetBranchAddress(varyingNames[iNames].c_str(),&settingsTmp[iNames]);
+    bool thresholdFromNoise = true;
+    for (int i=0; i<nEntries; i++)
+    {
+      int index = -1;
+      tree->GetEntry(i);
+      if (i == 0)  thresholdFromNoise = isNoise;
+      if ((histFromData(xName) == 2 || histFromData(histV[0]) == 2 || histFromData(histV[1]) == 2) && ((histFromData(xName) != histFromData(histV[0])) || (histV.size() == 2 && histFromData(xName) != histFromData(histV[1]))))
+        thresholdFromNoise = isNoise;
+      if (allCanVary) index = 0;
+      else
+        for (unsigned int iChangingSetting=0; iChangingSetting<settings.size(); iChangingSetting++)
+        {
+          bool indexFound = true;
+          for (unsigned int iSetting=0; iSetting<settingsTmp.size(); iSetting++)
+          {
+            if (settingsTmp[iSetting] != settings[iChangingSetting][iSetting])
+            {
+              indexFound = false;
+              break;
+            }
+          }
+          if (!indexFound) continue;
+          index = iChangingSetting;
+          break;
+        }
+      if (index == -1) continue;
+      bool noX = true;
+      if ((histFromData(xName) == 2 && thresholdFromNoise == isNoise) || (histFromData(xName) == 1 && !isNoise) || (histFromData(xName) == 0 && isNoise))
+      {
+        if (classNameX.find("vector<double>") != string::npos)
+        {
+          x = *xP;
+          xD = x[iSector];
+          if (!merged && xName.find("efficiency") == string::npos && xName.find("threshold") == string::npos && xName.find("RMS") == string::npos && xErrorOk)
+          {
+            xE = *xEP;
+            xED = xE[iSector];
+          }
+          if ((xName.find("threshold") != string::npos || xName.find("temporalNoise") != string::npos) && x[iSector] == 0) continue;
+          else if (!merged && xName.find("efficiency") != string::npos)
+          {
+            vector<double> nTr = *nTrack;
+            if (nTr[iSector] == 0) continue;
+          }
+          if (xName.find("residual") != string::npos || xName.find("resolution") != string::npos)
+            if (xD < 0) continue;
+        }
+        noX = false;
+      }
+      if (noX) continue;
+      if ((histFromData(histV[0]) == 2 && thresholdFromNoise == isNoise) || (histFromData(histV[0]) == 1 && !isNoise) || (histFromData(histV[0]) == 0 && isNoise))
+      {
+        if (classNameY1.find("vector<double>") != string::npos)
+        {
+          y1 = *yP1;
+          y1D = y1[iSector];
+          if (!merged && histV[0].find("efficiency") == string::npos && histV[0].find("RMS") == string::npos && y0ErrorOk)
+          {
+            y1E = *y1EP;
+            y1ED = y1E[iSector];
+          }
+          else if (!merged && histV[0].find("efficiency") != string::npos)
+          {
+            vector<double> nTr = *nTrack;
+            if (nTr[iSector] == 0) continue;
+          }
+          if (histV[0].find("residual") != string::npos || histV[0].find("resolution") != string::npos)
+            if (y1D < 0) continue;
+          if ((histV[0].find("threshold") != string::npos || histV[0].find("temporalNoise") != string::npos) && y1[iSector] == 0) continue;
+        }
+        graph1[index]->SetPoint(nPoint1[index],xD,y1D);
+        if (!merged && histV[0].find("efficiency") != string::npos)
+        {
+          vector<double> nTr = *nTrack;
+          if (nTr[iSector] == 0) continue;
+          vector<double> nTrpA = *nTrackpALPIDE;
+          double mean = (nTrpA[iSector]+1)/(nTr[iSector]+2);
+          double sigma = sqrt(((nTrpA[iSector]+1)*(nTrpA[iSector]+2))/((nTr[iSector]+2)*(nTr[iSector]+3))-((nTrpA[iSector]+1)*(nTrpA[iSector]+1))/((nTr[iSector]+2)*(nTr[iSector]+2)));
+          graph1[index]->SetPointError(nPoint1[index],xED,xED,y1D-(mean-sigma)*100.,(mean+sigma)*100.-y1D);
+        }
+        else if (!merged && xName.find("efficiency") != string::npos)
+        {
+          vector<double> nTr = *nTrack;
+          if (nTr[iSector] == 0) continue;
+          vector<double> nTrpA = *nTrackpALPIDE;
+          double mean = (nTrpA[iSector]+1)/(nTr[iSector]+2);
+          double sigma = sqrt(((nTrpA[iSector]+1)*(nTrpA[iSector]+2))/((nTr[iSector]+2)*(nTr[iSector]+3))-((nTrpA[iSector]+1)*(nTrpA[iSector]+1))/((nTr[iSector]+2)*(nTr[iSector]+2)));
+          graph1[index]->SetPointError(nPoint1[index],xD-(mean-sigma)*100.,(mean+sigma)*100.-xD,y1ED,y1ED);
+        }
+        else if (merged) 
+        {
+          if (classNameX.find("vector<double>") != string::npos && classNameY1.find("vector<double>") != string::npos)
+          graph1[index]->SetPointError(nPoint1[index],x[iSector]-x[iSector+4],x[iSector+8]-x[iSector],y1[iSector]-y1[iSector+4],y1[iSector+8]-y1[iSector]);
+          else if (classNameX.find("vector<double>") != string::npos)
+            graph1[index]->SetPointError(nPoint1[index],x[iSector]-x[iSector+4],x[iSector+8]-x[iSector],y1ED,y1ED);
+          else if (classNameY1.find("vector<double>")!= string::npos) 
+            graph1[index]->SetPointError(nPoint1[index],xED,xED,y1[iSector]-y1[iSector+4],y1[iSector+8]-y1[iSector]);
+        }
+        else graph1[index]->SetPointError(nPoint1[index],xED,xED,y1ED,y1ED);
+        nPoint1[index]++;
+      }
+      if (histV.size() == 2 && ((histFromData(histV[1]) == 2 && thresholdFromNoise == isNoise) || (histFromData(histV[1]) && !isNoise) || (!histFromData(histV[1]) && isNoise)))
+//      if (histV.size() == 2)
+      {
+        if (classNameY2.find("vector<double>") != string::npos)
+        {
+          y2 = *yP2;
+          y2D = y2[iSector];
+          if (!merged && histV[1].find("efficiency") == string::npos && histV[1].find("RMS") == string::npos && y1ErrorOk)
+          {
+            y2E = *y2EP;
+            y2ED = y2E[iSector];
+          }
+          else if (histV[1].find("efficiency") != string::npos)
+          {
+            vector<double> nTr = *nTrack;
+            if (nTr[iSector] == 0) continue;
+          }
+          if (histV[1].find("residual") != string::npos || histV[1].find("resolution") != string::npos)
+            if (y2D < 0) continue;
+        }
+        graph2[index]->SetPoint(nPoint2[index],xD,y2D);
+        if (!merged && histV[1].find("efficiency") != string::npos)
+        {
+          vector<double> nTr = *nTrack;
+          if (nTr[iSector] == 0) continue;
+          vector<double> nTrpA = *nTrackpALPIDE;
+          double mean = (nTrpA[iSector]+1)/(nTr[iSector]+2);
+          double sigma = sqrt(((nTrpA[iSector]+1)*(nTrpA[iSector]+2))/((nTr[iSector]+2)*(nTr[iSector]+3))-((nTrpA[iSector]+1)*(nTrpA[iSector]+1))/((nTr[iSector]+2)*(nTr[iSector]+2)));
+          graph2[index]->SetPointError(nPoint2[index],xED,xED,y2D-(mean-sigma)*100.,(mean+sigma)*100.-y2D);
+        }
+        else if (!merged && xName.find("efficiency") != string::npos)
+        {
+          vector<double> nTr = *nTrack;
+          if (nTr[iSector] == 0) continue;
+          vector<double> nTrpA = *nTrackpALPIDE;
+          double mean = (nTrpA[iSector]+1)/(nTr[iSector]+2);
+          double sigma = sqrt(((nTrpA[iSector]+1)*(nTrpA[iSector]+2))/((nTr[iSector]+2)*(nTr[iSector]+3))-((nTrpA[iSector]+1)*(nTrpA[iSector]+1))/((nTr[iSector]+2)*(nTr[iSector]+2)));
+          graph2[index]->SetPointError(nPoint2[index],xD-(mean-sigma)*100.,(mean+sigma)*100.-xD,y2ED,y2ED);
+        }
+        else if (merged){ //graph2[index]->SetPointError(nPoint2[index],x[iSector]-x[iSector+4],x[iSector+8]-x[iSector],y2[iSector]-y2[iSector+4],y2[iSector+8]-y2[iSector]);
+          if (classNameX.find("vector<double>") != string::npos && classNameY2.find("vector<double>") != string::npos)
+            graph2[index]->SetPointError(nPoint2[index],x[iSector]-x[iSector+4],x[iSector+8]-x[iSector],y2[iSector]-y2[iSector+4],y2[iSector+8]-y2[iSector]);
+          else if (classNameX.find("vector<double>") != string::npos)
+            graph2[index]->SetPointError(nPoint2[index],x[iSector]-x[iSector+4],x[iSector+8]-x[iSector],y2ED,y2ED);
+          else if (classNameY2.find("vector<double>")!= string::npos) 
+            graph2[index]->SetPointError(nPoint2[index],xED,xED,y2[iSector]-y2[iSector+4],y2[iSector+8]-y2[iSector]);
+        }
+        else graph2[index]->SetPointError(nPoint2[index],xED,xED,y2ED,y2ED);
+        nPoint2[index]++;
+      }
+    }
+    for (int iSetting=0; iSetting<size; iSetting++)
+    {
+      string legend = getLegend(filesV[iFile], addBB, addIrr, addChipNumber, addRate);
+      if (sector == 5 && (legend.compare("      ") != 0 || legends.size() > 1 ))
+      {
+        if (legend.compare("      ") != 0) legend += ", ";
+        legend += Form("Sector %d",iSector);
+      }
+      else if (sector == 5) legend = sectorLegendEntries[iSector];
+      if (legend.compare("      ") != 0 && legends.size() > 1) legend += ", ";
+      if (legends.size() > 1) legend += legends[iSetting];
+      legendV.push_back(legend);
+      graph1[iSetting] = reorder(graph1[iSetting]);
+      graph1V.push_back(graph1[iSetting]);
+      graph2[iSetting] = reorder(graph2[iSetting]);
+      graph2V.push_back(graph2[iSetting]);
+    }
+    }
+  }
+  string canvasName = xName + histV[0];
+  if (histV.size() == 1) Draw(graph1V, canvasName.c_str(), xTitle.c_str(), yTitle1.c_str(), legendV, ylow1, yhigh1, line1, xlow, xhigh, log1, Form("Sector %d", sector));
+  else if (histV.size() == 2) DrawOverDifferentGraphs(graph1V, ylow1, yhigh1, line1, yTitle1.c_str(), graph2V, ylow2, yhigh2, line2, yTitle2.c_str(), canvasName.c_str(), legendTitle.c_str(), legendV, xlow, xhigh, log1, log2, xTitle.c_str(), Form("Sector %d", sector));
 }
 
 vector<TH1F*> CalculateNoiseFromNoise(TH2* fakeHitHisto, int runNumberIndex, vector<Run> runs) 
@@ -652,7 +1506,7 @@ vector<TH1F*> CalculateNoiseFromNoise(TH2* fakeHitHisto, int runNumberIndex, vec
         index = iSector;
         break;
       }
-    if (index == -1) {cerr << x << endl; continue;}
+    if (index == -1) {cerr << "Index is not specifiedfor x " << x << endl; continue;}
     for (int y=1; y<=fakeHitHisto->GetNbinsY(); y++)
       noiseWithRemove[index] += fakeHitHisto->GetBinContent(x,y);
   }
@@ -679,7 +1533,7 @@ vector<TH1F*> CalculateNoiseFromNoise(TH2* fakeHitHisto, int runNumberIndex, vec
         index = iSector;
         break;
       }
-    if (index == -1) {cerr << x << endl; continue;}
+    if (index == -1) {cerr << "Index is not specifiedfor x " << x << endl; continue;}
     if (!lowEnough[index] && removedPixels[index] < maxNPixels && noiseWithRemove[index] != 0)
     {
       noiseWithRemove[index] -= fakeHitHisto->GetBinContent(x,y);
@@ -764,7 +1618,6 @@ void compareDifferentGraphs2D(string files, string hist, int sector, bool IthrVc
       else graph2V1D.push_back(Get1DFrom2D(graph2V[i],IthrVcasn,IthrVcasnValue));
     }
     legendStr.push_back(getLegend(filesV[i],BB,irr,chip,rate));
-//      cerr << graphV[j]->GetN() << endl;
   }
   string canvasTitle;
   if (IthrVcasn) canvasTitle= Form("Sector %d, I_{thr} = %.0f", sector,IthrVcasnValue);
@@ -1009,10 +1862,6 @@ void compareDifferentIthrVcasn2D(string file, string hist, int sector)
   bool defaultsFine = false;
   defaultsFine = getDefaults(histV[0], x1low, x1high, y1low, y1high, line1, log1, xTitle1, yTitle1, legend1, x2low, x2high, xTitle2);
   if (histV.size() == 2) defaultsFine = getDefaults(histV[1], x1low, x1high, y2low, y2high, line2, log2, xTitle1, yTitle2, legend2, x2low, x2high, xTitle2);
-//  cerr << "defaultsFine " << defaultsFine << endl;
-//  cerr << x1low << "\t" << x1high << "\t" << xTitle1 << "\t" << y1low << "\t" << y1high << "\t" << yTitle1 << "\t" << log1 << endl;
-//  cerr << x2low << "\t" << x2high << "\t" << xTitle2 << "\t" << y2low << "\t" << y2high << "\t" << yTitle2 << "\t" << log2 << endl;
-//  cerr << legend << endl;
   string legend = legend1 + "#color[2]{" + legend2 +"}";
   if (defaultsFine) compareDifferentIthrVcasn2D(file, hist, sector, xTitle1.c_str(), xTitle2.c_str(), x1low, x1high, x2low, x2high, legend.c_str(), yTitle1.c_str(), y1low, y1high, log1, line1, yTitle2.c_str(), y2low, y2high, line2, log2);
 }
@@ -1066,10 +1915,8 @@ void compareDifferentIthrVcasn2D(string file, string hist, int sector, const cha
     vector<double> usedX;
     vector<double> usedY;
     string canvas2D1 = Form("canvas2D1_%d",iSector) + histV[0];
-//    cerr << "graph2D1->GetN(): " << graph2D1->GetN() << endl;
     for (int i=0; i<graph2D1->GetN(); i++)
     {
- //     cerr << Z[i]  << "\t" << X1[i] << "\t" << Y1[i]<< endl;
       bool isUsedX = false;
       for (unsigned int j=0; j<usedX.size(); j++)
         if (usedX[j] == X1[i]) 
@@ -1216,22 +2063,16 @@ void Draw2D(TGraph2D* graph, const char* canvas, string zTitle, string title, bo
   graph->SetLineColor(1);
   graph->SetMarkerSize(1.3);
   graph->SetMarkerStyle(20);
-//  graph->GetXaxis()->SetTitle("I_{thr} (DAC units)");
-//  graph->GetYaxis()->SetTitle("V_{casn} (DAC units)");
-//  graph->GetZaxis()->SetTitle(zTitle);
   graph->GetHistogram();
   string titleFinal = title + ";I_{thr} (DAC units);V_{casn} (DAC units);" + zTitle; 
   graph->SetTitle(titleFinal.c_str());
   graph->GetXaxis()->SetTitleOffset(1.3);
   graph->GetYaxis()->SetTitleOffset(1.3);
-//  graph->GetZaxis()->SetTitleOffset(1.3);
   graph->GetXaxis()->SetTitleSize(0.05);
   graph->GetYaxis()->SetTitleSize(0.05);
   graph->GetZaxis()->SetTitleSize(0.05);
-//  graph->GetXaxis()->SetLimits(9,60);
-//  graph->GetYaxis()->SetLimits(70,100);
-//  graph->GetZaxis()->SetLimits(0,110);
-  graph->GetZaxis()->SetRangeUser(zlow,zhigh);
+  graph->SetMinimum(zlow);
+  graph->SetMaximum(zhigh); // Afterwards by zooming on the plot color is not adjusted, so if histogram is out of Z range it will stay purple... It can be changed by SetMinimum and SetMaximum again only.
   graph->Draw("TRI2P");
 	
 }
@@ -1252,10 +2093,6 @@ void compareDifferentSectors2D(string file, string hist, bool IthrVcasn, double 
   bool defaultsFine = false;
   defaultsFine = getDefaults(histV[0], x1low, x1high, y1low, y1high, line1, log1, xTitle1, yTitle1, legend1, x2low, x2high, xTitle2);
   if (histV.size() == 2) defaultsFine = getDefaults(histV[1], x1low, x1high, y2low, y2high, line2, log2, xTitle1, yTitle2, legend2, x2low, x2high, xTitle2);
-//  cerr << "defaultsFine " << defaultsFine << endl;
-//  cerr << x1low << "\t" << x1high << "\t" << xTitle1 << "\t" << y1low << "\t" << y1high << "\t" << yTitle1 << "\t" << log1 << endl;
-//  cerr << x2low << "\t" << x2high << "\t" << xTitle2 << "\t" << y2low << "\t" << y2high << "\t" << yTitle2 << "\t" << log2 << endl;
-//  cerr << legend << endl;
   string legend = legend1 + "#color[2]{" + legend2 +"}";
   if (defaultsFine) 
   {
@@ -1399,10 +2236,128 @@ void compareDifferentSectors2D(string file, string hist, bool IthrVcasn, double 
   if (histV.size() == 2)
   {
     string canvas2 = histV[0] + histV[1] + Form("%0.f", IthrVcasnValue) + "C";
-    DrawOverSectors(graph1V,y1low,y1high,line1,yTitle1,graph2V,y2low,y2high,line2,yTitle2,canvas2.c_str(),legend,legendStr, xlow, xhigh, log1,log2,xTitle,title.c_str());
+    DrawOverDifferentGraphs(graph1V,y1low,y1high,line1,yTitle1,graph2V,y2low,y2high,line2,yTitle2,canvas2.c_str(),legend,legendStr, xlow, xhigh, log1,log2,xTitle,title.c_str());
   }
   
 }
+
+bool getDefaultsOneAxis(string graph, double& low, double& high, double& line, bool& log, string& title, string& legend)
+{
+  log = false;
+  if (graph.find("noiseOccupancy") != string::npos)
+  {
+    low = 1e-8;
+    high  = 1e-4;
+    line = 1e-5;
+    log = true;
+    title = "Noise occupancy per event per pixel";
+    legend += "Noise   ";
+  }
+  else if (graph.find("efficiency") != string::npos)
+  {
+    low = 90;
+    high  = 100.1;
+    line = 99;
+    title = "Efficiency (%)";
+    legend += "Efficiency   ";
+  }
+  else if (graph.find("resolution") != string::npos) 
+  {
+    low = 4;
+    high = 8;
+    line = 5;
+    title = "Resolution (#mum)";
+    legend += "Resolution   ";
+  }
+  else if (graph.find("residual") != string::npos) 
+  {
+    low = 4;
+    high = 8;
+    line = 5;
+    title = "Residual (#mum)";
+    legend += "Residual   ";
+  }
+  else if (graph.find("clusterSizeRMS") != string::npos) 
+  {
+    low = 0;
+    high = 2;
+    line = -100;
+    title = "Cluster size RMS (pixels)";
+    legend += "Cluster size RMS  ";
+  }
+  else if (graph.find("clusterSize") != string::npos) 
+  {
+    low = 0;
+    high = 5;
+    line = -100;
+    title = "Average cluster size (pixels)";
+    legend += "Cluster size   ";
+  }
+  else if (graph.find("temporalNoise")!= string::npos)
+  {
+    low = 0;
+    high = 20;
+    line = -100;
+    title = "Temporal noise (electrons)";
+    legend += "Noise   ";
+  }
+  else if (graph.find("thresholdRMS")!= string::npos)
+  {
+    low = 0;
+    high = 30;
+    line = -100;
+    title = "Threshold RMS (electrons)";
+    legend += "Threshold RMS  ";
+  }
+  else if (graph.find("threshold")!= string::npos || graph.find("Thr") != string::npos)
+  {
+    low = 50;
+    high = 400;
+    line = -100;
+    title = "Threshold (electrons)";
+    legend += "Threshold   ";
+  }
+  else if (graph.find("Ithr") != string::npos || graph.find("ithr") != string::npos)
+  {
+    if (graph.find("ithrpA") != string::npos)
+    {
+      low = 0;
+      high  = 800;
+      line = -100;
+      title = "I_{thr} (pA)";
+    }
+    else
+    {
+      low = 0;
+      high  = 80;
+      line = -100;
+      title = "I_{thr} (DAC units)";
+    }
+  }
+  else if (graph.find("Vcasn") != string::npos || graph.find("vcasn") != string::npos)
+  {
+    low = 40;
+    high  = 160;
+    title = "V_{casn} (DAC units)";
+  }
+  else if (graph.find("noise") != string::npos)         
+  {                                                
+    low = 1e-8;                                   
+    high  = 1e-4;                                 
+    line = 1e-5;                                   
+    log = true;                                    
+    title = "Noise occupancy per event per pixel";
+    legend += "Noise   ";                          
+  }                                                
+ 
+  else
+  {
+    cerr << "Unkown type!" << endl; 
+    return false;
+  }  
+  return true;
+}
+
 
 bool getDefaults(string graph, double& xlow, double& xhigh, double& ylow, double& yhigh, double& line, bool& log, string& xTitle, string& yTitle, string& legend, double& x2low, double& x2high, string& xTitle2)
 {
@@ -1443,18 +2398,27 @@ bool getDefaults(string graph, double& xlow, double& xhigh, double& ylow, double
     yTitle = "Residual (#mum)";
     legend += "Residual   ";
   }
+  else if (graph.find("clusterSizeRMS") != string::npos) 
+  {
+    ylow = 0;
+    yhigh = 2;
+    line = -100;
+    yTitle = "Cluster size RMS (pixels)";
+    legend += "Cluster size RMS  ";
+  }
   else if (graph.find("clusterSize") != string::npos) 
   {
     ylow = 0;
     yhigh = 5;
-    line = -1;
+    line = -100;
     yTitle = "Average cluster size (pixels)";
     legend += "Cluster size   ";
   }
-  else if (graph.find("temperalNoise")!= string::npos)
+  else if (graph.find("temporalNoise")!= string::npos)
   {
     ylow = 0;
     yhigh = 20;
+    line = -100;
     yTitle = "Temperal noise (electrons)";
     legend += "Noise   ";
   }
@@ -1462,6 +2426,7 @@ bool getDefaults(string graph, double& xlow, double& xhigh, double& ylow, double
   {
     ylow = 50;
     yhigh = 250;
+    line = -100;
     yTitle = "Threshold (electrons)";
     legend += "Threshold   ";
   }
@@ -1503,13 +2468,12 @@ bool getDefaults(string graph, double& xlow, double& xhigh, double& ylow, double
     cerr << "Unkown x type!" << endl; 
     return false;
   }  
-//  cerr << xlow << "\t" << xhigh << "\t" << xTitle << "\t" << ylow << "\t" << yhigh << "\t" << yTitle << "\t" << log<< endl;
   return true;
 }
 
 string getLegend(string file, bool addBB, bool addIrr, bool addChipNumber, bool addRate)
 {
-  string irradiationLevels[5] = {"Non irradiated","0.25e13 1 MeV n_{eq}/cm^{2}","1e13 1 MeV n_{eq}/cm^{2}","700 krad","1e13 1 MeV n_{eq}/cm^{2} + 700 krad"};
+  string irradiationLevels[5] = {"Non irradiated","0.25e13 1 MeV n_{eq} / cm^{2}","1e13 1 MeV n_{eq} / cm^{2}","700 krad","1e13 1 MeV n_{eq}/cm^{2} + 700 krad"};
   string rateLevels[4] = {"100-1000 events/spill","4000-4500 events/spill","10000-12000 events/spill","15000-18000 events/spill"};
   int BB;
   int irr;
@@ -1520,13 +2484,18 @@ string getLegend(string file, bool addBB, bool addIrr, bool addChipNumber, bool 
   else irr = atoi(irrStr.c_str());
   size_t BBPos = file.find("BB");
   string BBStr = file.substr(BBPos+2,1);
-  if (BBStr == "-") BBStr = file.substr(BBPos+2,3);
-  else BBStr = file.substr(BBPos+2,2);
+  if (BBStr == "-") BBStr = file.substr(BBPos+2,2) + " V";
+  else if (BBStr == "0" ) BBStr = file.substr(BBPos+2,1) + " V";
+  else BBStr = "-" + file.substr(BBPos+2,1) + " V"; // BB is stored normally as a positive value in the config file, because it is supplied by inverting the cable.
   if (BBPos == string::npos || !addBB) BB = -100;
   else BB = atoi(BBStr.c_str());
-  size_t chipPos = file.find("W");
+  size_t chipPos = file.find("graphs_W");
   string chipStr = "";
-  if (chipPos!=string::npos) chipStr = file.substr(chipPos,5);
+  if (chipPos!=string::npos)
+  {
+    if (file.substr(chipPos+11,1) < 48 || file.substr(chipPos+11,1) > 57)  chipStr = file.substr(chipPos+7,4);
+    else chipStr = file.substr(chipPos+7,5);
+  }
   size_t ratePos = file.find("Rate");
   string rateStr = "";
   if (ratePos!=string::npos && addRate) 
@@ -1555,45 +2524,64 @@ string getLegend(string file, bool addBB, bool addIrr, bool addChipNumber, bool 
 
 void Draw(vector<TGraph*> graph, string canvas, const char* titleX, const char* titleY, vector<string> legendStr, double rangeLow, double rangeHigh, double line, double xLow, double xHigh, bool log, const char* canvasTitle)
 {
+  int markers[] = { 20, 21, 34, 31, 33, 25, 24, 27, 28, 30, 31, 32, 33, 34, 2, 5};
+  int colors[] = { 1, kGreen+1, kRed, kBlue, kOrange-3, kGray+1, kViolet-9, kCyan+1, kMagenta-2, kGreen+3, kGray+1, kOrange+1, 28, 30, 36, 40, 46 };
   bool drawLegend = true;
   if (graph.size() != legendStr.size()) 
   {
-    cerr << "Number of legends doesn't correspond to the number of graphs!" << endl;
+    cerr << "Number of legends doesn't correspond to the number of graphs! Number of legends: " << legendStr.size() << " Number of graphs: " << graph.size() << endl;
     drawLegend = false;
   }
   TCanvas * C = new TCanvas(canvas.c_str(),"",800,600);
+  C->SetFillStyle(0);
   C->cd();
   if (log) C->SetLogy();
-  int markerColorShift = 0;
+  int tmp = 0;
+  TLegend * legend = new TLegend(0.12,0.12,0.6,0.42);
+  if (drawLegend)
+  {
+    legend->SetFillColor(0);
+    legend->SetFillStyle(0);
+    legend->SetLineColor(0);
+    legend->SetBorderSize(0);
+  }
   for (unsigned int i=0; i<graph.size(); i++)
   {
-    if (i==4 || i==5) markerColorShift++;
+    if (graph[i]->GetN() == 0) continue;
+    else 
+    {
+      double* Y = graph[i]->GetY();
+      for (int iPoint=graph[i]->GetN()-1; iPoint>=0; iPoint--)
+        if (Y[iPoint] == 0) graph[i]->RemovePoint(iPoint);
+    }
     graph[i]->GetXaxis()->SetTitle(titleX);
     graph[i]->GetYaxis()->SetTitle(titleY);
+    graph[i]->GetXaxis()->SetTitleOffset(0.9);
+    graph[i]->GetYaxis()->SetTitleOffset(0.9);
+    graph[i]->GetXaxis()->SetTitleSize(0.05);
+    graph[i]->GetYaxis()->SetTitleSize(0.05);
     graph[i]->SetTitle(canvasTitle);
     graph[i]->SetFillColor(0);
     graph[i]->GetYaxis()->SetRangeUser(rangeLow,rangeHigh);
-    graph[i]->SetLineColor(i+1+markerColorShift);
-    graph[i]->SetMarkerStyle(i+20);
+    graph[i]->SetLineColor(colors[tmp]);
+    graph[i]->SetMarkerStyle(markers[tmp]);
     graph[i]->SetMarkerSize(1.3);
-    graph[i]->SetMarkerColor(i+1+markerColorShift);
+    graph[i]->SetMarkerColor(colors[tmp]);
     graph[i]->GetXaxis()->SetLimits(xLow,xHigh);
+    graph[i]->SetTitle("");
 
-    graph[i]->Draw(i==0?"APL":"SAMEPL");
+    graph[i]->Draw(tmp==0?"APL":"SAMEPL");
+    if (drawLegend)
+      legend->AddEntry(graph[i]->Clone(), legendStr[i].c_str());
+    tmp++;
   }
   C->Update();
   TLine *l1=new TLine(C->GetUxmin(),line,C->GetUxmax(),line);
   l1->SetLineColor(1);
   l1->SetLineStyle(2);
   l1->Draw();
-  TLegend * legend = new TLegend(0.1,0.1,0.77,0.3);
   if (drawLegend)
-  {
-    legend->SetFillColor(0);
-    for (unsigned int i=0; i<legendStr.size(); i++)
-      legend->AddEntry(graph[i]->Clone(), legendStr[i].c_str());
     legend->Draw();
-  }
 //  string fileName = "./results/" + canvas + ".pdf";
 //  C->SaveAs(fileName.c_str());
 }
@@ -1671,106 +2659,6 @@ void DrawSame(vector<TGraph*> graph1, vector<TGraph*> graph2, const char* canvas
   }
 }
 
-void DrawOverSectors(vector<TGraph*> graph1, double rangeLow1, double rangeHigh1, double line1, const char* titleY1, vector<TGraph*> graph2, double rangeLow2, double rangeHigh2, double line2, const char* titleY2, const char* canvas, const char* legendTitle, vector<string> legendStr, double xlow, double xhigh,bool log1, bool log2, const char* titleX, const char* title)
-{
-  TCanvas * C = new TCanvas(canvas,"",800,600);
-  gROOT->Reset();
-  C->cd();
-  TPad *pad = new TPad("pad","",0,0,1,1);
-  pad->SetFillColor(0);
-  if (log1) pad->SetLogy();
-  pad->Draw();
-  pad->cd();
-  TH1F *hr = pad->DrawFrame(xlow,rangeLow1,xhigh,rangeHigh1);
-  hr->GetYaxis()->SetTitleOffset(1.15);
-  hr->SetXTitle(titleX);
-  hr->SetYTitle(titleY1);
-  hr->GetXaxis()->SetTitleSize(0.045);
-  hr->GetYaxis()->SetTitleSize(0.045);
-  hr->SetTitle(title);
-//  hr->SetTitle("Irradiated with 1e13 1 Mev n_{eq}/cm^{2}");
-  pad->GetFrame()->SetFillColor(0);
-  pad->GetFrame()->SetBorderSize(12);
-  for (int i=graph1.size()-1; i>=0; i--)
-  {
-    graph1[i]->GetYaxis()->CenterLabels();
-    graph1[i]->SetFillColor(0);
-    graph1[i]->SetTitle("");
-    graph1[i]->SetMarkerStyle(i==0?23:19+i);
-//    graph1[i]->SetLineColor(i+1);
-    graph1[i]->SetLineColor(1);
-//  graph1[i]->SetLineColor(1);
-    graph1[i]->SetMarkerSize(1.3);
-    graph1[i]->SetMarkerColor(1);
-//    graph1[i]->SetMarkerColor(i+1);
-    graph1[i]->DrawClone((unsigned int) i==(graph1.size()-1)?"PL":"SAMEPL");
-
-  }
-  pad->Update();
-  TLine *l1=new TLine(pad->GetUxmin(),line1,pad->GetUxmax(),line1);
-  l1->SetLineColor(1);
-  l1->SetLineStyle(2);
-  l1->Draw();
-  C->cd();
-  TPad *overlay = new TPad("overlay","",0,0,1,1);
-  overlay->SetFillStyle(4000);
-  overlay->SetFillColor(0);
-  overlay->SetFrameFillStyle(4000);
-  if (log2) overlay->SetLogy();
-  overlay->Draw();
-  overlay->cd();
-  Double_t xmin = pad->GetUxmin();
-  Double_t ymin = rangeLow2;
-  Double_t xmax = pad->GetUxmax();
-  Double_t ymax = rangeHigh2;
-  TH1F *hframe = overlay->DrawFrame(xmin,ymin,xmax,ymax);
-  hframe->GetXaxis()->SetLabelOffset(99);
-  hframe->GetYaxis()->SetLabelOffset(99);
-  hframe->GetYaxis()->SetTickLength(0);
-  for (int i=graph2.size()-1; i>=0; i--)
-  {
-    graph2[i]->SetFillColor(0);
-    graph2[i]->SetMarkerStyle(i+20);
-    graph2[i]->SetLineColor(2);
-//    graph2[i]->SetLineColor(i+1);
-    graph2[i]->SetMarkerStyle(i==0?32:23+i);
-//    graph2[i]->SetMarkerStyle(i==3?32:24+i);
-    graph2[i]->SetMarkerSize(1.3);
-    graph2[i]->SetMarkerColor(2);
-//    graph2[i]->SetMarkerColor(i+1);
-    graph2[i]->SetTitle("");
-    graph2[i]->DrawClone((unsigned int)i==(graph2.size()-1)?"PL":"SAMEPL");
-  }
-  pad->Update();
-  TLine *l2=new TLine(pad->GetUxmin(),line2,pad->GetUxmax(),line2);
-  l2->SetLineColor(2);
-  l2->SetLineStyle(2);
-  l2->Draw();
-  TGaxis *axis;
-  if (!log2) axis = new TGaxis(xmax,ymin,xmax, ymax,ymin,ymax,510,"+L");
-  else axis = new TGaxis(xmax,ymin,xmax, ymax,ymin,ymax,510,"+LG");
-  axis->SetTitle(titleY2);
-  axis->Draw();
-  axis->SetLabelFont(42);
-  axis->SetLabelSize(0.035);
-  axis->SetTitleFont(42);
-  axis->SetTitleOffset(1.1);
-  axis->SetTitleColor(2);
-  axis->SetLineColor(2);
-  axis->SetLabelColor(2);
-  axis->SetTitleSize(0.045);
-  TLegend * legend = new TLegend(0.1,0.1,0.77,0.3);
-  legend->SetFillColor(0);
-  legend->SetNColumns(2);
-  for (unsigned int i=0; i<legendStr.size(); i++)
-  {
-    legend->AddEntry(graph1[i]->Clone(), "      ");
-    legend->AddEntry(graph2[i]->Clone(), legendStr[i].c_str());
-  }
-  legend->SetHeader(legendTitle);
-  legend->Draw();
-}
-
 void DrawOverDifferentGraphs(vector<TGraph*> graph1, double rangeLow1, double rangeHigh1, double line1, const char* titleY1, vector<TGraph*> graph2, double rangeLow2, double rangeHigh2, double line2, const char* titleY2, const char* canvas, const char* legendTitle, vector<string> legendStr, double xlow, double xhigh, bool log1, bool log2, const char* titleX, const char* canvasTitle)
 {
   int marker1[7] = {20, 21, 22, 34, 29, 33, 23};
@@ -1782,10 +2670,11 @@ void DrawOverDifferentGraphs(vector<TGraph*> graph1, double rangeLow1, double ra
     drawLegend = false;
   }
   TCanvas * C = new TCanvas(canvas,"",800,600);
-//  gROOT->Reset();
+  C->SetFillStyle(0);
   C->cd();
   TPad *pad = new TPad("pad","",0,0,1,1);
   pad->SetFillColor(0);
+  pad->SetFillStyle(0);
   if (log1) pad->SetLogy();
   pad->Draw();
   pad->cd();
@@ -1796,22 +2685,36 @@ void DrawOverDifferentGraphs(vector<TGraph*> graph1, double rangeLow1, double ra
   hr->GetXaxis()->SetTitleSize(0.045);
   hr->GetYaxis()->SetTitleSize(0.045);
   hr->SetTitle(canvasTitle);
-//  hr->SetTitle("Irradiated with 1e13 1 Mev n_{eq}/cm^{2}");
   pad->GetFrame()->SetFillColor(0);
   pad->GetFrame()->SetBorderSize(12);
+  int tmp = 0;
+
+  vector<unsigned int> skipped;  
+  for (unsigned int i=0; i<graph1.size(); i++)
+    if (graph1[i]->GetN() == 0)
+      skipped.push_back(i);
+  for (unsigned int i=0; i<graph2.size(); i++)
+    if (graph2[i]->GetN() == 0)
+      skipped.push_back(i);
+
   for (unsigned int i=0; i<graph1.size(); i++)
   {
+    bool toSkip = false;
+    for (unsigned int iSkipped=0; iSkipped<skipped.size(); iSkipped++)
+      if (skipped[iSkipped] == i)
+      {
+        toSkip = true;
+        break;
+      }
+    if (toSkip) continue;
     graph1[i]->GetYaxis()->CenterLabels();
     graph1[i]->SetFillColor(0);
-//    graph1[i]->SetTitle("");
-    graph1[i]->SetMarkerStyle(marker1[i]);
-//    graph1[i]->SetLineColor(i+1);
+    graph1[i]->SetMarkerStyle(marker1[tmp]);
     graph1[i]->SetLineColor(1);
     graph1[i]->SetMarkerSize(1.3);
     graph1[i]->SetMarkerColor(1);
-//    graph1[i]->SetMarkerColor(i+1);
-    graph1[i]->DrawClone(i==0?"PL":"SAMEPL");
-
+    graph1[i]->DrawClone(tmp==0?"PL":"SAMEPL");
+    tmp++;
   }
   pad->Update();
   TLine *l1=new TLine(pad->GetUxmin(),line1,pad->GetUxmax(),line1);
@@ -1834,19 +2737,25 @@ void DrawOverDifferentGraphs(vector<TGraph*> graph1, double rangeLow1, double ra
   hframe->GetXaxis()->SetLabelOffset(99);
   hframe->GetYaxis()->SetLabelOffset(99);
   hframe->GetYaxis()->SetTickLength(0);
+  tmp = 0;
   for (unsigned int i=0; i<graph2.size(); i++)
   {
+    bool toSkip = false;
+    for (unsigned int iSkipped=0; iSkipped<skipped.size(); iSkipped++)
+      if (skipped[iSkipped] == i)
+      {
+        toSkip = true;
+        break;
+      }
+    if (toSkip) continue;
     graph2[i]->SetFillColor(0);
     graph2[i]->SetMarkerStyle(i+20);
     graph2[i]->SetLineColor(2);
-//    graph2[i]->SetLineColor(i+1);
-    graph2[i]->SetMarkerStyle(marker2[i]);
-//    graph2[i]->SetMarkerStyle(i==3?32:24+i);
+    graph2[i]->SetMarkerStyle(marker2[tmp]);
     graph2[i]->SetMarkerSize(1.3);
     graph2[i]->SetMarkerColor(2);
-//    graph2[i]->SetMarkerColor(i+1);
-//    graph2[i]->SetTitle("");
-    graph2[i]->DrawClone(i==0?"PL":"SAMEPL");
+    graph2[i]->DrawClone(tmp==0?"PL":"SAMEPL");
+    tmp++;
   }
   pad->Update();
   TLine *l2=new TLine(pad->GetUxmin(),line2,pad->GetUxmax(),line2);
@@ -1870,9 +2779,19 @@ void DrawOverDifferentGraphs(vector<TGraph*> graph1, double rangeLow1, double ra
   if (drawLegend)
   {
     legend->SetFillColor(0);
+    legend->SetFillStyle(0);
+    legend->SetLineColor(0);
     legend->SetNColumns(2);
     for (unsigned int i=0; i<legendStr.size(); i++)
     {
+      bool toSkip = false;
+      for (unsigned int iSkipped=0; iSkipped<skipped.size(); iSkipped++)
+        if (skipped[iSkipped] == i)
+        {
+          toSkip = true;
+          break;
+        }
+      if (toSkip) continue;
       legend->AddEntry(graph1[i]->Clone(), "      ");
       legend->AddEntry(graph2[i]->Clone(), legendStr[i].c_str());
     }
@@ -1917,11 +2836,11 @@ TGraph* Get1DFrom2D(TGraph2D* graph, bool IthrVcasn, double value, bool isEffici
   {
     if (fixed[i] == value)
     {
-//      cerr << fixed[i] << "\t" << varying[i] << "\t" << Z[i] << endl;
       if (!isEfficiency) 
       {
         graph1D->SetPoint(tmp,varying[i],Z[i]);
-        graph1D->SetPointError(tmp,0,errorZ[i]);
+        if (errorZ != NULL)
+          graph1D->SetPointError(tmp,0,errorZ[i]);
       }
       else 
       {
@@ -1957,6 +2876,53 @@ TGraph* Get1DFrom2D(TGraph2D* graph, bool IthrVcasn, double value, bool isEffici
   }
   if (!isEfficiency) return graphFinal;
   else return graphFinalEff;
+}
+
+TGraph* reorder(TGraph* graphOrig)
+{
+  TGraph* graph = new TGraph(graphOrig->GetN());
+  int nPoint = graphOrig->GetN();
+  for (int iPoint=0; iPoint<nPoint; iPoint++)
+  {
+    int minIndex = TMath::LocMin(graphOrig->GetN(),graphOrig->GetX());
+    double x, y;
+    graphOrig->GetPoint(minIndex,x,y);
+    graph->SetPoint(iPoint,x,y);
+    graphOrig->RemovePoint(minIndex);
+  }
+  return graph;
+}
+
+TGraphErrors* reorder(TGraphErrors* graphOrig)
+{
+  TGraphErrors* graph = new TGraphErrors(graphOrig->GetN());
+  int nPoint = graphOrig->GetN();
+  for (int iPoint=0; iPoint<nPoint; iPoint++)
+  {
+    int minIndex = TMath::LocMin(graphOrig->GetN(),graphOrig->GetX());
+    double x, y;
+    graphOrig->GetPoint(minIndex,x,y);
+    graph->SetPoint(iPoint,x,y);
+    graph->SetPointError(iPoint,graphOrig->GetErrorX(minIndex),graphOrig->GetErrorY(minIndex));
+    graphOrig->RemovePoint(minIndex);
+  }
+  return graph;
+}
+
+TGraphAsymmErrors* reorder(TGraphAsymmErrors* graphOrig)
+{
+  TGraphAsymmErrors* graph = new TGraphAsymmErrors(graphOrig->GetN());
+  int nPoint = graphOrig->GetN();
+  for (int iPoint=0; iPoint<nPoint; iPoint++)
+  {
+    int minIndex = TMath::LocMin(graphOrig->GetN(),graphOrig->GetX());
+    double x, y;
+    graphOrig->GetPoint(minIndex,x,y);
+    graph->SetPoint(iPoint,x,y);
+    graph->SetPointError(iPoint,graphOrig->GetErrorXlow(minIndex),graphOrig->GetErrorXhigh(minIndex),graphOrig->GetErrorYlow(minIndex),graphOrig->GetErrorYhigh(minIndex));
+    graphOrig->RemovePoint(minIndex);
+  }
+  return graph;
 }
 
 void Write(vector<TGraphErrors*> graph1, string title)
@@ -1998,7 +2964,6 @@ void Write(vector<TGraphAsymmErrors*> graph1, string title)
       double x, y;  //TMath::MinElement(graph1[i]->GetN(),graph1[i]->GetX());
       graph1[i]->GetPoint(minIndex,x,y);
       graph->SetPoint(iPoint,x,y);
-//      cerr << graph1[i]->GetErrorX(minIndex) << "\t" << graph1[i]->GetErrorYlow(minIndex)<< graph1[i]->GetErrorYhigh(minIndex) << endl;
       graph->SetPointError(iPoint,graph1[i]->GetErrorX(minIndex),graph1[i]->GetErrorX(minIndex),graph1[i]->GetErrorYlow(minIndex),graph1[i]->GetErrorYhigh(minIndex));
       graph1[i]->RemovePoint(minIndex);
     }
@@ -2080,4 +3045,324 @@ void WriteTextFile(vector<TGraphAsymmErrors*> graph1, string fileName)
     }
   }
   file.close();
+}
+
+int histFromData(string histName)
+{
+  string data[4] = {"efficiency", "resolution", "clusterSize", "residual"};
+  for (int iData=0; iData<4; iData++)
+    if (histName.find(data[iData]) != string::npos) return 1;
+
+  string noise[1] = {"noiseOccupancy"};
+  for (int iNoise=0; iNoise<1; iNoise++)
+    if (histName.find(noise[iNoise]) != string::npos) return 0;
+  
+  string both[4] = {"threshold", "temporalNoise", "ithr", "vcasn"};
+  for (int iBoth=0; iBoth<4; iBoth++)
+    if (histName.find(both[iBoth]) != string::npos) return 2;
+  
+  cerr << "Hist type unknown, cannot decide to take the data points from noise runs or from data runs" << endl;
+  return -1;
+}
+
+void treeFill(TTree* tree, vector<Run> runs)
+{
+  int nRun = runs.size();
+  int irradiation, nEvent, runNumber;
+  double ithr, ithrpA, idb, vcasn, vaux, vcasp, vreset, BB, readoutDelay, triggerDelay, strobeLength, strobeBLength, energy;
+  vector<double> threshold, thresholdRMS, efficiency, nTrack, nTrackpALPIDE, temporalNoise, temporalNoiseRMS, clusterSize, clusterSizeRMS, residual, residualE, resolution, resolutionE, noiseOccupancyBeforeRemoval, noiseOccupancyBeforeRemovalE, noiseOccupancyAfterRemoval, noiseOccupancyAfterRemovalE;
+  bool isNoise;
+  string chipID;
+  tree->Branch("threshold",&threshold);
+  tree->Branch("thresholdRMS",&thresholdRMS);
+  tree->Branch("efficiency",&efficiency);
+  tree->Branch("nTrack",&nTrack);
+  tree->Branch("nTrackpALPIDE",&nTrackpALPIDE);
+  tree->Branch("temporalNoise",&temporalNoise); 
+  tree->Branch("temporalNoiseRMS",&temporalNoiseRMS);
+  tree->Branch("clusterSize",&clusterSize);
+  tree->Branch("clusterSizeRMS",&clusterSizeRMS);
+  tree->Branch("residual",&residual);
+  tree->Branch("residualE",&residualE);
+  tree->Branch("resolution",&resolution);
+  tree->Branch("resolutionE",&resolutionE);
+  tree->Branch("noiseOccupancyBeforeRemoval",&noiseOccupancyBeforeRemoval);
+  tree->Branch("noiseOccupancyBeforeRemovalE",&noiseOccupancyBeforeRemovalE);
+  tree->Branch("noiseOccupancyAfterRemoval",&noiseOccupancyAfterRemoval);
+  tree->Branch("noiseOccupancyAfterRemovalE",&noiseOccupancyAfterRemovalE);
+  tree->Branch("isNoise",&isNoise);
+  tree->Branch("ithr",&ithr);
+  tree->Branch("ithrpA",&ithrpA);
+  tree->Branch("idb",&idb);
+  tree->Branch("vcasn",&vcasn);
+  tree->Branch("vaux",&vaux);
+  tree->Branch("vcasp",&vcasp);
+  tree->Branch("vreset",&vreset);
+  tree->Branch("BB",&BB);
+  tree->Branch("readoutDelay",&readoutDelay);
+  tree->Branch("triggerDelay",&triggerDelay);
+  tree->Branch("strobeLength",&strobeLength);
+  tree->Branch("strobeBLength",&strobeBLength);
+  tree->Branch("irradiation",&irradiation);
+  tree->Branch("nEvent",&nEvent);
+  tree->Branch("energy",&energy);
+  tree->Branch("chipID",&chipID);
+  for (int i=0; i<nRun; i++)
+  {
+    if (Skip(runs[i].getRunNumber()) || !runs[i].PlotFlag()) continue;
+    runs[i].getAllParameters(runNumber, vcasn, vaux, vcasp, vreset, ithr, ithrpA, idb, threshold, thresholdRMS, temporalNoise, temporalNoiseRMS, BB, irradiation, chipID, readoutDelay, triggerDelay, strobeLength, strobeBLength, isNoise, nEvent, energy, efficiency, nTrack, nTrackpALPIDE, clusterSize, clusterSizeRMS, residual, residualE, resolution, resolutionE,  noiseOccupancyBeforeRemoval, noiseOccupancyBeforeRemovalE, noiseOccupancyAfterRemoval, noiseOccupancyAfterRemovalE);
+    tree->Fill();
+  }
+}
+
+void treeRead(TTree* tree, vector<Run> &runs)
+{
+  int irradiation, nEvent, runNumber=0;
+  double ithr, ithrpA, idb, vcasn, vaux, vcasp, vreset, BB, readoutDelay, triggerDelay, strobeLength, strobeBLength, energy;
+  vector<double> *threshold=0, *thresholdRMS=0, *efficiency=0, *nTrack=0, *nTrackpALPIDE=0, *temporalNoise=0, *temporalNoiseRMS=0, *clusterSize=0, *clusterSizeRMS=0, *residual=0, *residualE=0, *resolution=0, *resolutionE=0, *noiseOccupancyBeforeRemoval=0, *noiseOccupancyBeforeRemovalE=0, *noiseOccupancyAfterRemoval=0, *noiseOccupancyAfterRemovalE=0;
+  bool isNoise;
+  string *chipID = 0;
+  tree->SetBranchAddress("threshold",&threshold);
+  tree->SetBranchAddress("thresholdRMS",&thresholdRMS);
+  tree->SetBranchAddress("efficiency",&efficiency);
+  tree->SetBranchAddress("nTrack",&nTrack);
+  tree->SetBranchAddress("nTrackpALPIDE",&nTrackpALPIDE);
+  tree->SetBranchAddress("temporalNoise",&temporalNoise); 
+  tree->SetBranchAddress("temporalNoiseRMS",&temporalNoiseRMS);
+  tree->SetBranchAddress("clusterSize",&clusterSize);
+  tree->SetBranchAddress("clusterSizeRMS",&clusterSizeRMS);
+  tree->SetBranchAddress("residual",&residual);
+  tree->SetBranchAddress("residualE",&residualE);
+  tree->SetBranchAddress("resolution",&resolution);
+  tree->SetBranchAddress("resolutionE",&resolutionE);
+  tree->SetBranchAddress("noiseOccupancyBeforeRemoval",&noiseOccupancyBeforeRemoval);
+  tree->SetBranchAddress("noiseOccupancyBeforeRemovalE",&noiseOccupancyBeforeRemovalE);
+  tree->SetBranchAddress("noiseOccupancyAfterRemoval",&noiseOccupancyAfterRemoval);
+  tree->SetBranchAddress("noiseOccupancyAfterRemovalE",&noiseOccupancyAfterRemovalE);
+  tree->SetBranchAddress("isNoise",&isNoise);
+  tree->SetBranchAddress("ithr",&ithr);
+  tree->SetBranchAddress("ithrpA",&ithrpA);
+  tree->SetBranchAddress("idb",&idb);
+  tree->SetBranchAddress("vcasn",&vcasn);
+  tree->SetBranchAddress("vaux",&vaux);
+  tree->SetBranchAddress("vcasp",&vcasp);
+  tree->SetBranchAddress("vreset",&vreset);
+  tree->SetBranchAddress("BB",&BB);
+  tree->SetBranchAddress("readoutDelay",&readoutDelay);
+  tree->SetBranchAddress("triggerDelay",&triggerDelay);
+  tree->SetBranchAddress("strobeLength",&strobeLength);
+  tree->SetBranchAddress("strobeBLength",&strobeBLength);
+  tree->SetBranchAddress("irradiation",&irradiation);
+  tree->SetBranchAddress("nEvent",&nEvent);
+  tree->SetBranchAddress("energy",&energy);
+  tree->SetBranchAddress("chipID",&chipID);
+
+  Run run;
+  int nEntries = tree->GetEntries();
+  for (int i=0; i<nEntries; i++)
+  {
+    tree->GetEntry(i);
+    run.Set(runNumber,vcasn,vaux,vcasp,vreset,ithr,ithrpA,idb,*threshold,*thresholdRMS,*temporalNoise,*temporalNoiseRMS,BB,irradiation,*chipID,readoutDelay,triggerDelay,strobeLength,strobeBLength,isNoise,nEvent,energy);
+    run.setEff(*efficiency);
+    run.setnTr(*nTrack);
+    run.setnTrpA(*nTrackpALPIDE);
+    run.setClusterSizeVector(*clusterSize);
+    run.setClusterSizeVectorRMS(*clusterSizeRMS);
+    run.setResidualVector(*residual);
+    run.setResidualVectorE(*residualE);
+    run.setResolutionVector(*resolution);
+    run.setResolutionVectorE(*resolutionE);
+    run.setNoiseOccupancyBeforeRemovalV(*noiseOccupancyBeforeRemoval);
+    run.setNoiseOccupancyBeforeRemovalVE(*noiseOccupancyBeforeRemovalE);
+    run.setNoiseOccupancyAfterRemovalV(*noiseOccupancyAfterRemoval);
+    run.setNoiseOccupancyAfterRemovalVE(*noiseOccupancyAfterRemovalE);
+    runs.push_back(run);
+  }
+}
+
+void drawClusterSizeDistribution(string outputFolder)
+{
+  int colors[] = { kGreen+1, kRed, kBlue, kOrange-3, 1, kGray+1, kViolet-9, kCyan+1, kMagenta-2, kGreen+3, kGray+1, kOrange+1, 28, 30, 36, 40, 46 };
+  new TCanvas("clusterSize","clusterSize",800,600);
+  const int nFiles = 5;
+  int fileNumbers[] = {392,351,405,407,411};
+  int ithr[] = {70,51,40,30,20};
+  TLegend * legend = new TLegend(0.55,0.62,0.9,0.88);
+  legend->SetFillColor(0);
+  legend->SetFillStyle(0);
+  legend->SetLineColor(0);
+  legend->SetBorderSize(0);
+  for (int iFiles=0; iFiles<nFiles; iFiles++)
+  {
+    string fileName = outputFolder +  Form("/run%06d/histogram/run%06d-analysis_DUT3.root",fileNumbers[iFiles],fileNumbers[iFiles]);
+    TFile* histFile = new TFile(fileName.c_str(),"READONLY");
+    if (!histFile || histFile->IsZombie())
+      continue;
+    TH1I* tmp = (TH1I*)histFile->Get("Analysis/Sector_2/clusterSizeHisto_2");
+    TH1F tmp2;
+    tmp->Copy(tmp2);
+    TH1F* clusterSizeHisto = &tmp2;
+    clusterSizeHisto->SetStats(0);
+    clusterSizeHisto->SetTitle("");
+    clusterSizeHisto->GetXaxis()->SetTitleSize(0.05);
+    clusterSizeHisto->GetYaxis()->SetTitleSize(0.05);
+    clusterSizeHisto->GetXaxis()->SetTitleOffset(0.9);
+    clusterSizeHisto->GetYaxis()->SetTitleOffset(0.9);
+    clusterSizeHisto->GetXaxis()->SetRangeUser(1,10);
+    clusterSizeHisto->GetYaxis()->SetTitle("Fraction of clusters");
+    clusterSizeHisto->GetXaxis()->SetTitle("Cluster size (pixels)");
+    float entries = clusterSizeHisto->GetEntries();
+    clusterSizeHisto->Scale(1./entries);
+    clusterSizeHisto->SetLineColor(colors[iFiles]);
+    clusterSizeHisto->SetLineStyle(iFiles==4?1:iFiles+2);
+    clusterSizeHisto->SetLineWidth(2);
+    clusterSizeHisto->SetMarkerColor(colors[iFiles]);
+    legend->AddEntry(clusterSizeHisto->Clone(), Form("I_{thr} = %d DAC units",ithr[iFiles]));
+    clusterSizeHisto->DrawClone(iFiles==0?"":"SAME");
+  }
+  legend->Draw(); 
+}
+
+void draw2DClusterShapePlots()
+{
+  string fileName = "/mnt/data/scratch/analysis/pALPIDEfs/PS/July/run000411/histogram/run000411-analysis_DUT3.root";
+  TFile* histFile = new TFile(fileName.c_str(),"READONLY");
+  if (!histFile || histFile->IsZombie())
+    return;
+  for (int iShape=0; iShape<13; iShape++)
+  {
+    if (iShape == 5 || iShape == 8 || iShape == 9 || iShape == 12) continue;
+    TCanvas* c = new TCanvas(Form("clusterShape%d",iShape),"Cluster size",850,800);
+    TH2* clusterShape = 0;
+    if (iShape < 8)
+      clusterShape = (TH2*)histFile->Get(Form("Analysis/ClusterShape/clusterShape2D2by2_%d",iShape));
+    else clusterShape = (TH2*)histFile->Get(Form("Analysis/ClusterShape/clusterShapeGrouped2D2by2_%d",iShape-9));
+    clusterShape->GetZaxis()->SetTitle("Number of clusters");
+    clusterShape->SetStats(0); 
+    clusterShape->SetTitle("");
+    c->SetRightMargin(0.15);
+//    clusterShape->GetXaxis()->SetTitleSize(0.05); 
+//    clusterShape->GetYaxis()->SetTitleSize(0.05); 
+    clusterShape->GetXaxis()->SetTitleOffset(0.9);
+    clusterShape->GetYaxis()->SetTitleOffset(0.9);
+    clusterShape->GetXaxis()->SetNdivisions(505); 
+    clusterShape->GetYaxis()->SetNdivisions(505); 
+
+    clusterShape->Draw("COLZ");
+    c->Update();
+    TLine* l1 = new TLine(c->GetUxmin(),0.028,c->GetUxmax(),0.028);
+    l1->SetLineColor(1);
+    l1->SetLineStyle(9);
+    l1->SetLineWidth(11);
+    l1->Draw();
+    TLine* l2 = new TLine(0.028,c->GetUxmin(),0.028,c->GetUxmax());
+    l2->SetLineColor(1);
+    l2->SetLineStyle(9);
+    l2->SetLineWidth(11);
+    l2->Draw();
+    if (iShape < 8) c->SaveAs(Form("summary/clusterShape2D_%d.pdf",iShape));
+    else c->SaveAs(Form("summary/clusterShapeGrouped2D_%d.pdf",iShape-9));
+  }
+}
+
+void drawClusterShapeDistribution()
+{
+  int colors[] = { kGreen+1, kRed, kBlue, kOrange-3, 1, kGray+1, kViolet-9, kCyan+1, kMagenta-2, kGreen+3, kGray+1, kOrange+1, 28, 30, 36, 40, 46 };
+  new TCanvas("clusterShape","clusterShape",800,600);
+  const int nFiles = 5;
+  int fileNumbers[] = {392,351,405,407,411};
+  int ithr[] = {70,51,40,30,20};
+  TLegend * legend = new TLegend(0.55,0.62,0.9,0.88);
+  legend->SetFillColor(0);
+  legend->SetFillStyle(0);
+  legend->SetLineColor(0);
+  legend->SetBorderSize(0);
+  for (int iFiles=0; iFiles<nFiles; iFiles++)
+  {
+    string fileName = Form("/mnt/data/scratch/analysis/pALPIDEfs/PS/July/run%06d/histogram/run%06d-analysis_DUT3.root",fileNumbers[iFiles],fileNumbers[iFiles]);
+    TFile* histFile = new TFile(fileName.c_str(),"READONLY");
+    if (!histFile || histFile->IsZombie())
+      continue;
+    TH1I* tmp = (TH1I*)histFile->Get("Analysis/ClusterShape/clusterShapeHistoGrouped");
+    TH1I* tmpNorm = (TH1I*)histFile->Get("Analysis/ClusterShape/clusterShapeHisto");
+    TH1F tmp2;
+    tmp->Copy(tmp2);
+    TH1F* clusterShapeHisto = &tmp2;
+    clusterShapeHisto->SetStats(0);
+    clusterShapeHisto->SetTitle("");
+    clusterShapeHisto->GetXaxis()->SetTitleSize(0.05);
+    clusterShapeHisto->GetYaxis()->SetTitleSize(0.05);
+    clusterShapeHisto->GetXaxis()->SetTitleOffset(0.9);
+    clusterShapeHisto->GetYaxis()->SetTitleOffset(0.9);
+    clusterShapeHisto->GetXaxis()->SetRangeUser(-0.5,3.5);
+    clusterShapeHisto->GetYaxis()->SetTitle("Fraction of clusters");
+    clusterShapeHisto->GetXaxis()->SetTitle("Shape ID");
+    float entries = tmpNorm->GetEntries();
+    clusterShapeHisto->Scale(1./entries);
+    clusterShapeHisto->SetLineColor(colors[iFiles]);
+    clusterShapeHisto->SetLineStyle(iFiles==4?1:iFiles+2);
+    clusterShapeHisto->SetLineWidth(2);
+    clusterShapeHisto->SetMarkerColor(colors[iFiles]);
+    legend->AddEntry(clusterShapeHisto->Clone(), Form("I_{thr} = %d DAC units",ithr[iFiles]));
+    clusterShapeHisto->DrawClone(iFiles==0?"":"SAME");
+  }
+  legend->Draw(); 
+}
+
+void drawResidual2DPlots()
+{
+  int runNumber = 411;
+  string fileName = Form("/mnt/data/scratch/analysis/pALPIDEfs/PS/July/run000%d/histogram/run000%d-analysis_DUT3.root",runNumber,runNumber);
+  TFile* histFile = new TFile(fileName.c_str(),"READONLY");
+  if (!histFile || histFile->IsZombie())
+    return;
+  TCanvas* cX = new TCanvas("residualX","Residual X",860,800);
+  TCanvas* cY = new TCanvas("residualY","Residual Y",860,800);
+  TH2* residualX = (TH2*)histFile->Get("Analysis/Sector_2/residualAverageXPixel2by2_30.0_2");
+  TH2* residualY = (TH2*)histFile->Get("Analysis/Sector_2/residualAverageYPixel2by2_30.0_2");
+  residualX->GetZaxis()->SetTitle("Residual in X (mm)");
+  residualX->SetStats(0); 
+  residualX->SetTitle("");
+  cX->cd();
+  cX->SetRightMargin(0.18);
+  residualX->GetZaxis()->SetTitleOffset(1.8);
+  residualX->GetXaxis()->SetTitleOffset(0.9);
+  residualX->GetYaxis()->SetTitleOffset(0.9);
+  residualX->SetMinimum(0);
+  residualX->SetMaximum(0.015);
+  residualX->GetXaxis()->SetNdivisions(505); 
+  residualX->GetYaxis()->SetNdivisions(505); 
+
+  residualX->Draw("COLZ");
+  residualY->GetZaxis()->SetTitle("Residual in Y (mm)");
+  residualY->SetStats(0); 
+  residualY->SetTitle("");
+  cY->cd();
+  cY->SetRightMargin(0.18);
+  residualY->GetZaxis()->SetTitleOffset(1.8);
+  residualY->GetXaxis()->SetTitleOffset(0.9);
+  residualY->GetYaxis()->SetTitleOffset(0.9);
+  residualY->SetMinimum(0);
+  residualY->SetMaximum(0.015);
+  residualY->GetXaxis()->SetNdivisions(505); 
+  residualY->GetYaxis()->SetNdivisions(505); 
+  residualY->Draw("COLZ");
+  cX->cd();
+  cX->Update();
+  TLine* l1 = new TLine(cX->GetUxmin(),0.028,cX->GetUxmax(),0.028);
+  l1->SetLineColor(1);
+  l1->SetLineStyle(9);
+  l1->SetLineWidth(11);
+  l1->DrawClone();
+  TLine* l2 = new TLine(0.028,cX->GetUxmin(),0.028,cX->GetUxmax());
+  l2->SetLineColor(1);
+  l2->SetLineStyle(9);
+  l2->SetLineWidth(11);
+  l2->DrawClone();
+  cX->SaveAs("summary/residualX2D.pdf");
+  cY->cd();
+  cY->Update();
+  l1->Draw();
+  l2->Draw();
+  cY->SaveAs("summary/residualY2D.pdf");
 }
