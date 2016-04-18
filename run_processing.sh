@@ -330,7 +330,7 @@ elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") ))
   fi
   minTimeStamp=0
   minTimeStamp=`cat $clusteringLogName | grep pALPIDEfs | sed -n -e "s/^.*Maximum of the time stamp histo is at //p" | bc -l`
-  if [[ ${9} -eq 1 ]] && [[ $minTimeStamp -lt 12000 ]]; then
+  if (( $(bc <<< "${dutType} == 0 && ${minTimeStamp} < 12000") )) ; then
       echo "Minimum timestamp was too low ("$minTimeStamp") overidding it with 12000"
       minTimeStamp=12000
   fi
