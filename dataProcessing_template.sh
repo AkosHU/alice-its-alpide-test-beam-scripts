@@ -23,6 +23,7 @@ withAlign=<withAlign> #1 for aligning each run separately and 0 for using commmo
 whichChip=<whichChip> #0 for small scale, 1/2/3 for pALPIDE-1/2/3
 extraBusyTime=<extraBusyTime> #Time to add after normal busy in which events are not considered (in clock cycles). Used for past protection to avoid efficiency loss because of pulse duration differences in tracking planes and DUTs. Only working for pALPIDEfs DUTs
 isNoise=<isNoise> #0: decide from the data if it's noise or data run, 1: force it to be treated as data, 2: force it to be treated as noise
+clusterAnalysis=<clusterAnalysis> #0: do clusterAnalysis, but no alignment, fitting or analysis; 1: do alignment, fitting and analysis, but without clusterAnalysis; 2: do alignment, clusterAnalysis, fitting and analysis 
 
 if [ -z "$EUTELESCOPE" ]; then
   source ../v01-17-05/Eutelescope/trunk/build_env.sh #Change to your EUTelescope folder if you changed the folder structure with respest to the default after installing
@@ -164,18 +165,18 @@ do
   if [ "$1" != "DEBUG" ]; then
     if [ "$#" -eq 0 ]; then
       echo "Processing of run" ${input[0]} "started"
-      $CMD_PREFIX ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign "NORMAL" $extraBusyTime $isNoise > `printf $outputFolder/run"%06d"/crash.log ${input[0]}` 2>&1 &
+      $CMD_PREFIX ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign "NORMAL" $extraBusyTime $isNoise $clusterAnalysis  > `printf $outputFolder/run"%06d"/crash.log ${input[0]}` 2>&1 &
     else
-      $CMD_PREFIX ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1 $extraBusyTime $isNoise > `printf $outputFolder/run"%06d"/crash.log ${input[0]}` 2>&1 &
+      $CMD_PREFIX ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1 $extraBusyTime $isNoise $clusterAnalysis > `printf $outputFolder/run"%06d"/crash.log ${input[0]}` 2>&1 &
     fi
     fileFound=1
     sleep 5
   elif [ "$#" -eq 2 ]; then
-    ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1 $extraBusyTime $isNoise
+    ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1 $extraBusyTime $isNoise $clusterAnalysis
     fileFound=1
   else
-    argArr1=(converter deadColumn hotpixel clustering hitmaker prealign align fitter analysis noise)
-    argArr2=(fitter analysis)
+    argArr1=(converter deadColumn hotpixel clustering clusterAnalysis hitmaker prealign align fitter analysis noise)
+    argArr2=(fitter clusterAnalysis analysis)
     argArr3=(sync converter)
     if (( $whichChip == 0)) && [[ " ${argArr3[*]} " == *"$3"* ]]; then
       if [ -a `printf $outputFolder/run"%06d"/run"%06d".raw $2 $2` ]; then
