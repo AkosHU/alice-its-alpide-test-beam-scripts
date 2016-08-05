@@ -352,29 +352,30 @@ elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") ))
       if ((${emptyPlanes[0]}==$i)); then
         continue
       fi
+      if [ "$clusterAnalysisChoice" -eq 1 ]; then
+	  #delete the output folder structure
+	  if [ -f ${outputFolder}/../settings_DUT$i.txt ]; then
+	        sed -i '/^'${runNumber}'/d' ${outputFolder}/../settings_DUT$i.txt
+	  fi
+	  if [ -f ${outputFolder}/settings_DUT$i.txt ]; then
+	       rm ${outputFolder}/settings_DUT$i.txt
+	  fi
+      fi
+      #echo "The choosen DUT was $i" >> ${outputFolder}/analysis.log
+      #run clusterAnalysis
+      $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option dutID="$i" clusterAnalysis ${runNumber} > $redirect 2>&1
+      if [ "$clusterAnalysisChoice" -eq 1 ]; then
+	  #create output structure
+	  if ! [ -f ${outputFolder}/../settings_DUT$i.txt ]; then
+	        cat ${outputFolder}/settings_DUT$i.txt > ${outputFolder}/../settings_DUT$i.txt
+  	  else
+  	        tail -n 1 ${outputFolder}/settings_DUT$i.txt >> ${outputFolder}/../settings_DUT$i.txt
+  	  fi
+  	  sed -i 's/nan/0/g' ${outputFolder}/../settings_DUT$i.txt
+  	  #exit
+  	  exit 0
+      fi
     done
-    if [ "$clusterAnalysisChoice" -eq 1 ]; then
-	#delete the output folder structure
-	if [ -f ${outputFolder}/../settings_DUT$i.txt ]; then
-	      sed -i '/^'${runNumber}'/d' ${outputFolder}/../settings_DUT$i.txt
-	fi
-	if [ -f ${outputFolder}/settings_DUT$i.txt ]; then
-	     rm ${outputFolder}/settings_DUT$i.txt
-	fi
-    fi
-    #run clusterAnalysis
-    $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option dutID="$i" clusterAnalysis ${runNumber} > $redirect 2>&1
-    if [ "$clusterAnalysisChoice" -eq 1 ]; then
-	#create output structure
-	if ! [ -f ${outputFolder}/../settings_DUT$i.txt ]; then
-	      cat ${outputFolder}/settings_DUT$i.txt > ${outputFolder}/../settings_DUT$i.txt
-	else
-	      tail -n 1 ${outputFolder}/settings_DUT$i.txt >> ${outputFolder}/../settings_DUT$i.txt
-	fi
-	sed -i 's/nan/0/g' ${outputFolder}/../settings_DUT$i.txt
-	#exit
-	exit 0
-    fi
   fi
   if [ "$clusterAnalysisChoice" -ne 1 ]; then
 	  $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} hitmaker ${runNumber} > $redirect 2>&1
