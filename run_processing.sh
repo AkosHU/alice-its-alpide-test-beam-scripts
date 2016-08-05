@@ -13,7 +13,7 @@
 # 11: Processing type: DEBUG (all temporary output is kept), REPROCESS
 # 12: Extra busy time
 # 13: 0: auto-detect - decide from the data if it's noise or data run, 1: force it to be treated as data, 2: force it to be treated as noise
-# 14: 0: do clusterAnalysis, but no alignment, fitting or analysis; 1: do alignment, fitting and analysis, but without clusterAnalysis; 2: do alignment, clusterAnalysis, fitting and analysis 
+# 14: 0: do alignment, fitting and analysis, but without clusterAnalysis ("normal mode"); 1: do only clusterAnalysis, so no alignment, fitting or analysis; 2: do alignment, clusterAnalysis, fitting and analysis 
 runNumber=${1}
 firstDUTid=${2}
 lastDUTid=${3}
@@ -163,7 +163,7 @@ if (( $(bc <<< "(${dataType} == 0 && ${place} > 100) || ${dataType} == 2") )); t
   echo "QA written to" $outputFolderQA >> ${outputFolder}/analysis.log
 elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") )); then
   echo "Treated as data run" >> ${outputFolder}/analysis.log
-  if [ "$clusterAnalysisChoice" -eq 0  ]; then
+  if [ "$clusterAnalysisChoice" -eq 1  ]; then
     #provoking that no prealign or alignment file will be searched and no alignment will be created
     alignMethod=2
   fi
@@ -347,21 +347,36 @@ elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") ))
   fi
   rm *.log *.xml
   cd - > /dev/null 2>&1
-  if [ "$clusterAnalysisChoice" -eq 0 -o "$clusterAnalysisChoice" -eq 2  ]; then 
+  if [ "$clusterAnalysisChoice" -eq 1 -o "$clusterAnalysisChoice" -eq 2  ]; then 
     for ((i=${firstDUTid};i<=${lastDUTid};i++)) do
       if ((${emptyPlanes[0]}==$i)); then
         continue
       fi
-     $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option dutID="$i" clusterAnalysis ${runNumber} > $redirect 2>&1
     done
-    if [ "$clusterAnalysisChoice" -eq 0 ]; then
+    if [ "$clusterAnalysisChoice" -eq 1 ]; then
+	#delete the output folder structure
+	if [ -f ${outputFolder}/../settings_DUT$i.txt ]; then
+	      sed -i '/^'${runNumber}'/d' ${outputFolder}/../settings_DUT$i.txt
+	fi
+	if [ -f ${outputFolder}/settings_DUT$i.txt ]; then
+	     rm ${outputFolder}/settings_DUT$i.txt
+	fi
+    fi
+    #run clusterAnalysis
+    $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option dutID="$i" clusterAnalysis ${runNumber} > $redirect 2>&1
+    if [ "$clusterAnalysisChoice" -eq 1 ]; then
+	#create output structure
+	if ! [ -f ${outputFolder}/../settings_DUT$i.txt ]; then
+	      cat ${outputFolder}/settings_DUT$i.txt > ${outputFolder}/../settings_DUT$i.txt
+	else
+	      tail -n 1 ${outputFolder}/settings_DUT$i.txt >> ${outputFolder}/../settings_DUT$i.txt
+	fi
+	sed -i 's/nan/0/g' ${outputFolder}/../settings_DUT$i.txt
+	#exit
 	exit 0
     fi
-  elif [ "$clusterAnalysisChoice" -ne 1 ]; then
-    echo "No valid option for clusterAnalysis was input. It has to be 0, 1 or 2! Exiting."
-  	exit 0
   fi
-  if [ "$clusterAnalysisChoice" -ne 0 ]; then
+  if [ "$clusterAnalysisChoice" -ne 1 ]; then
 	  $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} hitmaker ${runNumber} > $redirect 2>&1
 
 	  for ((i=${firstDUTid};i<=${lastDUTid};i++)) do
@@ -444,18 +459,18 @@ elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") ))
 	    find ${outputFolder}/lcio -type f -not -name '*track*' | xargs rm # To keep only the output of the fitter
 	#    rm -r ${outputFolder}/lcio ${outputFolder}/database # To delete all intermediate steps
 	  fi
+  	  #Quality checks
+	  outputFolderQA=${outputFolder}/Plots/
+   	  mkdir $outputFolderQA
+  	  mkdir $outputFolderQA/important
+  	  mkdir $outputFolderQA/others
+  	  if (( ${dutType} == 1 ||  ${dutType} == 2 || ${dutType} == 3)); then
+    		root -l -q -b qualityCheckfs.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
+  	  elif (( ${dutType} == 0)); then
+    		root -l -q -b qualityCheckss.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
+  	  fi
+  	  echo "QA written to" $outputFolderQA >> ${outputFolder}/analysis.log
   fi
-  #Quality checks
-  outputFolderQA=${outputFolder}/Plots/
-  mkdir $outputFolderQA
-  mkdir $outputFolderQA/important
-  mkdir $outputFolderQA/others
-  if (( ${dutType} == 1 ||  ${dutType} == 2 || ${dutType} == 3)); then
-    root -l -q -b qualityCheckfs.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
-  elif (( ${dutType} == 0)); then
-    root -l -q -b qualityCheckss.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
-  fi
-  echo "QA written to" $outputFolderQA >> ${outputFolder}/analysis.log
 else
   echo -n -e "Not able to decide if it's noise or data. Please use one of the following settings in dataProcessing: \n  0: decide from the data if it's noise or data run \n  1: force it to be treated as data, \n  2: force it to be treated as noise \n"
 fi

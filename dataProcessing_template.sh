@@ -23,7 +23,7 @@ withAlign=<withAlign> #1 for aligning each run separately and 0 for using commmo
 whichChip=<whichChip> #0 for small scale, 1/2/3 for pALPIDE-1/2/3
 extraBusyTime=<extraBusyTime> #Time to add after normal busy in which events are not considered (in clock cycles). Used for past protection to avoid efficiency loss because of pulse duration differences in tracking planes and DUTs. Only working for pALPIDEfs DUTs
 isNoise=<isNoise> #0: decide from the data if it's noise or data run, 1: force it to be treated as data, 2: force it to be treated as noise
-clusterAnalysis=<clusterAnalysis> #0: do clusterAnalysis, but no alignment, fitting or analysis; 1: do alignment, fitting and analysis, but without clusterAnalysis; 2: do alignment, clusterAnalysis, fitting and analysis 
+clusterAnalysisParameter=<clusterAnalysis> #0: do alignment, fitting and analysis, but without clusterAnalysis ("normal mode"; 1: do clusterAnalysis, but no alignment, fitting or analysis; 2: do alignment, clusterAnalysis, fitting and analysis
 
 if [ -z "$EUTELESCOPE" ]; then
   source ../v01-17-05/Eutelescope/trunk/build_env.sh #Change to your EUTelescope folder if you changed the folder structure with respest to the default after installing
@@ -43,6 +43,11 @@ if (( $isNoise<0 || $isNoise>2 )); then
   echo -n -e "Not able to decide if it's noise or data. Please use one of the following settings in dataProcessing: \n  0: decide from the data if it's noise or data run \n  1: force it to be treated as data, \n  2: force it to be treated as noise \n"
   exit 1
 fi
+
+if [ "$clusterAnalysisParameter" -ne 0 -a "$clusterAnalysisParameter" -ne 1 -a "$clusterAnalysisParameter" -ne 2 ]; then
+    echo "No valid option for clusterAnalysis was input. It has to be 0, 1 or 2! Exiting."
+    exit 1
+fi 
 
 if ! [ -d $outputFolder ]; then
   mkdir -p $outputFolder
@@ -165,14 +170,14 @@ do
   if [ "$1" != "DEBUG" ]; then
     if [ "$#" -eq 0 ]; then
       echo "Processing of run" ${input[0]} "started"
-      $CMD_PREFIX ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign "NORMAL" $extraBusyTime $isNoise $clusterAnalysis  > `printf $outputFolder/run"%06d"/crash.log ${input[0]}` 2>&1 &
+      $CMD_PREFIX ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign "NORMAL" $extraBusyTime $isNoise $clusterAnalysisParameter  > `printf $outputFolder/run"%06d"/crash.log ${input[0]}` 2>&1 &
     else
-      $CMD_PREFIX ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1 $extraBusyTime $isNoise $clusterAnalysis > `printf $outputFolder/run"%06d"/crash.log ${input[0]}` 2>&1 &
+      $CMD_PREFIX ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1 $extraBusyTime $isNoise $clusterAnalysisParameter > `printf $outputFolder/run"%06d"/crash.log ${input[0]}` 2>&1 &
     fi
     fileFound=1
     sleep 5
   elif [ "$#" -eq 2 ]; then
-    ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1 $extraBusyTime $isNoise $clusterAnalysis
+    ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1 $extraBusyTime $isNoise $clusterAnalysisParameter
     fileFound=1
   else
     argArr1=(converter deadColumn hotpixel clustering clusterAnalysis hitmaker prealign align fitter analysis noise)
@@ -197,7 +202,7 @@ do
       $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=`printf $outputFolder/run"%06d"/database ${input[0]}` --option HistogramPath=`printf $outputFolder/run"%06d"/histogram ${input[0]}` --option LcioPath=`printf $outputFolder/run"%06d"/lcio ${input[0]}` --option LogPath=`printf $outputFolder/run"%06d"/logs ${input[0]}` --option NativePath=$rawDataFolder --option MaxAllowedFiringFreqpALPIDEss=1 --option MaxAllowedFiringFreq=1 --option ExcludedPlanes="" --option ExcludePlanes="" --option LCIOInputFiles=`printf $outputFolder/run"%06d"/lcio/run@RunNumber@-converter.slcio ${input[0]}` --option dutID="$4" --option ResolutionX="$res $res $res $res $res $res $res" --option ResolutionY="$res $res $res $res $res $res $res" --option MinTimeStamp=0 --option ChipVersion=${whichChip} --config=$configFile -csv $settingsFile $3 $2
       exit 0
     else
-      echo "Wrong argument, please run without 3rd argument or give one of the following as 3rd argument: converter deadColumn hotpixel clustering hitmaker prealign align fitter analysis noise"
+      echo "Wrong argument, please run without 3rd argument or give one of the following as 3rd argument: converter deadColumn hotpixel clustering hitmaker prealign align clusterAnalysis fitter analysis noise"
       exit 1
     fi
   fi
