@@ -373,9 +373,11 @@ elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") ))
   	  fi
   	  sed -i 's/nan/0/g' ${outputFolder}/../settings_DUT$i.txt
   	  #exit
-  	  exit 0
       fi
     done
+    if [ "$clusterAnalysisChoice" -eq 1 ]; then
+      exit 0
+    fi
   fi
   if [ "$clusterAnalysisChoice" -ne 1 ]; then
 	  $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} hitmaker ${runNumber} > $redirect 2>&1
