@@ -49,6 +49,18 @@ if [ "$clusterAnalysisParameter" -ne 0 -a "$clusterAnalysisParameter" -ne 1 -a "
     exit 1
 fi 
 
+if [ "$clusterAnalysisParameter" -ne 0 -a "$whichChip" -ne 3 ];then
+    echo "WARNING! The clusterAnalysis is only compatible with version 3 of the ALPIDE."
+    if [ "$clusterAnalysisParameter" -eq 1 ];then
+        echo "Incompatible settings to carry out just the clusterAnalysis. Exiting."
+        exit 0
+    else
+        #in this case clusterAnalysisParameter=2
+        echo "Turning the clusterAnalysis off, i.e. changing the clusterAnalysisParameter to 0."
+        clusterAnalysisParameter=0
+    fi
+fi
+
 if ! [ -d $outputFolder ]; then
   mkdir -p $outputFolder
 fi
