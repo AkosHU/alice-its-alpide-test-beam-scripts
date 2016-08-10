@@ -375,6 +375,7 @@ elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") ))
   	  #exit
       fi
       echo "clusterAnalysis finished for DUT $i" >> ${outputFolder}/analysis.log 
+      echo "clusterAnalysis finished in ${runNumber} for DUT $i" >> ${outputFolder}/../analysis.log 
     done
     if [ "$clusterAnalysisChoice" -eq 1 ]; then
       exit 0
