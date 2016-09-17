@@ -55,6 +55,8 @@ elif (( ${dutType} == 2)); then
   echo "DUT(s) are set to be a pALPIDE-2" > ${outputFolder}/analysis.log
 elif (( ${dutType} == 3)); then
   echo "DUT(s) are set to be a pALPIDE-3" > ${outputFolder}/analysis.log
+elif (( ${dutType} == 4)); then
+  echo "DUT(s) are set to be an ALPIDE (pALPIDE-4)" > ${outputFolder}/analysis.log
 fi
 $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option NativePath=$nativeFolder converter ${runNumber} > $redirect 2>&1
 name=`printf ${outputFolder}/lcio/run"%06d"-converter.slcio ${runNumber}`
@@ -222,7 +224,7 @@ elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") ))
       exit 0
     fi
   fi
-  if (( ${dutType} == 1 || ${dutType} == 2 || ${dutType} == 3 )); then
+  if (( ${dutType} == 1 || ${dutType} == 2 || ${dutType} == 3 || ${dutType} == 4 )); then
     $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} deadColumn ${runNumber} > $redirect 2>&1
   fi
   cd ${outputFolder}/logs
@@ -293,7 +295,7 @@ elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") ))
       mkdir $outputFolderQA
       mkdir $outputFolderQA/important
       mkdir $outputFolderQA/others
-      if (( ${dutType} == 1 || ${dutType} == 2 || ${dutType} == 3 )); then
+      if (( ${dutType} == 1 || ${dutType} == 2 || ${dutType} == 3 || ${dutType} == 4 )); then
         root -l -q -b qualityCheckfs.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
       elif (( ${dutType} == 0)); then
         root -l -q -b qualityCheckss.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
@@ -404,6 +406,15 @@ elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") ))
       echo "Efficiencies of the eight sectors in DUT" $i":" >> ${outputFolder}/analysis.log
       effArray=($efficiencies)
       for ((j=1;j<=22;j=j+3)) do
+        echo ${effArray[j-1]} >> ${outputFolder}/analysis.log
+      done
+    elif ((${dutType} == 4)); then
+      efficiencies=`awk '/Overall efficiency of pALPIDEfs sectors/{x=NR+1;next}(NR<=x){print}' $analysisName | sed -n -e 's/^.*\[ MESSAGE4 \"Analysis\"\] //p'`
+      rm *.log *.xml
+      cd - > /dev/null 2>&1
+      echo "Efficiencies of the eight sectors in DUT" $i":" >> ${outputFolder}/analysis.log
+      effArray=($efficiencies)
+      for ((j=1;j<=4;j=j+3)) do
         echo ${effArray[j-1]} >> ${outputFolder}/analysis.log
       done  
     elif (( ${dutType} == 0)); then
