@@ -108,6 +108,11 @@ fi
 rm *.log *.xml
 cd - > /dev/null 2>&1
 if (( $(bc <<< "(${dataType} == 0 && ${place} > 100) || ${dataType} == 2") )); then
+  if (( $dutType<1 || $dutType>2 )); then
+    echo "Noise analysis is only implemented for pALPIDE-1 and pALPIDE-2. Exiting for run ${runNumber}." >> ${outputFolder}/../analysis.log
+    echo "Noise analysis is only implemented for pALPIDE-1 and pALPIDE-2. Exiting." >> ${outputFolder}/analysis.log
+    exit 0
+  fi
   echo "Treated as noise run" >> ${outputFolder}/analysis.log
   for ((i=${firstDUTid};i<=${lastDUTid};i++)) do
     if [ -f ${outputFolder}/../settings_DUT$i.txt ]; then

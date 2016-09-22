@@ -44,6 +44,11 @@ if (( $isNoise<0 || $isNoise>2 )); then
   exit 1
 fi
 
+if (( $isNoise==2 && ($whichChip<1 || $whichChip>2) )); then
+  echo "Noise analysis is only implemented for pALPIDE-1 and pALPIDE-2. Exiting."
+  exit 1
+fi
+
 if [ "$clusterAnalysisParameter" -ne 0 -a "$clusterAnalysisParameter" -ne 1 -a "$clusterAnalysisParameter" -ne 2 ]; then
     echo "No valid option for clusterAnalysis was input. It has to be 0, 1 or 2! Exiting."
     exit 1
