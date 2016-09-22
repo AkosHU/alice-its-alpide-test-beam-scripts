@@ -65,7 +65,7 @@ int main()
   cout << "Number of events: ";
   cin >> nEvent;
   cout << nEvent << endl << endl << endl;
-  cerr << endl << "The resolution is " << Resolution(N,vacuum,airAtFitting,distance,thickness,resolution,dutID,energy,nEvent)*1000 << " micron." << endl;
+  cout << endl << "The resolution is " << Resolution(N,vacuum,airAtFitting,distance,thickness,resolution,dutID,energy,nEvent)*1000 << " micron." << endl;
 
   return 0;
 }
