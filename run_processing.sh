@@ -56,7 +56,9 @@ elif (( ${dutType} == 2)); then
 elif (( ${dutType} == 3)); then
   echo "DUT(s) are set to be a pALPIDE-3" > ${outputFolder}/analysis.log
 elif (( ${dutType} == 4)); then
-  echo "DUT(s) are set to be an ALPIDE (pALPIDE-4)" > ${outputFolder}/analysis.log
+  echo "DUT(s) are set to be an ALPIDE" > ${outputFolder}/analysis.log
+elif (( ${dutType} == 5)); then
+  echo "DUT(s) are set to be an ALPIDE (w/ 4 sectors)" > ${outputFolder}/analysis.log
 fi
 $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option NativePath=$nativeFolder converter ${runNumber} > $redirect 2>&1
 name=`printf ${outputFolder}/lcio/run"%06d"-converter.slcio ${runNumber}`
@@ -224,7 +226,7 @@ elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") ))
       exit 0
     fi
   fi
-  if (( ${dutType} == 1 || ${dutType} == 2 || ${dutType} == 3 || ${dutType} == 4 )); then
+  if (( ${dutType} == 1 || ${dutType} == 2 || ${dutType} == 3 || ${dutType} == 4 || ${dutType} == 5 )); then
     $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} deadColumn ${runNumber} > $redirect 2>&1
   fi
   cd ${outputFolder}/logs
@@ -295,7 +297,7 @@ elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") ))
       mkdir $outputFolderQA
       mkdir $outputFolderQA/important
       mkdir $outputFolderQA/others
-      if (( ${dutType} == 1 || ${dutType} == 2 || ${dutType} == 3 || ${dutType} == 4 )); then
+      if (( ${dutType} == 1 || ${dutType} == 2 || ${dutType} == 3 || ${dutType} == 4  || ${dutType} == 5)); then
         root -l -q -b qualityCheckfs.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
       elif (( ${dutType} == 0)); then
         root -l -q -b qualityCheckss.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
@@ -390,7 +392,7 @@ elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") ))
     cd ${outputFolder}/logs/
     unzip `printf analysis-"%06d".zip ${runNumber}` > /dev/null 2>&1
     analysisName=`printf analysis-"%06d".log ${runNumber}`
-    if (( ${dutType} == 1 || ${dutType} == 2 )) ; then
+    if (( ${dutType} == 1 || ${dutType} == 2 || ${dutType} == 5 )) ; then
       efficiencies=`awk '/Overall efficiency of pALPIDEfs sectors/{x=NR+4;next}(NR<=x){print}' $analysisName | sed -n -e 's/^.*\[ MESSAGE4 \"Analysis\"\] //p'`
       rm *.log *.xml
       cd - > /dev/null 2>&1
@@ -437,7 +439,7 @@ elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") ))
   mkdir $outputFolderQA
   mkdir $outputFolderQA/important
   mkdir $outputFolderQA/others
-  if (( ${dutType} == 1 ||  ${dutType} == 2 || ${dutType} == 3)); then
+  if (( ${dutType} == 1 ||  ${dutType} == 2 || ${dutType} == 3  || ${dutType} == 4 || ${dutType} == 5)); then
     root -l -q -b qualityCheckfs.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
   elif (( ${dutType} == 0)); then
     root -l -q -b qualityCheckss.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1

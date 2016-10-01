@@ -20,7 +20,7 @@ outputFolder=<outputFolder>
 settingsFile=<settingsFile>
 configFile=<configFile>
 withAlign=<withAlign> #1 for aligning each run separately and 0 for using commmon alignment
-whichChip=<whichChip> #0 for small scale, 1/2/3 for pALPIDE-1/2/3
+whichChip=<whichChip> #0 for small scale, 1/2/3 for pALPIDE-1/2/3/4 (4 ALPIDE w/ 1 sector, 5 = ALPIDE split into 5 sectors)
 extraBusyTime=<extraBusyTime> #Time to add after normal busy in which events are not considered (in clock cycles). Used for past protection to avoid efficiency loss because of pulse duration differences in tracking planes and DUTs. Only working for pALPIDEfs DUTs
 isNoise=<isNoise> #0: decide from the data if it's noise or data run, 1: force it to be treated as data, 2: force it to be treated as noise
 
@@ -33,8 +33,8 @@ if (( $withAlign!=0 && $withAlign!=1 )); then
   exit 1
 fi
 
-if (( $whichChip!=0 && $whichChip!=1 && $whichChip!=2 && $whichChip!=3 )); then
-  echo -n -e "Wrong setting for whichChip, please use \n  0 for small scale \n  1/2/3 for pALPIDEfs \n"
+if (( $whichChip!=0 && $whichChip!=1 && $whichChip!=2 && $whichChip!=4 && $whichChip!=5 )); then
+  echo -n -e "Wrong setting for whichChip, please use \n  0 for small scale \n  1/2/3 for pALPIDEfs, 4 for ALPIDE (single sector), 5 for ALPIDE split into 4 sectors \n"
   exit 1
 fi
 
