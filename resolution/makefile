@@ -6,8 +6,8 @@ ROOTLIBS     = $(shell $(ROOTCONFIG) --libs)
 ROOTGLIBS    = $(shell $(ROOTCONFIG) --glibs)
 ROOTLIBDIR   = $(shell $(ROOTCONFIG) --libdir)
 ROOTINCDIR   = $(shell $(ROOTCONFIG) --incdir)
-ROOTLIBS     += -lMinuit2
-ROOTGLIBS    += -lMinuit2
+#ROOTLIBS     += -lMinuit2
+#ROOTGLIBS    += -lMinuit2
 
 all: trackResolutionCalculation.exe
 

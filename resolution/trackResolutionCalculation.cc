@@ -5,8 +5,8 @@
 #include <TH2.h>
 #include <TCanvas.h>
 #include "TFitResult.h"
-#include "Minuit2/FCNBase.h"
-#include "TFitterMinuit.h"
+//#include "Minuit2/FCNBase.h"
+//#include "TFitterMinuit.h"
 #include "TSystem.h"
 #include "TFile.h"
 
