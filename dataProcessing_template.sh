@@ -7,12 +7,12 @@
 # 4 : additional_option
 #
 # Examples how to run the script:
-#    ./dataProcessing.sh 
+#    ./dataProcessing.sh
 #    ./dataProcessing.sh REPROCESS
 #    ./dataProcessing.sh REPROCESS run_number
 #    ./dataProcessing.sh REPROCESS first_run-last_run
 #    ./dataProcessing.sh DEBUG run_number
-#    ./dataProcessing.sh DEBUG run_number step additional_option 
+#    ./dataProcessing.sh DEBUG run_number step additional_option
 #    ./dataProcessing.sh ALIGN "1 2 3 4" 1 10
 #
 rawDataFolder=<rawDataFolder>
@@ -20,13 +20,13 @@ outputFolder=<outputFolder>
 settingsFile=<settingsFile>
 configFile=<configFile>
 withAlign=<withAlign> #1 for aligning each run separately and 0 for using commmon alignment
-whichChip=<whichChip> #0 for small scale, 1/2/3 for pALPIDE-1/2/3
+whichChip=<whichChip> #0 for small scale, 1/2/3 for pALPIDE-1/2/3/4 (4 ALPIDE w/ 1 sector, 5 = ALPIDE split into 5 sectors)
 extraBusyTime=<extraBusyTime> #Time to add after normal busy in which events are not considered (in clock cycles). Used for past protection to avoid efficiency loss because of pulse duration differences in tracking planes and DUTs. Only working for pALPIDEfs DUTs
 isNoise=<isNoise> #0: decide from the data if it's noise or data run, 1: force it to be treated as data, 2: force it to be treated as noise
 clusterAnalysisParameter=<clusterAnalysis> #0: do alignment, fitting and analysis, but without clusterAnalysis ("normal mode"; 1: do clusterAnalysis, but no alignment, fitting or analysis; 2: do alignment, clusterAnalysis, fitting and analysis
 
 if [ -z "$EUTELESCOPE" ]; then
-  source ../v01-17-05/Eutelescope/trunk/build_env.sh #Change to your EUTelescope folder if you changed the folder structure with respest to the default after installing
+  source ../v01-17-10/Eutelescope/master/build_env.sh #Change to your EUTelescope folder if you changed the folder structure with respest to the default after installing
 fi
 
 if (( $withAlign!=0 && $withAlign!=1 )); then
@@ -34,8 +34,8 @@ if (( $withAlign!=0 && $withAlign!=1 )); then
   exit 1
 fi
 
-if (( $whichChip!=0 && $whichChip!=1 && $whichChip!=2 && $whichChip!=3 )); then
-  echo -n -e "Wrong setting for whichChip, please use \n  0 for small scale \n  1/2/3 for pALPIDEfs \n"
+if (( $whichChip!=0 && $whichChip!=1 && $whichChip!=2 && $whichChip!=3 && $whichChip!=4 && $whichChip!=5 )); then
+  echo -n -e "Wrong setting for whichChip, please use \n  0 for small scale \n  1/2/3 for pALPIDEfs, 4 for ALPIDE (single sector), 5 for ALPIDE split into 4 sectors \n"
   exit 1
 fi
 
@@ -54,14 +54,17 @@ if [ "$clusterAnalysisParameter" -ne 0 -a "$clusterAnalysisParameter" -ne 1 -a "
     exit 1
 fi 
 
-if [ "$clusterAnalysisParameter" -ne 0 -a "$whichChip" -ne 3 ];then
-    echo "WARNING! The clusterAnalysis is only compatible with version 3 of the ALPIDE."
+if [ "$clusterAnalysisParameter" -ne 0 -a "$whichChip" -lt 3 ];then
+    echo "WARNING! The clusterAnalysis is only compatible with pALPIDE-3 and ALPIDE."
+    echo "WARNING! The clusterAnalysis is only compatible with pALPIDE-3 and ALPIDE." >> $outputFolder/analysis.log
     if [ "$clusterAnalysisParameter" -eq 1 ];then
         echo "Incompatible settings to carry out just the clusterAnalysis. Exiting."
+        echo "Incompatible settings to carry out just the clusterAnalysis. Exiting." >> $outputFolder/analysis.log
         exit 0
     else
         #in this case clusterAnalysisParameter=2
         echo "Turning the clusterAnalysis off, i.e. changing the clusterAnalysisParameter to 0."
+        echo "Turning the clusterAnalysis off, i.e. changing the clusterAnalysisParameter to 0." >> $outputFolder/analysis.log
         clusterAnalysisParameter=0
     fi
 fi
@@ -170,20 +173,20 @@ do
   IFS=' ' read -ra chips <<< "${input[4]}"
   cd $EUTELESCOPE
   echo "EUTELESCOPE: " > `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
-  git status >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
-  git diff   >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
-  git log -1 >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
+  git status >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}` 2>&1
+  git diff   >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}` 2>&1
+  git log -1 >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}` 2>&1
   cd - > /dev/null
   cd $EUDAQ
   echo -e "\n \n \n \nEUDAQ" >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
-  git status >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
-  git diff   >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
-  git log -1 >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
+  git status >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}` 2>&1
+  git diff   >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}` 2>&1
+  git log -1 >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}` 2>&1
   cd - > /dev/null
   echo -e "\n \n\n \npalpidefs_scripts:" >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
-  git status >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
-  git diff   >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
-  git log -1 >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}`
+  git status >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}` 2>&1
+  git diff   >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}` 2>&1
+  git log -1 >> `printf $outputFolder/run"%06d"/git_status.txt ${input[0]}` 2>&1
   if [ "$1" != "DEBUG" ]; then
     if [ "$#" -eq 0 ]; then
       echo "Processing of run" ${input[0]} "started"
@@ -219,7 +222,7 @@ do
       $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=`printf $outputFolder/run"%06d"/database ${input[0]}` --option HistogramPath=`printf $outputFolder/run"%06d"/histogram ${input[0]}` --option LcioPath=`printf $outputFolder/run"%06d"/lcio ${input[0]}` --option LogPath=`printf $outputFolder/run"%06d"/logs ${input[0]}` --option NativePath=$rawDataFolder --option MaxAllowedFiringFreqpALPIDEss=1 --option MaxAllowedFiringFreq=1 --option ExcludedPlanes="" --option ExcludePlanes="" --option LCIOInputFiles=`printf $outputFolder/run"%06d"/lcio/run@RunNumber@-converter.slcio ${input[0]}` --option dutID="$4" --option ResolutionX="$res $res $res $res $res $res $res" --option ResolutionY="$res $res $res $res $res $res $res" --option MinTimeStamp=0 --option ChipVersion=${whichChip} --config=$configFile -csv $settingsFile $3 $2
       exit 0
     else
-      echo "Wrong argument, please run without 3rd argument or give one of the following as 3rd argument: converter deadColumn hotpixel clustering hitmaker prealign align clusterAnalysis fitter analysis noise"
+      echo "Wrong argument, please run without 3rd argument or give one of the following as 3rd argument: converter deadColumn hotpixel clustering clusterAnalysis hitmaker prealign align fitter analysis noise"
       exit 1
     fi
   fi
@@ -270,20 +273,20 @@ if [ "$1" == "ALIGN" ]; then
   mkdir `printf $outputFolder/run"%06d"-"%06d" $3 $4` `printf $outputFolder/run"%06d"-"%06d"/histogram $3 $4` `printf $outputFolder/run"%06d"-"%06d"/lcio $3 $4` `printf $outputFolder/run"%06d"-"%06d"/database $3 $4` `printf $outputFolder/run"%06d"-"%06d"/logs $3 $4`
   cd $EUTELESCOPE
   echo "EUTELESCOPE: " > `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
-  git status >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
-  git diff   >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
-  git log -1 >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
+  git status >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4` 2>&1
+  git diff   >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4` 2>&1
+  git log -1 >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4` 2>&1
   cd - > /dev/null
   cd $EUDAQ
   echo -e "\n \n \n \nEUDAQ" >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
-  git status >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
-  git diff   >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
-  git log -1 >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
+  git status >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4` 2>&1
+  git diff   >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4` 2>&1
+  git log -1 >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4` 2>&1
   cd - > /dev/null
   echo -e "\n \n \n \npalpidefs_scripts:" >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
-  git status >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
-  git diff   >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
-  git log -1 >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4`
+  git status >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4` 2>&1
+  git diff   >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4` 2>&1
+  git log -1 >> `printf $outputFolder/run"%06d"-"%06d"/git_status.txt $3 $4` 2>&1
   $CMD_PREFIX ./run_createAlign $2 $settingsFile `printf $outputFolder/run"%06d"-"%06d" $3 $4` $rawDataFolder $configFile $3 $4  > `printf $outputFolder/run"%06d"-"%06d"/crash.log $3 $4` 2>&1 &
 
   fileFound=1
