@@ -13,6 +13,7 @@
 # 11: Processing type: DEBUG (all temporary output is kept), REPROCESS
 # 12: Extra busy time
 # 13: 0: auto-detect - decide from the data if it's noise or data run, 1: force it to be treated as data, 2: force it to be treated as noise
+# 14: 0: do alignment, fitting and analysis, but without clusterAnalysis ("normal mode"); 1: do only clusterAnalysis, so no alignment, fitting or analysis; 2: do alignment, clusterAnalysis, fitting and analysis 
 runNumber=${1}
 firstDUTid=${2}
 lastDUTid=${3}
@@ -26,6 +27,7 @@ alignMethod=${10}
 processingMode=${11}
 extraBusyTime=${12}
 dataType=${13}
+clusterAnalysisChoice=${14}
 
 # common arguments for all calls of jobsub.py:
 commonOptions="--option DatabasePath=${outputFolder}/database --option HistogramPath=${outputFolder}/histogram --option LcioPath=${outputFolder}/lcio --option LogPath=${outputFolder}/logs  --config=${configFile} -csv ${settingsFile}"
@@ -60,6 +62,7 @@ elif (( ${dutType} == 4)); then
 elif (( ${dutType} == 5)); then
   echo "DUT(s) are set to be an ALPIDE (w/ 4 sectors)" > ${outputFolder}/analysis.log
 fi
+
 $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option NativePath=$nativeFolder converter ${runNumber} > $redirect 2>&1
 name=`printf ${outputFolder}/lcio/run"%06d"-converter.slcio ${runNumber}`
 nEvent=`lcio_event_counter $name`
@@ -110,6 +113,11 @@ fi
 rm *.log *.xml
 cd - > /dev/null 2>&1
 if (( $(bc <<< "(${dataType} == 0 && ${place} > 100) || ${dataType} == 2") )); then
+  if (( $dutType<1 || $dutType>2 )); then
+    echo "Noise analysis is only implemented for pALPIDE-1 and pALPIDE-2. Exiting for run ${runNumber}." >> ${outputFolder}/../analysis.log
+    echo "Noise analysis is only implemented for pALPIDE-1 and pALPIDE-2. Exiting." >> ${outputFolder}/analysis.log
+    exit 0
+  fi
   echo "Treated as noise run" >> ${outputFolder}/analysis.log
   for ((i=${firstDUTid};i<=${lastDUTid};i++)) do
     if [ -f ${outputFolder}/../settings_DUT$i.txt ]; then
@@ -165,6 +173,10 @@ if (( $(bc <<< "(${dataType} == 0 && ${place} > 100) || ${dataType} == 2") )); t
   echo "QA written to" $outputFolderQA >> ${outputFolder}/analysis.log
 elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") )); then
   echo "Treated as data run" >> ${outputFolder}/analysis.log
+  if [ "$clusterAnalysisChoice" -eq 1  ]; then
+    #provoking that no prealign or alignment file will be searched and no alignment will be created
+    alignMethod=2
+  fi
   if (( ${alignMethod} == 0)); then
     prealignFiles=`ls ${outputFolder}/../prealign_*.slcio`
     prealignExists=0
@@ -237,12 +249,14 @@ elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") ))
   for ((i=0;i<${#averageHitsArray[@]};i++)) do
     if (( $(bc <<< "${averageHitsArray[i]} > 100") )); then
       excludedPlanes[${#excludedPlanes[@]}]=$i
+      echo "The average number of hits is more than 100 in plane "$i" in run "${runNumber}", excluding the plane. Usually this means that the plain is too noisy, but if you think you think this is not the case, you can avoide the exclusion by modifying line 250 in run_processsing.sh!" >> ${outputFolder}/../analysis.log
+      echo "The average number of hits is more than 100 in plane "$i", excluding the plane. Usually this means that the plain is too noisy, but if you think you think this is not the case, you can avoide the exclusion by modifying line 250 in run_processsing.sh!" >> ${outputFolder}/analysis.log
     elif (( $(bc <<< "${averageHitsArray[i]} == 0") )); then
       emptyPlanes[${#emptyPlanes[@]}]=$i
     fi
   done
   echo "Excluded planes:" ${excludedPlanes[@]} >> ${outputFolder}/analysis.log
-  echo "Empty planes: " ${emptyPlanes[@]} >> $5/analysis.log
+  echo "Empty planes: " ${emptyPlanes[@]} >> ${outputFolder}/analysis.log
   cd - > /dev/null 2>&1
   if ((${#excludedPlanes[@]}==0)); then
     excludedPlanes[0]=-1
@@ -260,14 +274,15 @@ elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") ))
   if ((${#emptyPlanes[@]}==0)); then
     emptyPlanes[0]=-1
   elif ((${#emptyPlanes[@]}>1)); then
-    echo "More than 1 completely empty plane, strange, exiting" >> $5/analysis.log
-    echo "More than 1 completely empty plane in run" $1", strange, exiting" >> $5/../analysis.log
+    echo "More than 1 completely empty plane, strange, exiting" >> ${outputFolder}/analysis.log
+    echo "More than 1 completely empty plane in run" $1", strange, exiting" >> ${outputFolder}/../analysis.log
   fi
   if (( ${alignMethod} == 1 )); then
     maffpALPIDEfs=0.0001
     maffpALPIDEss=0.001
     $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option MaxAllowedFiringFreq=$maffpALPIDEfs --option MaxAllowedFiringFreqpALPIDEss=$maffpALPIDEss hotpixel ${runNumber} > $redirect 2>&1
     $EUTELESCOPE/jobsub/jobsub.py --option ExcludedPlanes="" ${commonOptions} --option LCIOInputFiles=${outputFolder}/lcio/run@RunNumber@-converter.slcio clustering ${runNumber} > $redirect 2>&1
+
     cd ${outputFolder}/logs/
     clusteringName=`printf clustering-"%06d".zip ${runNumber}`
     unzip $clusteringName > /dev/null 2>&1
@@ -297,7 +312,7 @@ elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") ))
       mkdir $outputFolderQA
       mkdir $outputFolderQA/important
       mkdir $outputFolderQA/others
-      if (( ${dutType} == 1 || ${dutType} == 2 || ${dutType} == 3 || ${dutType} == 4  || ${dutType} == 5)); then
+      if (( ${dutType} == 1 || ${dutType} == 2 || ${dutType} == 3 || ${dutType} == 4 || ${dutType} == 5 )); then
         root -l -q -b qualityCheckfs.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
       elif (( ${dutType} == 0)); then
         root -l -q -b qualityCheckss.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
@@ -344,107 +359,136 @@ elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") ))
   fi
   rm *.log *.xml
   cd - > /dev/null 2>&1
-  $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} hitmaker ${runNumber} > $redirect 2>&1
-
-  for ((i=${firstDUTid};i<=${lastDUTid};i++)) do
-    isExcluded=0
-    for ((j=0;j<${#excludedPlanes[@]};j++)) do
-      if ((${excludedPlanes[j]}==$i)); then
-        isExcluded=1
-        break
+  if [ "$clusterAnalysisChoice" -eq 1 -o "$clusterAnalysisChoice" -eq 2  ]; then 
+    for ((i=${firstDUTid};i<=${lastDUTid};i++)) do
+      if ((${emptyPlanes[0]}==$i)); then
+        continue
       fi
+      if [ "$clusterAnalysisChoice" -eq 1 ]; then
+        if [ -f ${outputFolder}/../settings_DUT$i.txt ]; then
+          sed -i '/^'${runNumber}'/d' ${outputFolder}/../settings_DUT$i.txt
+        fi
+	if [ -f ${outputFolder}/settings_DUT$i.txt ]; then
+	  rm ${outputFolder}/settings_DUT$i.txt
+	fi
+      fi
+      #run clusterAnalysis
+      $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option dutID="$i" clusterAnalysis ${runNumber} > $redirect 2>&1
+      if [ "$clusterAnalysisChoice" -eq 1 ]; then
+        if ! [ -f ${outputFolder}/../settings_DUT$i.txt ]; then
+          cat ${outputFolder}/settings_DUT$i.txt > ${outputFolder}/../settings_DUT$i.txt
+        else
+          tail -n 1 ${outputFolder}/settings_DUT$i.txt >> ${outputFolder}/../settings_DUT$i.txt
+        fi
+        sed -i 's/nan/0/g' ${outputFolder}/../settings_DUT$i.txt
+      fi
+      echo "clusterAnalysis finished for DUT $i" >> ${outputFolder}/analysis.log 
+      echo "clusterAnalysis finished in ${runNumber} for DUT $i" >> ${outputFolder}/../analysis.log 
     done
-    if (($isExcluded==1)); then
-      continue
+    if [ "$clusterAnalysisChoice" -eq 1 ]; then
+      exit 0
     fi
-    if ((${emptyPlanes[0]}==$i)); then
-      continue
-    fi
-    $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option dutID="$i" fitter ${runNumber} > $redirect 2>&1
-    cd ${outputFolder}/logs/
-    unzip `printf fitter-"%06d".zip ${runNumber}` > /dev/null 2>&1
-    fitterName=`printf fitter-"%06d".log ${runNumber}`
-    nTrack=`cat $fitterName |  sed -n -e "s/^.*Total number of reconstructed tracks//p" | bc -l`
-    rm *.log *.xml
-    cd - > /dev/null 2>&1
-    if (($nTrack<100))
-    then
-      echo "Too few tracks found in DUT" $i", moving to next DUT" >> ${outputFolder}/analysis.log
-      echo "Process for DUT" $i "in run" ${runNumber} "exited with fitting error" >> ${outputFolder}/../analysis.log
-      continue
-    else
-      echo $nTrack "tracks used in DUT" $i >> ${outputFolder}/analysis.log
-    fi
-    if [ -f ${outputFolder}/../settings_DUT$i.txt ]; then
-      sed -i '/^'${runNumber}'/d' ${outputFolder}/../settings_DUT$i.txt
-    fi
-    if [ -f ${outputFolder}/settings_DUT$i.txt ]; then
-     rm ${outputFolder}/settings_DUT$i.txt
-    fi
-    echo "Using events with a timestamp larger than" $minTimeStamp >> ${outputFolder}/analysis.log
-    $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option dutID="$i" --option MinTimeStamp=$minTimeStamp --option ChipVersion=${dutType} analysis ${runNumber} > $redirect 2>&1
-    if ! [ -f ${outputFolder}/../settings_DUT$i.txt ]; then
-      cat ${outputFolder}/settings_DUT$i.txt > ${outputFolder}/../settings_DUT$i.txt
-    else
-      tail -n 1 ${outputFolder}/settings_DUT$i.txt >> ${outputFolder}/../settings_DUT$i.txt
-    fi
-    sed -i 's/nan/0/g' ${outputFolder}/../settings_DUT$i.txt
-    cd ${outputFolder}/logs/
-    unzip `printf analysis-"%06d".zip ${runNumber}` > /dev/null 2>&1
-    analysisName=`printf analysis-"%06d".log ${runNumber}`
-    if (( ${dutType} == 1 || ${dutType} == 2 || ${dutType} == 5 )) ; then
-      efficiencies=`awk '/Overall efficiency of pALPIDEfs sectors/{x=NR+4;next}(NR<=x){print}' $analysisName | sed -n -e 's/^.*\[ MESSAGE4 \"Analysis\"\] //p'`
-      rm *.log *.xml
-      cd - > /dev/null 2>&1
-      echo "Efficiencies of the four sectors in DUT" $i":" >> ${outputFolder}/analysis.log
-      effArray=($efficiencies)
-      for ((j=1;j<=10;j=j+3)) do
-        echo ${effArray[j-1]} >> ${outputFolder}/analysis.log
+  fi
+  if [ "$clusterAnalysisChoice" -ne 1 ]; then
+    $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} hitmaker ${runNumber} > $redirect 2>&1
+    for ((i=${firstDUTid};i<=${lastDUTid};i++)) do
+      isExcluded=0
+      for ((j=0;j<${#excludedPlanes[@]};j++)) do
+        if ((${excludedPlanes[j]}==$i)); then
+          isExcluded=1
+          break
+        fi
       done
-    elif ((${dutType} == 3)); then
-      efficiencies=`awk '/Overall efficiency of pALPIDEfs sectors/{x=NR+8;next}(NR<=x){print}' $analysisName | sed -n -e 's/^.*\[ MESSAGE4 \"Analysis\"\] //p'`
+      if (($isExcluded==1)); then
+        continue
+      fi
+      if ((${emptyPlanes[0]}==$i)); then
+        continue
+      fi
+      $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option dutID="$i" fitter ${runNumber} > $redirect 2>&1
+      cd ${outputFolder}/logs/
+      unzip `printf fitter-"%06d".zip ${runNumber}` > /dev/null 2>&1
+      fitterName=`printf fitter-"%06d".log ${runNumber}`
+      nTrack=`cat $fitterName |  sed -n -e "s/^.*Total number of reconstructed tracks//p" | bc -l`
       rm *.log *.xml
       cd - > /dev/null 2>&1
-      echo "Efficiencies of the eight sectors in DUT" $i":" >> ${outputFolder}/analysis.log
-      effArray=($efficiencies)
-      for ((j=1;j<=22;j=j+3)) do
-        echo ${effArray[j-1]} >> ${outputFolder}/analysis.log
-      done
-    elif ((${dutType} == 4)); then
-      efficiencies=`awk '/Overall efficiency of pALPIDEfs sectors/{x=NR+1;next}(NR<=x){print}' $analysisName | sed -n -e 's/^.*\[ MESSAGE4 \"Analysis\"\] //p'`
-      rm *.log *.xml
-      cd - > /dev/null 2>&1
-      echo "Efficiencies of the eight sectors in DUT" $i":" >> ${outputFolder}/analysis.log
-      effArray=($efficiencies)
-      for ((j=1;j<=4;j=j+3)) do
-        echo ${effArray[j-1]} >> ${outputFolder}/analysis.log
-      done  
+      if (($nTrack<100)); then
+        echo "Too few tracks found in DUT" $i", moving to next DUT" >> ${outputFolder}/analysis.log
+        echo "Process for DUT" $i "in run" ${runNumber} "exited with fitting error" >> ${outputFolder}/../analysis.log
+       continue
+      else
+        echo $nTrack "tracks used in DUT" $i >> ${outputFolder}/analysis.log
+      fi
+      if [ -f ${outputFolder}/../settings_DUT$i.txt ]; then
+        sed -i '/^'${runNumber}'/d' ${outputFolder}/../settings_DUT$i.txt
+      fi
+      if [ -f ${outputFolder}/settings_DUT$i.txt ]; then
+       rm ${outputFolder}/settings_DUT$i.txt
+      fi
+      echo "Using events with a timestamp larger than" $minTimeStamp >> ${outputFolder}/analysis.log
+      $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option dutID="$i" --option MinTimeStamp=$minTimeStamp --option ChipVersion=${dutType} analysis ${runNumber} > $redirect 2>&1
+      if ! [ -f ${outputFolder}/../settings_DUT$i.txt ]; then
+        cat ${outputFolder}/settings_DUT$i.txt > ${outputFolder}/../settings_DUT$i.txt
+      else
+        tail -n 1 ${outputFolder}/settings_DUT$i.txt >> ${outputFolder}/../settings_DUT$i.txt
+      fi
+      sed -i 's/nan/0/g' ${outputFolder}/../settings_DUT$i.txt
+      cd ${outputFolder}/logs/
+      unzip `printf analysis-"%06d".zip ${runNumber}` > /dev/null 2>&1
+      analysisName=`printf analysis-"%06d".log ${runNumber}`
+      if (( ${dutType} == 1 || ${dutType} == 2 || ${dutType} == 5)) ; then
+        efficiencies=`awk '/Overall efficiency of pALPIDEfs sectors/{x=NR+4;next}(NR<=x){print}' $analysisName | sed -n -e 's/^.*\[ MESSAGE4 \"Analysis\"\] //p'`
+        rm *.log *.xml
+        cd - > /dev/null 2>&1
+        echo "Efficiencies of the four sectors in DUT" $i":" >> ${outputFolder}/analysis.log
+        effArray=($efficiencies)
+        for ((j=1;j<=10;j=j+3)) do
+          echo ${effArray[j-1]} >> ${outputFolder}/analysis.log
+        done
+      elif ((${dutType} == 3)); then
+        efficiencies=`awk '/Overall efficiency of pALPIDEfs sectors/{x=NR+8;next}(NR<=x){print}' $analysisName | sed -n -e 's/^.*\[ MESSAGE4 \"Analysis\"\] //p'`
+        rm *.log *.xml
+        cd - > /dev/null 2>&1
+        echo "Efficiencies of the eight sectors in DUT" $i":" >> ${outputFolder}/analysis.log
+        effArray=($efficiencies)
+        for ((j=1;j<=22;j=j+3)) do
+          echo ${effArray[j-1]} >> ${outputFolder}/analysis.log
+        done
+      elif ((${dutType} == 4)); then
+        efficiencies=`awk '/Overall efficiency of pALPIDEfs sectors/{x=NR+1;next}(NR<=x){print}' $analysisName | sed -n -e 's/^.*\[ MESSAGE4 \"Analysis\"\] //p'`
+        rm *.log *.xml
+        cd - > /dev/null 2>&1
+        echo "Efficiency of the DUT" $i":" >> ${outputFolder}/analysis.log
+        effArray=($efficiencies)
+        echo ${effArray[0]} >> ${outputFolder}/analysis.log
+      elif (( ${dutType} == 0)); then
+        echo "Efficiencies of the four sectors in DUT" $i":" >> ${outputFolder}/analysis.log
+        effArray=($efficiencies)
+        cat $analysisName | grep Sector | sed -n -e 's/^.*\[ MESSAGE4 \"Analysis\"\] //p' >> ${outputFolder}/analysis.log
+        rm *.log *.xml
+        cd - > /dev/null 2>&1
+      fi
+      mv `printf ${outputFolder}/logs/analysis-"%06d".zip ${runNumber}` `printf ${outputFolder}/logs/analysis-"%06d"_DUT$i.zip ${runNumber}`
+      echo "Processing of DUT" $i "exited without errors for run" ${runNumber} >> ${outputFolder}/../analysis.log
+      echo "Processing of DUT" $i "exited without errors" >> ${outputFolder}/analysis.log
+    done
+  
+    if [ "${processingMode}" != "DEBUG" ]; then
+      find ${outputFolder}/lcio -type f -not -name '*track*' | xargs rm # To keep only the output of the fitter
+#     rm -r ${outputFolder}/lcio ${outputFolder}/database # To delete all intermediate steps
+    fi
+    #Quality checks
+    outputFolderQA=${outputFolder}/Plots/
+    mkdir $outputFolderQA
+    mkdir $outputFolderQA/important
+    mkdir $outputFolderQA/others
+    if (( ${dutType} == 1 ||  ${dutType} == 2 || ${dutType} == 3 || ${dutType} == 4 || ${dutType} == 5)); then
+      root -l -q -b qualityCheckfs.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
     elif (( ${dutType} == 0)); then
-      echo "Efficiencies of the four sectors in DUT" $i":" >> ${outputFolder}/analysis.log
-      effArray=($efficiencies)
-      cat $analysisName | grep Sector | sed -n -e 's/^.*\[ MESSAGE4 \"Analysis\"\] //p' >> ${outputFolder}/analysis.log
-      rm *.log *.xml
-      cd - > /dev/null 2>&1
+      root -l -q -b qualityCheckss.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
     fi
-    mv `printf ${outputFolder}/logs/analysis-"%06d".zip ${runNumber}` `printf ${outputFolder}/logs/analysis-"%06d"_DUT$i.zip ${runNumber}`
-    echo "Processing of DUT" $i "exited without errors for run" ${runNumber} >> ${outputFolder}/../analysis.log
-    echo "Processing of DUT" $i "exited without errors" >> ${outputFolder}/analysis.log
-  done
-  if [ "${processingMode}" != "DEBUG" ]; then
-    find ${outputFolder}/lcio -type f -not -name '*track*' | xargs rm # To keep only the output of the fitter
-#    rm -r ${outputFolder}/lcio ${outputFolder}/database # To delete all intermediate steps
+    echo "QA written to" $outputFolderQA >> ${outputFolder}/analysis.log
   fi
-  #Quality checks
-  outputFolderQA=${outputFolder}/Plots/
-  mkdir $outputFolderQA
-  mkdir $outputFolderQA/important
-  mkdir $outputFolderQA/others
-  if (( ${dutType} == 1 ||  ${dutType} == 2 || ${dutType} == 3  || ${dutType} == 4 || ${dutType} == 5)); then
-    root -l -q -b qualityCheckfs.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
-  elif (( ${dutType} == 0)); then
-    root -l -q -b qualityCheckss.C\(${runNumber},${firstDUTid},${lastDUTid},"\"${outputFolder}/histogram\"","\"$outputFolderQA\"",${nTelescopePlanes}\) > /dev/null 2>&1
-  fi
-  echo "QA written to" $outputFolderQA >> ${outputFolder}/analysis.log
 else
   echo -n -e "Not able to decide if it's noise or data. Please use one of the following settings in dataProcessing: \n  0: decide from the data if it's noise or data run \n  1: force it to be treated as data, \n  2: force it to be treated as noise \n"
 fi

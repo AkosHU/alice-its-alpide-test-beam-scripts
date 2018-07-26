@@ -443,7 +443,7 @@ void MyMainFrame::ReadEvent(Bool_t bButton){
 
    //Call event dump command
    TString filename    = fInputFileBox->GetText();
-   TString command = Form("dumpevent %s %d|awk '/2chargeADC/'|cut -c57-100000000|sed 's/,sparsePixelType:2chargeADC : /,/'|sed 's/,/ /g' > /tmp/eventPA.txt",filename.Data(),fEventNumber+1);
+   TString command = Form("dumpevent %s %d|awk '/2chargeADC/'|cut -c57-100000000|sed 's/,sparsePixelType:2chargeADC : /,/'|sed 's/,/ /g' > /tmp/eventPA.txt",filename.Data(),fEventNumber);
 
 
    gSystem->Exec(command);
