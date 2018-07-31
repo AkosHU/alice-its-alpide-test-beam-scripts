@@ -373,7 +373,7 @@ elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") ))
 	fi
       fi
       #run clusterAnalysis
-      $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option dutID="$i" clusterAnalysis ${runNumber} > $redirect 2>&1
+      $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option dutID="$i" --option whichChip="$dutType" clusterAnalysis ${runNumber} > $redirect 2>&1
       if [ "$clusterAnalysisChoice" -eq 1 ]; then
         if ! [ -f ${outputFolder}/../settings_DUT$i.txt ]; then
           cat ${outputFolder}/settings_DUT$i.txt > ${outputFolder}/../settings_DUT$i.txt
