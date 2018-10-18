@@ -28,6 +28,7 @@ processingMode=${11}
 extraBusyTime=${12}
 dataType=${13}
 clusterAnalysisChoice=${14}
+inputHitmaker=${${outputFolder}/lcio/run@RunNumber@-filtering.slcio}
 
 # common arguments for all calls of jobsub.py:
 commonOptions="--option DatabasePath=${outputFolder}/database --option HistogramPath=${outputFolder}/histogram --option LcioPath=${outputFolder}/lcio --option LogPath=${outputFolder}/logs  --config=${configFile} -csv ${settingsFile}"
@@ -301,7 +302,8 @@ elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") ))
     fi
     rm *.log *.xml
     cd - > /dev/null 2>&1
-    $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} hitmaker ${runNumber} > $redirect 2>&1
+    $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} filtering ${runNumber} > $redirect 2>&1
+    $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option INPUTFILE=${outputFolder}/lcio/run@RunNumber@-filtering.slcio hitmaker ${runNumber} > $redirect 2>&1
     $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} prealign ${runNumber} > $redirect 2>&1
     ./run_align_7 ${runNumber} ${settingsFile} ${outputFolder} ${configFile} ${emptyPlanes[0]} > $redirect 2>&1
     error=`echo $?`
@@ -359,6 +361,7 @@ elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") ))
   fi
   rm *.log *.xml
   cd - > /dev/null 2>&1
+  $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} filtering ${runNumber} > $redirect 2>&1
   if [ "$clusterAnalysisChoice" -eq 1 -o "$clusterAnalysisChoice" -eq 2  ]; then 
     for ((i=${firstDUTid};i<=${lastDUTid};i++)) do
       if ((${emptyPlanes[0]}==$i)); then
@@ -390,7 +393,9 @@ elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") ))
     fi
   fi
   if [ "$clusterAnalysisChoice" -ne 1 ]; then
-    $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} hitmaker ${runNumber} > $redirect 2>&1
+   echo "ITT!! \n"
+    $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option INPUTFILE=${outputFolder}/lcio/run@RunNumber@-filtering.slcio hitmaker ${runNumber} > $redirect 2>&1
+   echo "itt \n"
     for ((i=${firstDUTid};i<=${lastDUTid};i++)) do
       isExcluded=0
       for ((j=0;j<${#excludedPlanes[@]};j++)) do

@@ -15,15 +15,15 @@
 #    ./dataProcessing.sh DEBUG run_number step additional_option
 #    ./dataProcessing.sh ALIGN "1 2 3 4" 1 10
 #
-rawDataFolder=<rawDataFolder>
-outputFolder=<outputFolder>
-settingsFile=<settingsFile>
-configFile=<configFile>
-withAlign=<withAlign> #1 for aligning each run separately and 0 for using commmon alignment
-whichChip=<whichChip> #0 for small scale, 1/2/3 for pALPIDE-1/2/3/4 (4 ALPIDE w/ 1 sector, 5 = ALPIDE split into 5 sectors)
-extraBusyTime=<extraBusyTime> #Time to add after normal busy in which events are not considered (in clock cycles). Used for past protection to avoid efficiency loss because of pulse duration differences in tracking planes and DUTs. Only working for pALPIDEfs DUTs
-isNoise=<isNoise> #0: decide from the data if it's noise or data run, 1: force it to be treated as data, 2: force it to be treated as noise
-clusterAnalysisParameter=<clusterAnalysis> #0: do alignment, fitting and analysis, but without clusterAnalysis ("normal mode"; 1: do clusterAnalysis, but no alignment, fitting or analysis; 2: do alignment, clusterAnalysis, fitting and analysis
+rawDataFolder=/media/akos/4A94D19D94D18C37/Raw_Files/
+outputFolder=/media/akos/4A94D19D94D18C37/MMM/0Filter/
+settingsFile=/home/akos/Eutelescope/v01-17-10/Eutelescope/master/jobsub/examples/pALPIDEfs/runlist_example.csv
+configFile=/home/akos/Eutelescope/v01-17-10/Eutelescope/master/jobsub/examples/pALPIDEfs/config_pALPIDEfs_7.cfg
+withAlign=1 #1 for aligning each run separately and 0 for using commmon alignment
+whichChip=4 #0 for small scale, 1/2/3 for pALPIDE-1/2/3/4 (4 ALPIDE w/ 1 sector, 5 = ALPIDE split into 5 sectors)
+extraBusyTime=0 #Time to add after normal busy in which events are not considered (in clock cycles). Used for past protection to avoid efficiency loss because of pulse duration differences in tracking planes and DUTs. Only working for pALPIDEfs DUTs
+isNoise=1 #0: decide from the data if it's noise or data run, 1: force it to be treated as data, 2: force it to be treated as noise
+clusterAnalysisParameter=0 #0: do alignment, fitting and analysis, but without clusterAnalysis ("normal mode"; 1: do clusterAnalysis, but no alignment, fitting or analysis; 2: do alignment, clusterAnalysis, fitting and analysis
 
 if [ -z "$EUTELESCOPE" ]; then
   source ../v01-17-10/Eutelescope/master/build_env.sh #Change to your EUTelescope folder if you changed the folder structure with respest to the default after installing
@@ -200,7 +200,7 @@ do
     ./run_processing.sh ${input[0]} ${DUT[0]} ${DUT[${#DUT[@]}-1]} $settingsFile `printf $outputFolder/run"%06d" ${input[0]}` $rawDataFolder ${#chips[@]} $configFile $whichChip $withAlign $1 $extraBusyTime $isNoise $clusterAnalysisParameter
     fileFound=1
   else
-    argArr1=(converter deadColumn hotpixel clustering clusterAnalysis hitmaker prealign align fitter analysis noise)
+    argArr1=(converter deadColumn hotpixel clustering filtering clusterAnalysis hitmaker prealign align fitter analysis noise)
     argArr2=(fitter clusterAnalysis analysis)
     argArr3=(sync converter)
     if (( $whichChip == 0)) && [[ " ${argArr3[*]} " == *"$3"* ]]; then
@@ -219,7 +219,7 @@ do
         echo "Give as 4th argument the DUT ID"
         exit 1
       fi
-      $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=`printf $outputFolder/run"%06d"/database ${input[0]}` --option HistogramPath=`printf $outputFolder/run"%06d"/histogram ${input[0]}` --option LcioPath=`printf $outputFolder/run"%06d"/lcio ${input[0]}` --option LogPath=`printf $outputFolder/run"%06d"/logs ${input[0]}` --option NativePath=$rawDataFolder --option MaxAllowedFiringFreqpALPIDEss=1 --option MaxAllowedFiringFreq=1 --option ExcludedPlanes="" --option ExcludePlanes="" --option LCIOInputFiles=`printf $outputFolder/run"%06d"/lcio/run@RunNumber@-converter.slcio ${input[0]}` --option dutID="$4" --option ResolutionX="$res $res $res $res $res $res $res" --option ResolutionY="$res $res $res $res $res $res $res" --option MinTimeStamp=0 --option ChipVersion=${whichChip} --option whichChip=${whichChip} --config=$configFile -csv $settingsFile $3 $2
+      $EUTELESCOPE/jobsub/jobsub.py --option DatabasePath=`printf $outputFolder/run"%06d"/database ${input[0]}` --option HistogramPath=`printf $outputFolder/run"%06d"/histogram ${input[0]}` --option LcioPath=`printf $outputFolder/run"%06d"/lcio ${input[0]}` --option LogPath=`printf $outputFolder/run"%06d"/logs ${input[0]}` --option NativePath=$rawDataFolder --option MaxAllowedFiringFreqpALPIDEss=1 --option MaxAllowedFiringFreq=1 --option ExcludedPlanes="" --option ExcludePlanes="" --option LCIOInputFiles=`printf $outputFolder/run"%06d"/lcio/run@RunNumber@-converter.slcio ${input[0]}` --option dutID="$4" --option ResolutionX="$res $res $res $res $res $res $res" --option ResolutionY="$res $res $res $res $res $res $res" --option MinTimeStamp=0 --option ChipVersion=${whichChip} --option whichChip=${whichChip} --option INPUTFILE=`printf $outputFolder/run"%06d"/lcio/run@RunNumber@-filtering.slcio ${input[0]}` --config=$configFile -csv $settingsFile $3 $2
       exit 0
     else
       echo "Wrong argument, please run without 3rd argument or give one of the following as 3rd argument: converter deadColumn hotpixel clustering clusterAnalysis hitmaker prealign align fitter analysis noise"
