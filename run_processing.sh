@@ -302,8 +302,8 @@ elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") ))
     fi
     rm *.log *.xml
     cd - > /dev/null 2>&1
-    #$EUTELESCOPE/jobsub/jobsub.py ${commonOptions} filtering ${runNumber} > $redirect 2>&1
-    $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option INPUTFILE=${outputFolder}/lcio/run@RunNumber@-clustering.slcio hitmaker ${runNumber} > $redirect 2>&1
+    $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} filtering ${runNumber} > $redirect 2>&1
+    $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option INPUTFILE=${outputFolder}/lcio/run@RunNumber@-filtering.slcio hitmaker ${runNumber} > $redirect 2>&1
     $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} prealign ${runNumber} > $redirect 2>&1
     ./run_align_7 ${runNumber} ${settingsFile} ${outputFolder} ${configFile} ${emptyPlanes[0]} > $redirect 2>&1
     error=`echo $?`
@@ -362,7 +362,7 @@ elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") ))
   rm *.log *.xml
   cd - > /dev/null 2>&1
   rm ${outputFolder}/lcio/run@RunNumber@-filtering.slcio
-  #$EUTELESCOPE/jobsub/jobsub.py ${commonOptions} filtering ${runNumber} > $redirect 2>&1
+  $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} filtering ${runNumber} > $redirect 2>&1
   if [ "$clusterAnalysisChoice" -eq 1 -o "$clusterAnalysisChoice" -eq 2  ]; then 
     for ((i=${firstDUTid};i<=${lastDUTid};i++)) do
       if ((${emptyPlanes[0]}==$i)); then
@@ -395,7 +395,7 @@ elif (( $(bc <<< "(${dataType} == 0 && ${place} <= 100) || ${dataType} == 1") ))
   fi
   if [ "$clusterAnalysisChoice" -ne 1 ]; then
    echo "ITT!! \n"
-    $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option INPUTFILE=${outputFolder}/lcio/run@RunNumber@-clustering.slcio hitmaker ${runNumber} > $redirect 2>&1
+    $EUTELESCOPE/jobsub/jobsub.py ${commonOptions} --option INPUTFILE=${outputFolder}/lcio/run@RunNumber@-filtering.slcio hitmaker ${runNumber} > $redirect 2>&1
    echo "itt \n"
     for ((i=${firstDUTid};i<=${lastDUTid};i++)) do
       isExcluded=0
